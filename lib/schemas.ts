@@ -1,12 +1,12 @@
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 import {
-	profiles,
-	invites,
-	users,
-	inviteUsages,
-	sessions,
-	emailVerificationTokens,
+  profiles,
+  invites,
+  users,
+  inviteUsages,
+  sessions,
+  emailVerificationTokens,
 } from "@/server/db/schema";
 
 // Password validation types
@@ -92,30 +92,32 @@ export const loginSchema = z.object({
 });
 
 export const createProfileSchema = z.object({
-	name: z.string().min(1, "Name is required").max(100),
-	policy: z.object({
-		enableAllFolders: z.boolean(),
-		enabledFolders: z.array(z.string()),
-		remoteClientBitrateLimit: z.number().min(0),
-		allowVideoTranscoding: z.boolean(),
-		allowAudioTranscoding: z.boolean(),
-		allowMediaRemuxing: z.boolean(),
-	}),
+  name: z.string().min(1, "Name is required").max(100),
+  policy: z.object({
+    enableAllFolders: z.boolean(),
+    enabledFolders: z.array(z.string()),
+    remoteClientBitrateLimit: z.number().min(0),
+    isDisabled: z.boolean(),
+    allowVideoTranscoding: z.boolean(),
+    allowAudioTranscoding: z.boolean(),
+    allowMediaRemuxing: z.boolean(),
+  }),
 });
 
 export const updateProfileSchema = z.object({
-	name: z.string().min(1).max(100).optional(),
-	policy: z
-		.object({
-			enableAllFolders: z.boolean(),
-			enabledFolders: z.array(z.string()),
-			remoteClientBitrateLimit: z.number().min(0),
-			allowVideoTranscoding: z.boolean(),
-			allowAudioTranscoding: z.boolean(),
-			allowMediaRemuxing: z.boolean(),
-		})
-		.optional(),
-	isDefault: z.boolean().optional(),
+  name: z.string().min(1).max(100).optional(),
+  policy: z
+    .object({
+      enableAllFolders: z.boolean(),
+      enabledFolders: z.array(z.string()),
+      remoteClientBitrateLimit: z.number().min(0),
+      isDisabled: z.boolean(),
+      allowVideoTranscoding: z.boolean(),
+      allowAudioTranscoding: z.boolean(),
+      allowMediaRemuxing: z.boolean(),
+    })
+    .optional(),
+  isDefault: z.boolean().optional(),
 });
 
 export const createInviteSchema = z.object({
@@ -140,12 +142,13 @@ export const redeemInviteSchema = z.object({
 });
 
 export const policyUpdateSchema = z.object({
-	enabledFolders: z.array(z.string()).optional(),
-	enableAllFolders: z.boolean().optional(),
-	remoteClientBitrateLimit: z.number().optional(),
-	allowVideoTranscoding: z.boolean().optional(),
-	allowAudioTranscoding: z.boolean().optional(),
-	allowMediaRemuxing: z.boolean().optional(),
+  enabledFolders: z.array(z.string()).optional(),
+  enableAllFolders: z.boolean().optional(),
+  remoteClientBitrateLimit: z.number().optional(),
+  isDisabled: z.boolean().optional(),
+  allowVideoTranscoding: z.boolean().optional(),
+  allowAudioTranscoding: z.boolean().optional(),
+  allowMediaRemuxing: z.boolean().optional(),
 });
 
 export const bulkPolicyUpdateSchema = z.object({

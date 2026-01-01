@@ -129,6 +129,7 @@ export function ProfileFormDialog({
       enableAllFolders,
       enabledFolders: enableAllFolders ? [] : enabledFolders,
       remoteClientBitrateLimit: Math.round(Number.parseFloat(bitrateMbps || "0") * 1000000),
+      isDisabled: false,
       allowVideoTranscoding,
       allowAudioTranscoding,
       allowMediaRemuxing,
@@ -196,7 +197,9 @@ export function ProfileFormDialog({
           <>
             <div className="space-y-6 py-4">
               <div className="space-y-2">
-                <Label htmlFor={`${id}-profile-name`} className="text-sm font-medium">Profile Name</Label>
+                <Label htmlFor={`${id}-profile-name`} className="text-sm font-medium">
+                  Profile Name
+                </Label>
                 <Input
                   id={`${id}-profile-name`}
                   value={name}
@@ -213,7 +216,10 @@ export function ProfileFormDialog({
                     checked={enableAllFolders}
                     onCheckedChange={(checked) => setEnableAllFolders(!!checked)}
                   />
-                  <Label htmlFor={`${id}-profile-all-folders`} className="text-sm font-normal cursor-pointer">
+                  <Label
+                    htmlFor={`${id}-profile-all-folders`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
                     Access to all libraries
                   </Label>
                 </div>
@@ -227,7 +233,10 @@ export function ProfileFormDialog({
                           checked={enabledFolders.includes(library.id)}
                           onCheckedChange={() => toggleLibrary(library.id)}
                         />
-                        <Label htmlFor={`${id}-profile-lib-${library.id}`} className="text-sm font-normal cursor-pointer">
+                        <Label
+                          htmlFor={`${id}-profile-lib-${library.id}`}
+                          className="text-sm font-normal cursor-pointer"
+                        >
                           {library.name}
                         </Label>
                       </div>
@@ -244,7 +253,10 @@ export function ProfileFormDialog({
                     checked={allowVideoTranscoding}
                     onCheckedChange={(checked) => setAllowVideoTranscoding(!!checked)}
                   />
-                  <Label htmlFor={`${id}-profile-video-transcoding`} className="text-sm font-normal cursor-pointer">
+                  <Label
+                    htmlFor={`${id}-profile-video-transcoding`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
                     Allow video transcoding
                   </Label>
                 </div>
@@ -254,7 +266,10 @@ export function ProfileFormDialog({
                     checked={allowAudioTranscoding}
                     onCheckedChange={(checked) => setAllowAudioTranscoding(!!checked)}
                   />
-                  <Label htmlFor={`${id}-profile-audio-transcoding`} className="text-sm font-normal cursor-pointer">
+                  <Label
+                    htmlFor={`${id}-profile-audio-transcoding`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
                     Allow audio transcoding
                   </Label>
                 </div>
@@ -264,14 +279,19 @@ export function ProfileFormDialog({
                     checked={allowMediaRemuxing}
                     onCheckedChange={(checked) => setAllowMediaRemuxing(!!checked)}
                   />
-                  <Label htmlFor={`${id}-profile-remuxing`} className="text-sm font-normal cursor-pointer">
+                  <Label
+                    htmlFor={`${id}-profile-remuxing`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
                     Allow remuxing
                   </Label>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor={`${id}-profile-bitrate`} className="text-sm font-medium">Remote Streaming Bitrate</Label>
+                <Label htmlFor={`${id}-profile-bitrate`} className="text-sm font-medium">
+                  Remote Streaming Bitrate
+                </Label>
                 <div className="flex items-center gap-2">
                   <Input
                     id={`${id}-profile-bitrate`}

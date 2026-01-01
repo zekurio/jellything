@@ -29,13 +29,9 @@ export default function SettingsPage() {
     return result.data;
   }, []);
 
-  const { data: profile, isLoading } = useAsyncData<ProfileData>(
-    fetchProfile,
-    [],
-    {
-      errorMessage: "Failed to load settings",
-    },
-  );
+  const { data: profile, isLoading } = useAsyncData<ProfileData>(fetchProfile, [], {
+    errorMessage: "Failed to load settings",
+  });
 
   if (isLoading) {
     return (
@@ -58,21 +54,14 @@ export default function SettingsPage() {
           <TabsList>
             <TabsTrigger value="profile">Profile</TabsTrigger>
             {isAdmin && (
-              <TabsTrigger
-                value="server"
-                disabled
-                className="opacity-50 cursor-not-allowed"
-              >
+              <TabsTrigger value="server" disabled className="opacity-50 cursor-not-allowed">
                 Server Settings
               </TabsTrigger>
             )}
           </TabsList>
 
           <TabsContent value="profile" className="mt-6">
-            <ProfileTab
-              profile={profile}
-              onUpdate={() => setActiveTab("profile")}
-            />
+            <ProfileTab profile={profile} onUpdate={() => setActiveTab("profile")} />
           </TabsContent>
           {isAdmin && (
             <TabsContent value="server" className="mt-6">

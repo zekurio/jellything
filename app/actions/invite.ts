@@ -163,7 +163,9 @@ export async function redeemInvite(input: z.infer<typeof redeemInviteSchema>): P
       if (parsed.data.avatar) {
         try {
           // Only accept jpeg, png, webp
-          const dataUrlMatch = parsed.data.avatar.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+          const dataUrlMatch = parsed.data.avatar.match(
+            /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/,
+          );
 
           if (!dataUrlMatch) {
             console.error("Invalid avatar format - must be JPEG, PNG, or WebP data URL");
@@ -197,13 +199,13 @@ export async function redeemInvite(input: z.infer<typeof redeemInviteSchema>): P
 
       await tx.insert(inviteUsages).values({
         inviteId: invite.id,
-        userId: newUser.id,
+        userId: newUser.jellyfinUserId,
       });
 
       return {
         success: true,
         user: {
-          id: newUser.id,
+          id: newUser.jellyfinUserId,
           name: jellyfinUser.name,
           jellyfinUserId: jellyfinUser.id,
         },

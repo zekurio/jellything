@@ -77,7 +77,7 @@ export async function getCurrentUser(): Promise<
   ]);
 
   return success({
-    id: session.user.id,
+    id: session.user.jellyfinUserId,
     jellyfinUserId: session.user.jellyfinUserId,
     name: jellyfinUser.name,
     isAdmin,

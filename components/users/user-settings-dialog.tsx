@@ -202,7 +202,10 @@ export function UserSettingsDialog({
                     checked={enableAllFolders}
                     onCheckedChange={(checked) => setEnableAllFolders(!!checked)}
                   />
-                  <Label htmlFor={`${id}-settings-all-folders`} className="text-sm font-normal cursor-pointer">
+                  <Label
+                    htmlFor={`${id}-settings-all-folders`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
                     Access to all libraries
                   </Label>
                 </div>
@@ -216,7 +219,10 @@ export function UserSettingsDialog({
                           checked={enabledFolders.includes(library.id)}
                           onCheckedChange={() => toggleLibrary(library.id)}
                         />
-                        <Label htmlFor={`${id}-settings-${library.id}`} className="text-sm font-normal cursor-pointer">
+                        <Label
+                          htmlFor={`${id}-settings-${library.id}`}
+                          className="text-sm font-normal cursor-pointer"
+                        >
                           {library.name}
                         </Label>
                       </div>
@@ -233,7 +239,10 @@ export function UserSettingsDialog({
                     checked={allowVideoTranscoding}
                     onCheckedChange={(checked) => setAllowVideoTranscoding(!!checked)}
                   />
-                  <Label htmlFor={`${id}-settings-video-transcoding`} className="text-sm font-normal cursor-pointer">
+                  <Label
+                    htmlFor={`${id}-settings-video-transcoding`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
                     Allow video transcoding
                   </Label>
                 </div>
@@ -243,7 +252,10 @@ export function UserSettingsDialog({
                     checked={allowAudioTranscoding}
                     onCheckedChange={(checked) => setAllowAudioTranscoding(!!checked)}
                   />
-                  <Label htmlFor={`${id}-settings-audio-transcoding`} className="text-sm font-normal cursor-pointer">
+                  <Label
+                    htmlFor={`${id}-settings-audio-transcoding`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
                     Allow audio transcoding
                   </Label>
                 </div>
@@ -253,14 +265,19 @@ export function UserSettingsDialog({
                     checked={allowMediaRemuxing}
                     onCheckedChange={(checked) => setAllowMediaRemuxing(!!checked)}
                   />
-                  <Label htmlFor={`${id}-settings-remuxing`} className="text-sm font-normal cursor-pointer">
+                  <Label
+                    htmlFor={`${id}-settings-remuxing`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
                     Allow remuxing
                   </Label>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor={`${id}-settings-bitrate`} className="text-sm font-medium">Remote Streaming Bitrate</Label>
+                <Label htmlFor={`${id}-settings-bitrate`} className="text-sm font-medium">
+                  Remote Streaming Bitrate
+                </Label>
                 <div className="flex items-center gap-2">
                   <Input
                     id={`${id}-settings-bitrate`}

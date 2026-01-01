@@ -503,7 +503,10 @@ export function UsersTable() {
         }}
       />
 
-      <AlertDialog open={disableDialog.isOpen} onOpenChange={(open) => !open && disableDialog.close()}>
+      <AlertDialog
+        open={disableDialog.isOpen}
+        onOpenChange={(open) => !open && disableDialog.close()}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -518,19 +521,26 @@ export function UsersTable() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={disableDialog.isLoading}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleToggleDisable} disabled={disableDialog.isLoading}>
-              {disableDialog.isLoading ? "Loading..." : disableDialog.item?.isDisabled ? "Enable" : "Disable"}
+              {disableDialog.isLoading
+                ? "Loading..."
+                : disableDialog.item?.isDisabled
+                  ? "Enable"
+                  : "Disable"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={deleteDialog.isOpen} onOpenChange={(open) => !open && deleteDialog.close()}>
+      <AlertDialog
+        open={deleteDialog.isOpen}
+        onOpenChange={(open) => !open && deleteDialog.close()}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {deleteDialog.item?.name}? This action cannot be undone. All
-              user data, watch history, and preferences will be lost.
+              Are you sure you want to delete {deleteDialog.item?.name}? This action cannot be
+              undone. All user data, watch history, and preferences will be lost.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

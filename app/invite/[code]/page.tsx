@@ -6,20 +6,11 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { IconLoader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/shared/password-input";
-import {
-  AvatarUpload,
-  type AvatarFile,
-} from "@/components/shared/avatar-upload";
+import { AvatarUpload, type AvatarFile } from "@/components/shared/avatar-upload";
 import { Spinner } from "@/components/ui/spinner";
 import { redeemInvite, validateInvite } from "@/app/actions/invite";
 import { getSession } from "@/lib/auth";
@@ -48,10 +39,7 @@ export default function InviteRedeemPage() {
   const [submitting, setSubmitting] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
 
-  const passwordValidation = useMemo(
-    () => validatePassword(password),
-    [password],
-  );
+  const passwordValidation = useMemo(() => validatePassword(password), [password]);
   const passwordsMatch = password === confirmPassword;
 
   useEffect(() => {
@@ -119,9 +107,7 @@ export default function InviteRedeemPage() {
 
     // Password validation using shared validator
     if (!passwordValidation.isValid) {
-      toast.error(
-        passwordValidation.errors[0] || "Password does not meet requirements",
-      );
+      toast.error(passwordValidation.errors[0] || "Password does not meet requirements");
       return;
     }
 
@@ -172,9 +158,7 @@ export default function InviteRedeemPage() {
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-sm">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-semibold tracking-tight">
-              Account created
-            </CardTitle>
+            <CardTitle className="text-2xl font-semibold tracking-tight">Account created</CardTitle>
             <CardDescription>
               Please check your email to verify your address before continuing.
             </CardDescription>
@@ -182,13 +166,10 @@ export default function InviteRedeemPage() {
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
               We sent a verification link to{" "}
-              <span className="font-medium text-foreground">{email}</span>. If
-              you don&apos;t see the email, check your spam folder.
+              <span className="font-medium text-foreground">{email}</span>. If you don&apos;t see
+              the email, check your spam folder.
             </p>
-            <Button
-              className="w-full"
-              onClick={() => router.push("/dashboard")}
-            >
+            <Button className="w-full" onClick={() => router.push("/dashboard")}>
               Continue to Dashboard
             </Button>
           </CardContent>
@@ -205,30 +186,18 @@ export default function InviteRedeemPage() {
             <CardTitle className="text-2xl font-semibold tracking-tight">
               Email verification
             </CardTitle>
-            <CardDescription>
-              You&apos;re already logged in with email: {userEmail}
-            </CardDescription>
+            <CardDescription>You&apos;re already logged in with email: {userEmail}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              {emailVerified
-                ? "Your email is verified."
-                : "Your email is not verified."}
+              {emailVerified ? "Your email is verified." : "Your email is not verified."}
             </p>
             {!emailVerified && (
-              <Button
-                className="w-full"
-                onClick={handleResendVerification}
-                disabled={resending}
-              >
+              <Button className="w-full" onClick={handleResendVerification} disabled={resending}>
                 {resending ? "Sending..." : "Resend verification email"}
               </Button>
             )}
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => router.push("/dashboard")}
-            >
+            <Button variant="outline" className="w-full" onClick={() => router.push("/dashboard")}>
               Go to Dashboard
             </Button>
           </CardContent>
@@ -243,9 +212,7 @@ export default function InviteRedeemPage() {
         <Card className="w-full max-w-sm">
           <CardContent className="flex flex-col items-center justify-center gap-2 py-8">
             <Spinner size="lg" />
-            <span className="text-sm text-muted-foreground">
-              Validating invite...
-            </span>
+            <span className="text-sm text-muted-foreground">Validating invite...</span>
           </CardContent>
         </Card>
       </div>
@@ -257,19 +224,11 @@ export default function InviteRedeemPage() {
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-sm">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-semibold tracking-tight">
-              Invalid invite
-            </CardTitle>
-            <CardDescription>
-              {errorMessage || "This invite link is not valid."}
-            </CardDescription>
+            <CardTitle className="text-2xl font-semibold tracking-tight">Invalid invite</CardTitle>
+            <CardDescription>{errorMessage || "This invite link is not valid."}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => router.push("/")}
-            >
+            <Button variant="outline" className="w-full" onClick={() => router.push("/")}>
               Go home
             </Button>
           </CardContent>
@@ -286,8 +245,7 @@ export default function InviteRedeemPage() {
             Create your account
           </CardTitle>
           <CardDescription>
-            You&apos;ve been invited to join with the &quot;{profileName}&quot;
-            profile.
+            You&apos;ve been invited to join with the &quot;{profileName}&quot; profile.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -342,11 +300,7 @@ export default function InviteRedeemPage() {
               placeholder="Confirm your password"
               disabled={submitting}
               autoComplete="new-password"
-              error={
-                confirmPassword && !passwordsMatch
-                  ? "Passwords do not match"
-                  : undefined
-              }
+              error={confirmPassword && !passwordsMatch ? "Passwords do not match" : undefined}
             />
 
             <div className="space-y-2">

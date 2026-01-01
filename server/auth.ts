@@ -31,7 +31,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const jellyfinUser = await getUserById(session.user.jellyfinUserId);
 
   return {
-    id: session.user.id,
+    id: session.user.jellyfinUserId,
     jellyfinUserId: session.user.jellyfinUserId,
     name: jellyfinUser.name,
     isAdmin: session.isAdmin,

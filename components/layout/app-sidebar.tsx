@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  IconClockHour4,
-  IconDeviceTv,
   IconHistory,
   IconMail,
   IconServer,
@@ -87,12 +85,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   isAdmin?: boolean;
 }
 
-export function AppSidebar({
-  user,
-  serverInfo,
-  isAdmin = false,
-  ...props
-}: AppSidebarProps) {
+export function AppSidebar({ user, serverInfo, isAdmin = false, ...props }: AppSidebarProps) {
   const visibleGroups = useMemo(() => {
     return navGroups.filter((group) => !group.adminOnly || isAdmin);
   }, [isAdmin]);
@@ -114,9 +107,7 @@ export function AppSidebar({
                   {serverInfo ? (
                     <>
                       <span className="font-medium">{serverInfo.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        v{serverInfo.version}
-                      </span>
+                      <span className="text-xs text-muted-foreground">v{serverInfo.version}</span>
                     </>
                   ) : (
                     <>

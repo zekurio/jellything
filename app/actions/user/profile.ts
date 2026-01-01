@@ -20,9 +20,7 @@ import {
   updateOwnProfile,
   uploadOwnAvatar,
 } from "@/server/jellyfin/user";
-import {
-  createEmailVerificationToken,
-} from "@/server/tokens";
+import { createEmailVerificationToken } from "@/server/tokens";
 import { sendEmail, isEmailConfigured } from "@/server/email";
 import { renderVerifyEmail } from "@/server/email/templates/verify-email";
 import { env } from "@/lib/env";

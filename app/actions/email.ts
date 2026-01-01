@@ -29,7 +29,10 @@ export async function verifyEmail(input: { token: string }): Promise<ActionResul
     return error("Invalid or expired verification token");
   }
 
-  await db.update(users).set({ emailVerified: true }).where(eq(users.jellyfinUserId, user.jellyfinUserId));
+  await db
+    .update(users)
+    .set({ emailVerified: true })
+    .where(eq(users.jellyfinUserId, user.jellyfinUserId));
   await deleteEmailVerificationToken(user.jellyfinUserId);
 
   revalidatePath("/");

@@ -99,27 +99,16 @@ export function PasswordInput({
                 )}
               />
             </div>
-            <span className="text-xs text-muted-foreground capitalize">
-              {validation.strength}
-            </span>
+            <span className="text-xs text-muted-foreground capitalize">{validation.strength}</span>
           </div>
         </div>
       )}
 
       {showRequirements && value.length > 0 && (
         <div className="space-y-1">
-          <RequirementCheck
-            passed={validation.checks.minLength}
-            label="At least 8 characters"
-          />
-          <RequirementCheck
-            passed={validation.checks.hasUppercase}
-            label="One uppercase letter"
-          />
-          <RequirementCheck
-            passed={validation.checks.hasLowercase}
-            label="One lowercase letter"
-          />
+          <RequirementCheck passed={validation.checks.minLength} label="At least 8 characters" />
+          <RequirementCheck passed={validation.checks.hasUppercase} label="One uppercase letter" />
+          <RequirementCheck passed={validation.checks.hasLowercase} label="One lowercase letter" />
           <RequirementCheck
             passed={validation.checks.hasNumber}
             label="One number (optional)"
@@ -150,20 +139,11 @@ function RequirementCheck({
       {passed ? (
         <IconCheck className="h-3 w-3 text-green-500" />
       ) : (
-        <IconX
-          className={cn(
-            "h-3 w-3",
-            optional ? "text-muted-foreground" : "text-destructive",
-          )}
-        />
+        <IconX className={cn("h-3 w-3", optional ? "text-muted-foreground" : "text-destructive")} />
       )}
       <span
         className={cn(
-          passed
-            ? "text-muted-foreground"
-            : optional
-              ? "text-muted-foreground"
-              : "text-foreground",
+          passed ? "text-muted-foreground" : optional ? "text-muted-foreground" : "text-foreground",
         )}
       >
         {label}
@@ -182,8 +162,7 @@ export function usePasswordValidation() {
   const validation = useMemo(() => validatePassword(password), [password]);
   const passwordsMatch = password === confirmPassword;
 
-  const isValid =
-    validation.isValid && passwordsMatch && confirmPassword.length > 0;
+  const isValid = validation.isValid && passwordsMatch && confirmPassword.length > 0;
 
   return {
     password,
@@ -194,12 +173,8 @@ export function usePasswordValidation() {
     passwordsMatch,
     isValid,
     errors: {
-      password:
-        password.length > 0 && !validation.isValid ? validation.errors : [],
-      confirm:
-        confirmPassword.length > 0 && !passwordsMatch
-          ? ["Passwords do not match"]
-          : [],
+      password: password.length > 0 && !validation.isValid ? validation.errors : [],
+      confirm: confirmPassword.length > 0 && !passwordsMatch ? ["Passwords do not match"] : [],
     },
   };
 }

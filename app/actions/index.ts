@@ -11,11 +11,7 @@ export { validateInvite, redeemInvite } from "@/app/actions/invite";
 export { verifyEmail, resendVerification } from "@/app/actions/email";
 
 // Password reset actions
-export {
-  requestPasswordReset,
-  validateResetToken,
-  completePasswordReset,
-} from "@/app/actions/password-reset";
+export { requestPasswordReset, completePasswordReset } from "@/app/actions/password-reset";
 
 // Admin actions
 export * from "@/app/actions/admin/users";

@@ -307,13 +307,16 @@ export function ProfilesTable() {
         }}
       />
 
-      <AlertDialog open={deleteDialog.isOpen} onOpenChange={(open) => !open && deleteDialog.close()}>
+      <AlertDialog
+        open={deleteDialog.isOpen}
+        onOpenChange={(open) => !open && deleteDialog.close()}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Profile</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{deleteDialog.item?.name}&quot;? This action cannot
-              be undone. Invites using this profile will also need to be deleted first.
+              Are you sure you want to delete &quot;{deleteDialog.item?.name}&quot;? This action
+              cannot be undone. Invites using this profile will also need to be deleted first.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

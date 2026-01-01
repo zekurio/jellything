@@ -5,15 +5,8 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { getCurrentUser } from "@/server/auth";
 import { getServerInfo } from "@/server/jellyfin";
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [user, serverInfo] = await Promise.all([
-    getCurrentUser(),
-    getServerInfo(),
-  ]);
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [user, serverInfo] = await Promise.all([getCurrentUser(), getServerInfo()]);
 
   if (!user) {
     redirect("/login");
@@ -24,11 +17,7 @@ export default async function DashboardLayout({
   return (
     <SessionProviderWrapper session={session}>
       <SidebarProvider>
-        <AppSidebar
-          user={user}
-          serverInfo={serverInfo}
-          isAdmin={user.isAdmin}
-        />
+        <AppSidebar user={user} serverInfo={serverInfo} isAdmin={user.isAdmin} />
         <SidebarInset>{children}</SidebarInset>
       </SidebarProvider>
     </SessionProviderWrapper>

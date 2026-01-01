@@ -37,7 +37,8 @@ export default function ForgotPasswordPage() {
               Check your email
             </CardTitle>
             <CardDescription>
-              If an account exists with that email address, we&apos;ve sent you a PIN to reset your password.
+              If an account exists with that email address, we&apos;ve sent you a PIN to reset your
+              password.
             </CardDescription>
           </CardHeader>
           <CardContent>
