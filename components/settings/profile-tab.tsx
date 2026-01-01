@@ -1,16 +1,18 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IconCamera, IconTrash } from "@tabler/icons-react";
+import { IconTrash } from "@tabler/icons-react";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { PasswordInput } from "@/components/shared/password-input";
+import { AvatarUpload, type AvatarFile } from "@/components/shared/avatar-upload";
 import {
   updateOwnProfileAction,
   changePasswordAction,
@@ -19,7 +21,7 @@ import {
   deleteAccountAction,
 } from "@/app/actions/user/profile";
 import { resendVerification } from "@/app/actions/email";
-import { getInitials } from "@/lib/utils";
+import { validatePassword } from "@/lib/schemas";
 
 interface ProfileData {
   id: string;
@@ -38,35 +40,19 @@ export function ProfileTab({ profile, onUpdate }: ProfileTabProps) {
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const handleAvatarUpload = useCallback(
-    async (file: File) => {
-      if (!file) return;
-
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Image must be less than 5MB");
-        return;
-      }
-
-      const mimeType = file.type;
-      const validTypes = ["image/jpeg", "image/png", "image/webp"] as const;
-      if (!validTypes.includes(mimeType as (typeof validTypes)[number])) {
-        toast.error("Invalid image type. Only JPEG, PNG, and WebP are allowed.");
-        return;
-      }
-
+    async (file: AvatarFile) => {
       setAvatarUploading(true);
       try {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const base64 = e.target?.result as string;
-          const result = await uploadAvatarAction({ imageBase64: base64.split(",")[1]!, mimeType: mimeType as "image/jpeg" | "image/png" | "image/webp" });
-          if (result.success) {
-            toast.success("Avatar uploaded");
-            onUpdate();
-          } else {
-            toast.error(result.error || "Failed to upload avatar");
-          }
-        };
-        reader.readAsDataURL(file);
+        const result = await uploadAvatarAction({
+          imageBase64: file.rawBase64,
+          mimeType: file.mimeType,
+        });
+        if (result.success) {
+          toast.success("Avatar uploaded");
+          onUpdate();
+        } else {
+          toast.error(result.error || "Failed to upload avatar");
+        }
       } finally {
         setAvatarUploading(false);
       }
@@ -90,32 +76,14 @@ export function ProfileTab({ profile, onUpdate }: ProfileTabProps) {
           <CardDescription>Upload a new profile picture</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-6">
-            <Avatar className="size-24">
-              <AvatarImage src={profile.avatarUrl} alt={profile.name} />
-              <AvatarFallback className="text-2xl">{getInitials(profile.name)}</AvatarFallback>
-            </Avatar>
-            <div>
-              <Label htmlFor="avatar-upload" className="cursor-pointer" tabIndex={0}>
-                <div className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                  {avatarUploading ? <Spinner className="size-4 animate-spin" /> : <IconCamera className="size-4" />}
-                  {avatarUploading ? "Uploading..." : "Upload Photo"}
-                </div>
-              </Label>
-              <Input
-                id="avatar-upload"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleAvatarUpload(file);
-                }}
-                disabled={avatarUploading}
-              />
-              <p className="mt-2 text-xs text-muted-foreground">JPG, PNG, or WebP. Max 5MB.</p>
-            </div>
-          </div>
+          <AvatarUpload
+            currentAvatarUrl={profile.avatarUrl}
+            name={profile.name}
+            onFileSelect={handleAvatarUpload}
+            isUploading={avatarUploading}
+            size="lg"
+            showRemove={false}
+          />
         </CardContent>
       </Card>
 
@@ -158,8 +126,9 @@ function ProfileInfoForm({ profile, onUpdate }: { profile: ProfileData; onUpdate
     e.preventDefault();
     setEmailError("");
 
-    if (!newEmail || !newEmail.includes("@")) {
-      setEmailError("Invalid email address");
+    const emailResult = z.string().email().safeParse(newEmail.trim());
+    if (!emailResult.success) {
+      setEmailError("Please enter a valid email address");
       return;
     }
 
@@ -264,16 +233,24 @@ function PasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const passwordValidation = useMemo(() => validatePassword(newPassword), [newPassword]);
+  const passwordsMatch = newPassword === confirmPassword;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+    if (!currentPassword) {
+      toast.error("Current password is required");
       return;
     }
 
-    if (!currentPassword || !newPassword) {
-      toast.error("All password fields are required");
+    if (!passwordValidation.isValid) {
+      toast.error(passwordValidation.errors[0] || "Password does not meet requirements");
+      return;
+    }
+
+    if (!passwordsMatch) {
+      toast.error("Passwords do not match");
       return;
     }
 
@@ -301,34 +278,31 @@ function PasswordForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="current-password">Current Password</Label>
-            <Input
-              id="current-password"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-password">New Password</Label>
-            <Input
-              id="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm New Password</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-          </div>
-          <Button type="submit" disabled={saving}>
+          <PasswordInput
+            id="current-password"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            label="Current Password"
+            autoComplete="current-password"
+          />
+          <PasswordInput
+            id="new-password"
+            value={newPassword}
+            onChange={setNewPassword}
+            label="New Password"
+            showStrengthIndicator
+            showRequirements
+            autoComplete="new-password"
+          />
+          <PasswordInput
+            id="confirm-password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            label="Confirm New Password"
+            autoComplete="new-password"
+            error={confirmPassword && !passwordsMatch ? "Passwords do not match" : undefined}
+          />
+          <Button type="submit" disabled={saving || !passwordValidation.isValid || !passwordsMatch}>
             {saving ? "Changing..." : "Change Password"}
           </Button>
         </form>

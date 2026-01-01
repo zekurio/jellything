@@ -280,7 +280,7 @@ export async function getInviteHistory(): Promise<ActionResult<InviteHistoryItem
       })
       .from(inviteUsages)
       .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
-      .leftJoin(users, eq(inviteUsages.userId, users.id))
+      .leftJoin(users, eq(inviteUsages.userId, users.jellyfinUserId))
       .orderBy(desc(inviteUsages.usedAt));
 
     const usagesWithUserData = await Promise.all(

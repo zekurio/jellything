@@ -52,7 +52,7 @@ export async function createSession(
 
   await db.insert(sessions).values({
     id: sessionId,
-    userId: user.id,
+    userId: user.jellyfinUserId,
     accessToken: encryptedToken,
     isAdmin,
     adminCheckedAt: now,

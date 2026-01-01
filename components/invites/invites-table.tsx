@@ -17,8 +17,9 @@ import {
   getFilteredRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import * as React from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useAsyncData, useDialogAction, useSimpleDialog } from "@/lib/hooks";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,57 +86,41 @@ function getStatusBadge(status: Invite["status"]) {
 }
 
 export function InvitesTable() {
-  const [invites, setInvites] = React.useState<Invite[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [globalFilter, setGlobalFilter] = React.useState("");
-
-  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
-  const [editInviteId, setEditInviteId] = React.useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [actionInvite, setActionInvite] = React.useState<Invite | null>(null);
-  const [actionLoading, setActionLoading] = React.useState(false);
-
-  const fetchInvites = React.useCallback(async () => {
-    setError(null);
+  // Data fetching
+  const fetchInvites = useCallback(async () => {
     const result = await listInvites();
     if (!result.success) {
-      setError("Failed to fetch invites");
-      toast.error("Failed to fetch invites");
-      return;
+      throw new Error("Failed to fetch invites. You may not have admin access.");
     }
-    setInvites(result.data);
+    return result.data;
   }, []);
 
-  React.useEffect(() => {
-    let cancelled = false;
+  const {
+    data: invites,
+    isLoading,
+    error,
+    refetch,
+  } = useAsyncData<Invite[]>(fetchInvites, [], {
+    errorMessage: "Failed to fetch invites",
+  });
 
-    const loadInvites = async () => {
-      const result = await listInvites();
-      if (cancelled) return;
-      if (!result.success) {
-        setError("Failed to fetch invites. You may not have admin access.");
-        setLoading(false);
-        return;
-      }
-      setInvites(result.data);
-      setLoading(false);
-    };
+  // Table state
+  const [globalFilter, setGlobalFilter] = useState("");
 
-    loadInvites();
+  // Dialog state
+  const createDialog = useSimpleDialog();
+  const [editInviteId, setEditInviteId] = useState<string | null>(null);
+  const deleteDialog = useDialogAction<Invite>({
+    onSuccess: () => refetch(),
+  });
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const copyInviteLink = React.useCallback((code: string) => {
+  const copyInviteLink = useCallback((code: string) => {
     const url = `${window.location.origin}/invite/${code}`;
     navigator.clipboard.writeText(url);
     toast.success("Invite link copied to clipboard");
   }, []);
 
-  const columns = React.useMemo<ColumnDef<Invite>[]>(
+  const columns = useMemo<ColumnDef<Invite>[]>(
     () => [
       {
         accessorKey: "label",
@@ -212,8 +197,7 @@ export function InvitesTable() {
               size="icon"
               onClick={(e) => {
                 e.stopPropagation();
-                setActionInvite(row.original);
-                setDeleteDialogOpen(true);
+                deleteDialog.open(row.original);
               }}
               aria-label="Delete invite"
             >
@@ -225,11 +209,11 @@ export function InvitesTable() {
         enableHiding: false,
       },
     ],
-    [copyInviteLink],
+    [copyInviteLink, deleteDialog],
   );
 
   const table = useReactTable({
-    data: invites,
+    data: invites ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -239,27 +223,20 @@ export function InvitesTable() {
     },
   });
 
-  const handleDelete = async () => {
-    if (!actionInvite) return;
+  const handleDelete = () => {
+    const invite = deleteDialog.item;
+    if (!invite) return;
 
-    setActionLoading(true);
-    try {
-      const result = await deleteInviteAction(actionInvite.id);
+    deleteDialog.execute(async () => {
+      const result = await deleteInviteAction(invite.id);
       if (!result.success) {
-        toast.error("Failed to delete invite");
-      } else {
-        toast.success("Invite deleted");
-        setDeleteDialogOpen(false);
-        setActionInvite(null);
-        fetchInvites();
+        throw new Error("Failed to delete invite");
       }
-    } catch {
-      toast.error("Failed to delete invite");
-    }
-    setActionLoading(false);
+      toast.success("Invite deleted");
+    });
   };
 
-  if (loading) {
+  if (isLoading) {
     return <Spinner centered />;
   }
 
@@ -267,7 +244,7 @@ export function InvitesTable() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-8">
         <p className="text-sm text-muted-foreground">{error}</p>
-        <Button variant="outline" onClick={fetchInvites}>
+        <Button variant="outline" onClick={refetch}>
           Try Again
         </Button>
       </div>
@@ -288,7 +265,7 @@ export function InvitesTable() {
             />
           </div>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
+        <Button onClick={createDialog.open}>
           <IconPlus className="mr-2 h-4 w-4" />
           Create Invite
         </Button>
@@ -332,14 +309,14 @@ export function InvitesTable() {
           </TableBody>
         </Table>
       </div>
-      <p className="text-xs text-muted-foreground">{invites.length} invite(s)</p>
+      <p className="text-xs text-muted-foreground">{invites?.length ?? 0} invite(s)</p>
 
       <InviteFormDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
+        open={createDialog.isOpen}
+        onOpenChange={(open) => !open && createDialog.close()}
         onSaveComplete={() => {
-          setCreateDialogOpen(false);
-          fetchInvites();
+          createDialog.close();
+          refetch();
         }}
       />
 
@@ -351,28 +328,28 @@ export function InvitesTable() {
         inviteId={editInviteId ?? undefined}
         onSaveComplete={() => {
           setEditInviteId(null);
-          fetchInvites();
+          refetch();
         }}
       />
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialog.isOpen} onOpenChange={(open) => !open && deleteDialog.close()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Invite</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete the invite &quot;
-              {actionInvite?.label || actionInvite?.code}
+              {deleteDialog.item?.label || deleteDialog.item?.code}
               &quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteDialog.isLoading}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={actionLoading}
+              disabled={deleteDialog.isLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {actionLoading ? "Deleting..." : "Delete"}
+              {deleteDialog.isLoading ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

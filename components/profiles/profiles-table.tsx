@@ -8,8 +8,9 @@ import {
   getFilteredRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import * as React from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useAsyncData, useDialogAction, useSimpleDialog } from "@/lib/hooks";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,79 +51,49 @@ type Profile = {
 };
 
 export function ProfilesTable() {
-  const [profiles, setProfiles] = React.useState<Profile[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [globalFilter, setGlobalFilter] = React.useState("");
-
-  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
-  const [editProfileId, setEditProfileId] = React.useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [actionProfile, setActionProfile] = React.useState<Profile | null>(null);
-  const [actionLoading, setActionLoading] = React.useState(false);
-
-  const fetchProfiles = React.useCallback(async () => {
-    setError(null);
+  // Data fetching
+  const fetchProfiles = useCallback(async () => {
     const result = await listProfiles();
     if (!result.success) {
-      setError("Failed to fetch profiles");
-      toast.error("Failed to fetch profiles");
-      return;
+      throw new Error("Failed to fetch profiles. You may not have admin access.");
     }
     if (result.data.length === 0) {
       const ensureResult = await ensureDefaultProfile();
       if (ensureResult.success && ensureResult.data.profile) {
-        setProfiles([ensureResult.data.profile]);
-      } else {
-        const retryResult = await listProfiles();
-        if (retryResult.success) {
-          setProfiles(retryResult.data);
-        }
+        return [ensureResult.data.profile];
       }
-    } else {
-      setProfiles(result.data);
+      const retryResult = await listProfiles();
+      if (retryResult.success) {
+        return retryResult.data;
+      }
     }
+    return result.data;
   }, []);
 
-  React.useEffect(() => {
-    let cancelled = false;
+  const {
+    data: profiles,
+    isLoading,
+    error,
+    refetch,
+  } = useAsyncData<Profile[]>(fetchProfiles, [], {
+    errorMessage: "Failed to fetch profiles",
+  });
 
-    const loadProfiles = async () => {
-      const result = await listProfiles();
-      if (cancelled) return;
-      if (!result.success) {
-        setError("Failed to fetch profiles. You may not have admin access.");
-        setLoading(false);
-        return;
-      }
-      if (result.data.length === 0) {
-        const ensureResult = await ensureDefaultProfile();
-        if (!cancelled) {
-          if (ensureResult.success && ensureResult.data.profile) {
-            setProfiles([ensureResult.data.profile]);
-          } else {
-            const retryResult = await listProfiles();
-            if (retryResult.success) {
-              setProfiles(retryResult.data);
-            }
-          }
-        }
-      } else {
-        setProfiles(result.data);
-      }
-      setLoading(false);
-    };
+  // Table state
+  const [globalFilter, setGlobalFilter] = useState("");
 
-    loadProfiles();
+  // Dialog state
+  const createDialog = useSimpleDialog();
+  const [editProfileId, setEditProfileId] = useState<string | null>(null);
+  const deleteDialog = useDialogAction<Profile>({
+    onSuccess: () => refetch(),
+  });
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [defaultLoading, setDefaultLoading] = useState(false);
 
-  const handleSetDefault = React.useCallback(
+  const handleSetDefault = useCallback(
     async (profile: Profile) => {
-      setActionLoading(true);
+      setDefaultLoading(true);
       try {
         const result = await updateProfileAction(profile.id, {
           isDefault: true,
@@ -131,17 +102,17 @@ export function ProfilesTable() {
           toast.error("Failed to update profile");
         } else {
           toast.success(`Set ${profile.name} as default`);
-          fetchProfiles();
+          refetch();
         }
       } catch {
         toast.error("Failed to update profile");
       }
-      setActionLoading(false);
+      setDefaultLoading(false);
     },
-    [fetchProfiles],
+    [refetch],
   );
 
-  const columns = React.useMemo<ColumnDef<Profile>[]>(
+  const columns = useMemo<ColumnDef<Profile>[]>(
     () => [
       {
         accessorKey: "name",
@@ -185,7 +156,7 @@ export function ProfilesTable() {
                 e.stopPropagation();
                 handleSetDefault(row.original);
               }}
-              disabled={row.original.isDefault || actionLoading}
+              disabled={row.original.isDefault || defaultLoading}
               title={row.original.isDefault ? "Already default" : "Set as default"}
             >
               <IconStar
@@ -199,8 +170,7 @@ export function ProfilesTable() {
               size="icon"
               onClick={(e) => {
                 e.stopPropagation();
-                setActionProfile(row.original);
-                setDeleteDialogOpen(true);
+                deleteDialog.open(row.original);
               }}
               disabled={row.original.isDefault}
               title={row.original.isDefault ? "Cannot delete default profile" : "Delete"}
@@ -214,11 +184,11 @@ export function ProfilesTable() {
         enableHiding: false,
       },
     ],
-    [handleSetDefault, actionLoading],
+    [handleSetDefault, defaultLoading, deleteDialog],
   );
 
   const table = useReactTable({
-    data: profiles,
+    data: profiles ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -228,27 +198,20 @@ export function ProfilesTable() {
     },
   });
 
-  const handleDelete = async () => {
-    if (!actionProfile) return;
+  const handleDelete = () => {
+    const profile = deleteDialog.item;
+    if (!profile) return;
 
-    setActionLoading(true);
-    try {
-      const result = await deleteProfileAction(actionProfile.id);
+    deleteDialog.execute(async () => {
+      const result = await deleteProfileAction(profile.id);
       if (!result.success) {
-        toast.error("Failed to delete profile");
-      } else {
-        toast.success(`Deleted ${actionProfile.name}`);
-        setDeleteDialogOpen(false);
-        setActionProfile(null);
-        fetchProfiles();
+        throw new Error("Failed to delete profile");
       }
-    } catch {
-      toast.error("Failed to delete profile");
-    }
-    setActionLoading(false);
+      toast.success(`Deleted ${profile.name}`);
+    });
   };
 
-  if (loading) {
+  if (isLoading) {
     return <Spinner centered />;
   }
 
@@ -256,7 +219,7 @@ export function ProfilesTable() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-8">
         <p className="text-sm text-muted-foreground">{error}</p>
-        <Button variant="outline" onClick={fetchProfiles}>
+        <Button variant="outline" onClick={refetch}>
           Try Again
         </Button>
       </div>
@@ -277,7 +240,7 @@ export function ProfilesTable() {
             />
           </div>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
+        <Button onClick={createDialog.open}>
           <IconPlus className="mr-2 h-4 w-4" />
           Create Profile
         </Button>
@@ -321,14 +284,14 @@ export function ProfilesTable() {
           </TableBody>
         </Table>
       </div>
-      <p className="text-xs text-muted-foreground">{profiles.length} profile(s)</p>
+      <p className="text-xs text-muted-foreground">{profiles?.length ?? 0} profile(s)</p>
 
       <ProfileFormDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
+        open={createDialog.isOpen}
+        onOpenChange={(open) => !open && createDialog.close()}
         onSaveComplete={() => {
-          setCreateDialogOpen(false);
-          fetchProfiles();
+          createDialog.close();
+          refetch();
         }}
       />
 
@@ -340,27 +303,27 @@ export function ProfilesTable() {
         profileId={editProfileId ?? undefined}
         onSaveComplete={() => {
           setEditProfileId(null);
-          fetchProfiles();
+          refetch();
         }}
       />
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialog.isOpen} onOpenChange={(open) => !open && deleteDialog.close()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Profile</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{actionProfile?.name}&quot;? This action cannot
+              Are you sure you want to delete &quot;{deleteDialog.item?.name}&quot;? This action cannot
               be undone. Invites using this profile will also need to be deleted first.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteDialog.isLoading}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={actionLoading}
+              disabled={deleteDialog.isLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {actionLoading ? "Deleting..." : "Delete"}
+              {deleteDialog.isLoading ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -162,17 +162,24 @@ export async function redeemInvite(input: z.infer<typeof redeemInviteSchema>): P
 
       if (parsed.data.avatar) {
         try {
-          const dataUrlMatch = parsed.data.avatar.match(/^data:(image\/\w+);base64,(.+)$/);
-          let mimeType = "image/jpeg";
-          let base64Data = parsed.data.avatar;
+          // Only accept jpeg, png, webp
+          const dataUrlMatch = parsed.data.avatar.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
 
-          if (dataUrlMatch) {
-            mimeType = dataUrlMatch[1];
-            base64Data = dataUrlMatch[2];
+          if (!dataUrlMatch) {
+            console.error("Invalid avatar format - must be JPEG, PNG, or WebP data URL");
+          } else {
+            const mimeType = dataUrlMatch[1];
+            const base64Data = dataUrlMatch[2];
+            const imageBuffer = Buffer.from(base64Data, "base64");
+
+            // Validate size (max 5MB)
+            const maxSize = 5 * 1024 * 1024;
+            if (imageBuffer.length > maxSize) {
+              console.error("Avatar too large - max 5MB");
+            } else {
+              await uploadUserAvatar(jellyfinUser.id, imageBuffer, mimeType);
+            }
           }
-
-          const imageBuffer = Buffer.from(base64Data, "base64");
-          await uploadUserAvatar(jellyfinUser.id, imageBuffer, mimeType);
         } catch {
           console.error("Failed to upload avatar");
         }

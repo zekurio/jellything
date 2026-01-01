@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,7 +49,11 @@ export function UserSettingsDialog({
   const [enableAllFolders, setEnableAllFolders] = useState(true);
   const [enabledFolders, setEnabledFolders] = useState<string[]>([]);
   const [bitrateMbps, setBitrateMbps] = useState<string>("0");
+  const [allowVideoTranscoding, setAllowVideoTranscoding] = useState(true);
+  const [allowAudioTranscoding, setAllowAudioTranscoding] = useState(true);
+  const [allowMediaRemuxing, setAllowMediaRemuxing] = useState(true);
 
+  const id = useId();
   const isBulkMode = !userId && userIds && userIds.length > 0;
   const targetCount = isBulkMode ? userIds.length : 1;
 
@@ -57,6 +61,9 @@ export function UserSettingsDialog({
     setEnableAllFolders(true);
     setEnabledFolders([]);
     setBitrateMbps("0");
+    setAllowVideoTranscoding(true);
+    setAllowAudioTranscoding(true);
+    setAllowMediaRemuxing(true);
   }, []);
 
   useEffect(() => {
@@ -83,6 +90,9 @@ export function UserSettingsDialog({
             setEnableAllFolders(policy.enableAllFolders);
             setEnabledFolders(policy.enabledFolders || []);
             setBitrateMbps((policy.remoteClientBitrateLimit / 1000000).toString());
+            setAllowVideoTranscoding(policy.allowVideoTranscoding ?? true);
+            setAllowAudioTranscoding(policy.allowAudioTranscoding ?? true);
+            setAllowMediaRemuxing(policy.allowMediaRemuxing ?? true);
           }
         } else {
           resetForm();
@@ -109,6 +119,9 @@ export function UserSettingsDialog({
       enabledFolders?: string[];
       enableAllFolders?: boolean;
       remoteClientBitrateLimit?: number;
+      allowVideoTranscoding?: boolean;
+      allowAudioTranscoding?: boolean;
+      allowMediaRemuxing?: boolean;
     } = {};
 
     updates.enableAllFolders = enableAllFolders;
@@ -117,6 +130,9 @@ export function UserSettingsDialog({
     }
 
     updates.remoteClientBitrateLimit = Math.round(Number.parseFloat(bitrateMbps || "0") * 1000000);
+    updates.allowVideoTranscoding = allowVideoTranscoding;
+    updates.allowAudioTranscoding = allowAudioTranscoding;
+    updates.allowMediaRemuxing = allowMediaRemuxing;
 
     try {
       if (isBulkMode && userIds) {
@@ -178,29 +194,29 @@ export function UserSettingsDialog({
         ) : (
           <>
             <div className="space-y-6 py-4">
-              <div className="space-y-4">
-                <Label className="text-base font-medium">Library Access</Label>
-                <div className="flex items-center space-x-2">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Library Access</Label>
+                <div className="flex items-center gap-2">
                   <Checkbox
-                    id="settings-all-folders"
+                    id={`${id}-settings-all-folders`}
                     checked={enableAllFolders}
                     onCheckedChange={(checked) => setEnableAllFolders(!!checked)}
                   />
-                  <Label htmlFor="settings-all-folders" className="font-normal">
+                  <Label htmlFor={`${id}-settings-all-folders`} className="text-sm font-normal cursor-pointer">
                     Access to all libraries
                   </Label>
                 </div>
 
                 {!enableAllFolders && (
-                  <div className="space-y-2 border-l pl-4">
+                  <div className="space-y-2 border-l-2 pl-4 ml-1">
                     {libraries.map((library) => (
-                      <div key={library.id} className="flex items-center space-x-2">
+                      <div key={library.id} className="flex items-center gap-2">
                         <Checkbox
-                          id={`settings-${library.id}`}
+                          id={`${id}-settings-${library.id}`}
                           checked={enabledFolders.includes(library.id)}
                           onCheckedChange={() => toggleLibrary(library.id)}
                         />
-                        <Label htmlFor={`settings-${library.id}`} className="font-normal">
+                        <Label htmlFor={`${id}-settings-${library.id}`} className="text-sm font-normal cursor-pointer">
                           {library.name}
                         </Label>
                       </div>
@@ -209,20 +225,54 @@ export function UserSettingsDialog({
                 )}
               </div>
 
-              <div className="space-y-4">
-                <Label className="text-base font-medium">Remote Streaming Bitrate</Label>
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Transcoding Options</Label>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`${id}-settings-video-transcoding`}
+                    checked={allowVideoTranscoding}
+                    onCheckedChange={(checked) => setAllowVideoTranscoding(!!checked)}
+                  />
+                  <Label htmlFor={`${id}-settings-video-transcoding`} className="text-sm font-normal cursor-pointer">
+                    Allow video transcoding
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`${id}-settings-audio-transcoding`}
+                    checked={allowAudioTranscoding}
+                    onCheckedChange={(checked) => setAllowAudioTranscoding(!!checked)}
+                  />
+                  <Label htmlFor={`${id}-settings-audio-transcoding`} className="text-sm font-normal cursor-pointer">
+                    Allow audio transcoding
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`${id}-settings-remuxing`}
+                    checked={allowMediaRemuxing}
+                    onCheckedChange={(checked) => setAllowMediaRemuxing(!!checked)}
+                  />
+                  <Label htmlFor={`${id}-settings-remuxing`} className="text-sm font-normal cursor-pointer">
+                    Allow remuxing
+                  </Label>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={`${id}-settings-bitrate`} className="text-sm font-medium">Remote Streaming Bitrate</Label>
                 <div className="flex items-center gap-2">
                   <Input
-                    id="settings-bitrate"
+                    id={`${id}-settings-bitrate`}
                     type="number"
                     value={bitrateMbps}
                     onChange={(e) => setBitrateMbps(e.target.value)}
                     placeholder="0"
                     min={0}
                     step={1}
-                    className="w-24"
+                    className="w-20"
                   />
-                  <span className="text-sm text-muted-foreground">Mbps</span>
+                  <span className="text-sm text-muted-foreground">Mbps (0 = unlimited)</span>
                 </div>
               </div>
             </div>

@@ -30,21 +30,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const navGroups: NavGroup[] = [
   {
-    label: "Statistics",
-    items: [
-      {
-        title: "Watchtime",
-        url: "/dashboard/watchtime",
-        icon: IconClockHour4,
-      },
-      {
-        title: "Transcoding",
-        url: "/dashboard/transcoding",
-        icon: IconDeviceTv,
-      },
-    ],
-  },
-  {
     label: "Invites",
     adminOnly: true,
     items: [

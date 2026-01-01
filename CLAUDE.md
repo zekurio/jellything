@@ -127,7 +127,7 @@ When adding new API routes, define them in the Elysia app and the types flow aut
 - `/dashboard/profiles/:id` - Profile details
 - `/dashboard/invites` - Invite management
 - `/dashboard/invites/history` - Invite usage history
-- `/dashboard/settings` - Settings (profile, quotas, server)
+- `/dashboard/settings` - Settings (profile, server)
 
 **Components Organization:**
 
@@ -135,7 +135,7 @@ When adding new API routes, define them in the Elysia app and the types flow aut
 - `components/users/` - User management UI (table, settings dialogs)
 - `components/invites/` - Invite management (forms, tables)
 - `components/profiles/` - Profile management UI
-- `components/settings/` - Settings tabs (profile, quotas, server)
+- `components/settings/` - Settings tabs (profile, server)
 - `components/ui/` - shadcn/ui base components
 - `components/shared/` - Cross-cutting components (theme provider)
 
@@ -198,7 +198,6 @@ jellything/
 │   │   └── profiles-table.tsx
 │   ├── settings/                 # Settings components
 │   │   ├── profile-tab.tsx
-│   │   ├── quotas-tab.tsx
 │   │   └── server-settings-tab.tsx
 │   ├── shared/                   # Shared components
 │   │   └── theme-provider.tsx

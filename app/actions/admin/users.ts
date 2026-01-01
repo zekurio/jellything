@@ -51,6 +51,9 @@ export async function getUserPolicyAction(userId: string): Promise<
     enabledFolders: string[];
     remoteClientBitrateLimit: number;
     isDisabled: boolean;
+    allowVideoTranscoding: boolean;
+    allowAudioTranscoding: boolean;
+    allowMediaRemuxing: boolean;
   }>
 > {
   try {

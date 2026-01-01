@@ -167,9 +167,9 @@ export async function updateEmailAction(
     await db
       .update(users)
       .set({ email: newEmail, emailVerified: false })
-      .where(eq(users.id, session.user.id));
+      .where(eq(users.jellyfinUserId, session.user.jellyfinUserId));
 
-    const verifyToken = await createEmailVerificationToken(session.user.id);
+    const verifyToken = await createEmailVerificationToken(session.user.jellyfinUserId);
     const verifyUrl = `${env.NEXT_PUBLIC_APP_URL}/verify-email/${verifyToken}`;
 
     const html = await renderVerifyEmail({
@@ -235,7 +235,7 @@ export async function deleteAccountAction(): Promise<ActionResult<null>> {
 
     await deleteUser(session.user.jellyfinUserId);
 
-    await db.delete(users).where(eq(users.id, session.user.id));
+    await db.delete(users).where(eq(users.jellyfinUserId, session.user.jellyfinUserId));
 
     const cookieStore = await cookies();
     const sessionId = cookieStore.get("session")?.value;

@@ -150,31 +150,40 @@ export async function getMediaLibraries(): Promise<MediaLibrary[]> {
 }
 
 export interface UserPolicyDetails {
-  enabledFolders: string[];
-  enableAllFolders: boolean;
-  remoteClientBitrateLimit: number;
-  isDisabled: boolean;
+	enabledFolders: string[];
+	enableAllFolders: boolean;
+	remoteClientBitrateLimit: number;
+	isDisabled: boolean;
+	allowVideoTranscoding: boolean;
+	allowAudioTranscoding: boolean;
+	allowMediaRemuxing: boolean;
 }
 
 /**
  * Get user policy details including library access and bitrate limits.
  */
 export async function getUserPolicy(userId: string): Promise<UserPolicyDetails> {
-  const result = await getUserApi(api).getUserById({ userId });
-  const policy = result.data.Policy;
-  return {
-    enabledFolders: policy?.EnabledFolders ?? [],
-    enableAllFolders: policy?.EnableAllFolders ?? false,
-    remoteClientBitrateLimit: policy?.RemoteClientBitrateLimit ?? 0,
-    isDisabled: policy?.IsDisabled ?? false,
-  };
+	const result = await getUserApi(api).getUserById({ userId });
+	const policy = result.data.Policy;
+	return {
+		enabledFolders: policy?.EnabledFolders ?? [],
+		enableAllFolders: policy?.EnableAllFolders ?? false,
+		remoteClientBitrateLimit: policy?.RemoteClientBitrateLimit ?? 0,
+		isDisabled: policy?.IsDisabled ?? false,
+		allowVideoTranscoding: policy?.EnableVideoPlaybackTranscoding ?? true,
+		allowAudioTranscoding: policy?.EnableAudioPlaybackTranscoding ?? true,
+		allowMediaRemuxing: policy?.EnablePlaybackRemuxing ?? true,
+	};
 }
 
 export interface UserPolicyUpdate {
-  enabledFolders?: string[];
-  enableAllFolders?: boolean;
-  remoteClientBitrateLimit?: number;
-  isDisabled?: boolean;
+	enabledFolders?: string[];
+	enableAllFolders?: boolean;
+	remoteClientBitrateLimit?: number;
+	isDisabled?: boolean;
+	allowVideoTranscoding?: boolean;
+	allowAudioTranscoding?: boolean;
+	allowMediaRemuxing?: boolean;
 }
 
 /**
@@ -189,33 +198,42 @@ export async function deleteUser(userId: string): Promise<void> {
  * Merges updates with existing policy to preserve other settings.
  */
 export async function updateUserPolicy(userId: string, updates: UserPolicyUpdate): Promise<void> {
-  const currentUser = await getUserApi(api).getUserById({ userId });
-  const currentPolicy = currentUser.data.Policy;
+	const currentUser = await getUserApi(api).getUserById({ userId });
+	const currentPolicy = currentUser.data.Policy;
 
-  if (!currentPolicy) {
-    throw new Error("User policy not found");
-  }
+	if (!currentPolicy) {
+		throw new Error("User policy not found");
+	}
 
-  const updatedPolicy = {
-    ...currentPolicy,
-    ...(updates.enabledFolders !== undefined && {
-      EnabledFolders: updates.enabledFolders,
-    }),
-    ...(updates.enableAllFolders !== undefined && {
-      EnableAllFolders: updates.enableAllFolders,
-    }),
-    ...(updates.remoteClientBitrateLimit !== undefined && {
-      RemoteClientBitrateLimit: updates.remoteClientBitrateLimit,
-    }),
-    ...(updates.isDisabled !== undefined && {
-      IsDisabled: updates.isDisabled,
-    }),
-  };
+	const updatedPolicy = {
+		...currentPolicy,
+		...(updates.enabledFolders !== undefined && {
+			EnabledFolders: updates.enabledFolders,
+		}),
+		...(updates.enableAllFolders !== undefined && {
+			EnableAllFolders: updates.enableAllFolders,
+		}),
+		...(updates.remoteClientBitrateLimit !== undefined && {
+			RemoteClientBitrateLimit: updates.remoteClientBitrateLimit,
+		}),
+		...(updates.isDisabled !== undefined && {
+			IsDisabled: updates.isDisabled,
+		}),
+		...(updates.allowVideoTranscoding !== undefined && {
+			EnableVideoPlaybackTranscoding: updates.allowVideoTranscoding,
+		}),
+		...(updates.allowAudioTranscoding !== undefined && {
+			EnableAudioPlaybackTranscoding: updates.allowAudioTranscoding,
+		}),
+		...(updates.allowMediaRemuxing !== undefined && {
+			EnablePlaybackRemuxing: updates.allowMediaRemuxing,
+		}),
+	};
 
-  await getUserApi(api).updateUserPolicy({
-    userId,
-    userPolicy: updatedPolicy,
-  });
+	await getUserApi(api).updateUserPolicy({
+		userId,
+		userPolicy: updatedPolicy,
+	});
 }
 
 /**
@@ -294,4 +312,32 @@ export async function uploadUserAvatar(
     const errorText = await response.text();
     throw new Error(`Failed to upload avatar: ${response.status} ${errorText}`);
   }
+}
+
+export interface ForgotPasswordResult {
+	action: "PinCode" | "ContactAdmin" | "InNetworkRequired";
+	pinFile: string | null;
+	pinExpirationDate: string | null;
+}
+
+export async function forgotPassword(username: string): Promise<ForgotPasswordResult> {
+	const result = await getUserApi(api).forgotPassword({
+		forgotPasswordDto: {
+			EnteredUsername: username,
+		},
+	});
+
+	return {
+		action: result.data.Action ?? "ContactAdmin",
+		pinFile: result.data.PinFile ?? null,
+		pinExpirationDate: result.data.PinExpirationDate ?? null,
+	};
+}
+
+export async function forgotPasswordPin(pin: string): Promise<void> {
+	await getUserApi(api).forgotPasswordPin({
+		forgotPasswordPinDto: {
+			Pin: pin,
+		},
+	});
 }

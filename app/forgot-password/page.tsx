@@ -37,12 +37,12 @@ export default function ForgotPasswordPage() {
               Check your email
             </CardTitle>
             <CardDescription>
-              If an account exists with that email address, we've sent you a password reset link.
+              If an account exists with that email address, we&apos;ve sent you a PIN to reset your password.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              The link will expire in 1 hour. If you don't see the email, check your spam folder.
+              Enter the PIN from your email along with your username on the reset page.
             </p>
             <Link href="/login">
               <Button variant="outline" className="w-full">
@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-semibold tracking-tight">Forgot password?</CardTitle>
           <CardDescription>
-            Enter your email address and we'll send you a link to reset your password.
+            Enter your email address and we&apos;ll send you a PIN to reset your password.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Sending..." : "Send reset link"}
+              {isLoading ? "Sending..." : "Send PIN"}
             </Button>
             <div className="text-center">
               <Link href="/login" className="text-sm text-muted-foreground hover:underline">

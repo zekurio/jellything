@@ -21,8 +21,9 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
-import * as React from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useAsyncData, useDialogAction, useSimpleDialog } from "@/lib/hooks";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,58 +62,46 @@ type User = JellyfinUserListItem;
 
 export function UsersTable() {
   const router = useRouter();
-  const [users, setUsers] = React.useState<User[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = React.useState({});
-  const [globalFilter, setGlobalFilter] = React.useState("");
 
-  const [editUserId, setEditUserId] = React.useState<string | null>(null);
-  const [editUserName, setEditUserName] = React.useState<string | null>(null);
-
-  const [disableDialogOpen, setDisableDialogOpen] = React.useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [bulkEditDialogOpen, setBulkEditDialogOpen] = React.useState(false);
-  const [actionUser, setActionUser] = React.useState<User | null>(null);
-  const [actionLoading, setActionLoading] = React.useState(false);
-
-  const fetchUsers = React.useCallback(async () => {
-    setError(null);
+  // Data fetching
+  const fetchUsers = useCallback(async () => {
     const result = await listUsers();
     if (!result.success) {
-      setError("Failed to fetch users");
-      toast.error("Failed to fetch users");
-      return;
+      throw new Error("Failed to fetch users. You may not have admin access.");
     }
-    setUsers(result.data);
+    return result.data;
   }, []);
 
-  React.useEffect(() => {
-    let cancelled = false;
+  const {
+    data: users,
+    isLoading,
+    error,
+    refetch,
+  } = useAsyncData<User[]>(fetchUsers, [], {
+    errorMessage: "Failed to fetch users",
+  });
 
-    const loadUsers = async () => {
-      const result = await listUsers();
-      if (cancelled) return;
-      if (!result.success) {
-        setError("Failed to fetch users. You may not have admin access.");
-        setLoading(false);
-        return;
-      }
-      setUsers(result.data);
-      setLoading(false);
-    };
+  // Table state
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState({});
+  const [globalFilter, setGlobalFilter] = useState("");
 
-    loadUsers();
+  // Edit dialog state
+  const [editUserId, setEditUserId] = useState<string | null>(null);
+  const [editUserName, setEditUserName] = useState<string | null>(null);
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Dialog hooks
+  const bulkEditDialog = useSimpleDialog();
+  const disableDialog = useDialogAction<User>({
+    onSuccess: () => refetch(),
+  });
+  const deleteDialog = useDialogAction<User>({
+    onSuccess: () => refetch(),
+  });
 
-  const columns = React.useMemo<ColumnDef<User>[]>(
+  const columns = useMemo<ColumnDef<User>[]>(
     () => [
       {
         id: "select",
@@ -198,8 +187,7 @@ export function UsersTable() {
               size="icon"
               onClick={(e) => {
                 e.stopPropagation();
-                setActionUser(row.original);
-                setDisableDialogOpen(true);
+                disableDialog.open(row.original);
               }}
               aria-label={
                 row.original.isDisabled
@@ -218,8 +206,7 @@ export function UsersTable() {
               size="icon"
               onClick={(e) => {
                 e.stopPropagation();
-                setActionUser(row.original);
-                setDeleteDialogOpen(true);
+                deleteDialog.open(row.original);
               }}
               aria-label={"Delete " + row.original.name}
             >
@@ -231,11 +218,11 @@ export function UsersTable() {
         enableHiding: false,
       },
     ],
-    [],
+    [disableDialog, deleteDialog],
   );
 
   const table = useReactTable({
-    data: users,
+    data: users ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -261,7 +248,9 @@ export function UsersTable() {
     .getSelectedRowModel()
     .rows.every((row) => row.original.isDisabled);
 
-  const handleBulkDisable = React.useCallback(async () => {
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  const handleBulkDisable = useCallback(async () => {
     const selectedRows = table.getSelectedRowModel().rows;
     const userIds = selectedRows.map((row) => row.original.id);
     if (userIds.length === 0) return;
@@ -269,7 +258,7 @@ export function UsersTable() {
     const allDisabled = selectedRows.every((row) => row.original.isDisabled);
     const disable = !allDisabled;
 
-    setActionLoading(true);
+    setBulkLoading(true);
     try {
       const result = await bulkUpdatePolicyAction({
         userIds,
@@ -282,83 +271,66 @@ export function UsersTable() {
             : `Enabled ${result.data.updated} user(s)`,
         );
         setRowSelection({});
-        fetchUsers();
+        refetch();
       } else {
         throw new Error(result.error);
       }
-    } catch (error) {
+    } catch (err) {
       toast.error(disable ? "Failed to disable users" : "Failed to enable users");
-      console.error(error);
+      console.error(err);
     }
-    setActionLoading(false);
-  }, [fetchUsers, table]);
+    setBulkLoading(false);
+  }, [refetch, table]);
 
-  const handleBulkDelete = React.useCallback(async () => {
+  const handleBulkDelete = useCallback(async () => {
     const userIds = table.getSelectedRowModel().rows.map((row) => row.original.id);
     if (userIds.length === 0) return;
 
-    setActionLoading(true);
+    setBulkLoading(true);
     try {
       const result = await bulkDeleteUsersAction({ userIds });
       if (result.success) {
         toast.success(`Deleted ${result.data.deleted} user(s)`);
         setRowSelection({});
-        fetchUsers();
+        refetch();
       } else {
         throw new Error(result.error);
       }
     } catch {
       toast.error("Failed to delete users");
     }
-    setActionLoading(false);
-  }, [fetchUsers, table]);
+    setBulkLoading(false);
+  }, [refetch, table]);
 
-  const handleToggleDisable = async () => {
-    if (!actionUser) return;
+  const handleToggleDisable = () => {
+    const user = disableDialog.item;
+    if (!user) return;
 
-    setActionLoading(true);
-    try {
-      const result = await updateUserPolicyAction(actionUser.id, {
-        isDisabled: !actionUser.isDisabled,
+    disableDialog.execute(async () => {
+      const result = await updateUserPolicyAction(user.id, {
+        isDisabled: !user.isDisabled,
       });
-      if (result.success) {
-        toast.success(
-          actionUser.isDisabled ? `Enabled ${actionUser.name}` : `Disabled ${actionUser.name}`,
-        );
-        setDisableDialogOpen(false);
-        setActionUser(null);
-        fetchUsers();
-      } else {
-        toast.error("Failed to update user");
+      if (!result.success) {
+        throw new Error("Failed to update user");
       }
-    } catch (error) {
-      toast.error("Failed to update user");
-      console.error(error);
-    }
-    setActionLoading(false);
+      toast.success(user.isDisabled ? `Enabled ${user.name}` : `Disabled ${user.name}`);
+    });
   };
 
-  const handleDelete = async () => {
-    if (!actionUser) return;
+  const handleDelete = () => {
+    const user = deleteDialog.item;
+    if (!user) return;
 
-    setActionLoading(true);
-    try {
-      const result = await deleteUserAction(actionUser.id);
-      if (result.success) {
-        toast.success(`Deleted ${actionUser.name}`);
-        setDeleteDialogOpen(false);
-        setActionUser(null);
-        fetchUsers();
-      } else {
-        toast.error("Failed to delete user");
+    deleteDialog.execute(async () => {
+      const result = await deleteUserAction(user.id);
+      if (!result.success) {
+        throw new Error("Failed to delete user");
       }
-    } catch {
-      toast.error("Failed to delete user");
-    }
-    setActionLoading(false);
+      toast.success(`Deleted ${user.name}`);
+    });
   };
 
-  if (loading) {
+  if (isLoading) {
     return <Spinner centered />;
   }
 
@@ -366,7 +338,7 @@ export function UsersTable() {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-8">
         <p className="text-sm text-muted-foreground">{error}</p>
-        <Button variant="outline" onClick={fetchUsers}>
+        <Button variant="outline" onClick={refetch}>
           Try Again
         </Button>
       </div>
@@ -391,7 +363,7 @@ export function UsersTable() {
           {selectedCount > 0 && (
             <>
               <span className="text-sm text-muted-foreground">{selectedCount} selected</span>
-              <Button variant="outline" size="sm" onClick={() => setBulkEditDialogOpen(true)}>
+              <Button variant="outline" size="sm" onClick={bulkEditDialog.open}>
                 <IconSettings className="mr-2 h-4 w-4" />
                 Edit Selected
               </Button>
@@ -399,7 +371,7 @@ export function UsersTable() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleBulkDisable()}
-                disabled={actionLoading}
+                disabled={bulkLoading}
               >
                 {bulkActionWillEnable ? (
                   <IconCheck className="mr-2 h-4 w-4 text-success" />
@@ -412,7 +384,7 @@ export function UsersTable() {
                 variant="destructive"
                 size="sm"
                 onClick={() => handleBulkDelete()}
-                disabled={actionLoading}
+                disabled={bulkLoading}
               >
                 <IconTrash className="mr-2 h-4 w-4" />
                 Delete Selected
@@ -473,7 +445,7 @@ export function UsersTable() {
       </div>
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} of {users.length} user(s)
+          {table.getFilteredRowModel().rows.length} of {users?.length ?? 0} user(s)
         </p>
         <div className="flex items-center gap-2">
           <Button
@@ -508,15 +480,15 @@ export function UsersTable() {
         onSaveComplete={() => {
           setEditUserId(null);
           setEditUserName(null);
-          fetchUsers();
+          refetch();
         }}
       />
 
       <UserSettingsDialog
-        open={selectedCount > 0 && !editUserId && bulkEditDialogOpen}
+        open={selectedCount > 0 && !editUserId && bulkEditDialog.isOpen}
         onOpenChange={(open) => {
           if (!open) {
-            setBulkEditDialogOpen(false);
+            bulkEditDialog.close();
           }
         }}
         userIds={
@@ -525,50 +497,50 @@ export function UsersTable() {
             : undefined
         }
         onSaveComplete={() => {
-          setBulkEditDialogOpen(false);
+          bulkEditDialog.close();
           setRowSelection({});
-          fetchUsers();
+          refetch();
         }}
       />
 
-      <AlertDialog open={disableDialogOpen} onOpenChange={setDisableDialogOpen}>
+      <AlertDialog open={disableDialog.isOpen} onOpenChange={(open) => !open && disableDialog.close()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {actionUser?.isDisabled ? "Enable User" : "Disable User"}
+              {disableDialog.item?.isDisabled ? "Enable User" : "Disable User"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {actionUser?.isDisabled
-                ? `Are you sure you want to enable ${actionUser?.name}? They will be able to sign in to Jellyfin.`
-                : `Are you sure you want to disable ${actionUser?.name}? They will not be able to sign in to Jellyfin.`}
+              {disableDialog.item?.isDisabled
+                ? `Are you sure you want to enable ${disableDialog.item?.name}? They will be able to sign in to Jellyfin.`
+                : `Are you sure you want to disable ${disableDialog.item?.name}? They will not be able to sign in to Jellyfin.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleToggleDisable} disabled={actionLoading}>
-              {actionLoading ? "Loading..." : actionUser?.isDisabled ? "Enable" : "Disable"}
+            <AlertDialogCancel disabled={disableDialog.isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleToggleDisable} disabled={disableDialog.isLoading}>
+              {disableDialog.isLoading ? "Loading..." : disableDialog.item?.isDisabled ? "Enable" : "Disable"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialog.isOpen} onOpenChange={(open) => !open && deleteDialog.close()}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete User</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {actionUser?.name}? This action cannot be undone. All
+              Are you sure you want to delete {deleteDialog.item?.name}? This action cannot be undone. All
               user data, watch history, and preferences will be lost.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteDialog.isLoading}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={actionLoading}
+              disabled={deleteDialog.isLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {actionLoading ? "Loading..." : "Delete"}
+              {deleteDialog.isLoading ? "Loading..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,9 +45,11 @@ export function ProfileFormDialog({
   const [enableAllFolders, setEnableAllFolders] = useState(true);
   const [enabledFolders, setEnabledFolders] = useState<string[]>([]);
   const [bitrateMbps, setBitrateMbps] = useState("0");
-  const [isDisabled, setIsDisabled] = useState(false);
-  const [isDefault, setIsDefault] = useState(false);
+  const [allowVideoTranscoding, setAllowVideoTranscoding] = useState(true);
+  const [allowAudioTranscoding, setAllowAudioTranscoding] = useState(true);
+  const [allowMediaRemuxing, setAllowMediaRemuxing] = useState(true);
 
+  const id = useId();
   const isEditMode = !!profileId;
 
   const resetForm = useCallback(() => {
@@ -55,8 +57,9 @@ export function ProfileFormDialog({
     setEnableAllFolders(true);
     setEnabledFolders([]);
     setBitrateMbps("0");
-    setIsDisabled(false);
-    setIsDefault(false);
+    setAllowVideoTranscoding(true);
+    setAllowAudioTranscoding(true);
+    setAllowMediaRemuxing(true);
   }, []);
 
   useEffect(() => {
@@ -85,12 +88,13 @@ export function ProfileFormDialog({
           if (profileResult.success) {
             const profile = profileResult.data;
             setName(profile.name);
-            setIsDefault(profile.isDefault);
             if (profile.policy) {
               setEnableAllFolders(profile.policy.enableAllFolders);
               setEnabledFolders(profile.policy.enabledFolders || []);
               setBitrateMbps((profile.policy.remoteClientBitrateLimit / 1000000).toString());
-              setIsDisabled(profile.policy.isDisabled);
+              setAllowVideoTranscoding(profile.policy.allowVideoTranscoding ?? true);
+              setAllowAudioTranscoding(profile.policy.allowAudioTranscoding ?? true);
+              setAllowMediaRemuxing(profile.policy.allowMediaRemuxing ?? true);
             }
           } else {
             toast.error("Failed to load profile");
@@ -125,7 +129,9 @@ export function ProfileFormDialog({
       enableAllFolders,
       enabledFolders: enableAllFolders ? [] : enabledFolders,
       remoteClientBitrateLimit: Math.round(Number.parseFloat(bitrateMbps || "0") * 1000000),
-      isDisabled,
+      allowVideoTranscoding,
+      allowAudioTranscoding,
+      allowMediaRemuxing,
     };
 
     try {
@@ -190,44 +196,38 @@ export function ProfileFormDialog({
           <>
             <div className="space-y-6 py-4">
               <div className="space-y-2">
-                <Label htmlFor="profile-name">Profile Name</Label>
+                <Label htmlFor={`${id}-profile-name`} className="text-sm font-medium">Profile Name</Label>
                 <Input
-                  id="profile-name"
+                  id={`${id}-profile-name`}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g., Friends & Family"
-                  disabled={isDefault}
                 />
-                {isDefault && (
-                  <p className="text-xs text-muted-foreground">
-                    Default profile name cannot be changed.
-                  </p>
-                )}
               </div>
 
-              <div className="space-y-4">
-                <Label className="text-base font-medium">Library Access</Label>
-                <div className="flex items-center space-x-2">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Library Access</Label>
+                <div className="flex items-center gap-2">
                   <Checkbox
-                    id="profile-all-folders"
+                    id={`${id}-profile-all-folders`}
                     checked={enableAllFolders}
                     onCheckedChange={(checked) => setEnableAllFolders(!!checked)}
                   />
-                  <Label htmlFor="profile-all-folders" className="font-normal">
+                  <Label htmlFor={`${id}-profile-all-folders`} className="text-sm font-normal cursor-pointer">
                     Access to all libraries
                   </Label>
                 </div>
 
                 {!enableAllFolders && (
-                  <div className="space-y-2 border-l pl-4">
+                  <div className="space-y-2 border-l-2 pl-4 ml-1">
                     {libraries.map((library) => (
-                      <div key={library.id} className="flex items-center space-x-2">
+                      <div key={library.id} className="flex items-center gap-2">
                         <Checkbox
-                          id={`profile-lib-${library.id}`}
+                          id={`${id}-profile-lib-${library.id}`}
                           checked={enabledFolders.includes(library.id)}
                           onCheckedChange={() => toggleLibrary(library.id)}
                         />
-                        <Label htmlFor={`profile-lib-${library.id}`} className="font-normal">
+                        <Label htmlFor={`${id}-profile-lib-${library.id}`} className="text-sm font-normal cursor-pointer">
                           {library.name}
                         </Label>
                       </div>
@@ -236,32 +236,55 @@ export function ProfileFormDialog({
                 )}
               </div>
 
-              <div className="space-y-4">
-                <Label className="text-base font-medium">Remote Streaming Bitrate</Label>
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Transcoding Options</Label>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`${id}-profile-video-transcoding`}
+                    checked={allowVideoTranscoding}
+                    onCheckedChange={(checked) => setAllowVideoTranscoding(!!checked)}
+                  />
+                  <Label htmlFor={`${id}-profile-video-transcoding`} className="text-sm font-normal cursor-pointer">
+                    Allow video transcoding
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`${id}-profile-audio-transcoding`}
+                    checked={allowAudioTranscoding}
+                    onCheckedChange={(checked) => setAllowAudioTranscoding(!!checked)}
+                  />
+                  <Label htmlFor={`${id}-profile-audio-transcoding`} className="text-sm font-normal cursor-pointer">
+                    Allow audio transcoding
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id={`${id}-profile-remuxing`}
+                    checked={allowMediaRemuxing}
+                    onCheckedChange={(checked) => setAllowMediaRemuxing(!!checked)}
+                  />
+                  <Label htmlFor={`${id}-profile-remuxing`} className="text-sm font-normal cursor-pointer">
+                    Allow remuxing
+                  </Label>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor={`${id}-profile-bitrate`} className="text-sm font-medium">Remote Streaming Bitrate</Label>
                 <div className="flex items-center gap-2">
                   <Input
-                    id="profile-bitrate"
+                    id={`${id}-profile-bitrate`}
                     type="number"
                     value={bitrateMbps}
                     onChange={(e) => setBitrateMbps(e.target.value)}
                     placeholder="0"
                     min={0}
                     step={1}
-                    className="w-24"
+                    className="w-20"
                   />
                   <span className="text-sm text-muted-foreground">Mbps (0 = unlimited)</span>
                 </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="profile-disabled"
-                  checked={isDisabled}
-                  onCheckedChange={(checked) => setIsDisabled(!!checked)}
-                />
-                <Label htmlFor="profile-disabled" className="font-normal">
-                  Users are disabled by default
-                </Label>
               </div>
             </div>
 
