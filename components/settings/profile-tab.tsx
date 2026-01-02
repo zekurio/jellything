@@ -111,6 +111,8 @@ function ProfileInfoForm({ profile, onUpdate }: { profile: ProfileData; onUpdate
   const [newEmail, setNewEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [emailSaving, setEmailSaving] = useState(false);
+  const [displayEmail, setDisplayEmail] = useState(profile.email ?? "");
+  const [displayEmailVerified, setDisplayEmailVerified] = useState(profile.emailVerified);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -149,6 +151,8 @@ function ProfileInfoForm({ profile, onUpdate }: { profile: ProfileData; onUpdate
         toast.success("Email updated. Please verify your new email.");
         setEmailChangeOpen(false);
         setNewEmail("");
+        setDisplayEmail(newEmail.trim());
+        setDisplayEmailVerified(false);
         onUpdate();
       } else {
         setEmailError(result.error || "Failed to update email");
@@ -173,7 +177,7 @@ function ProfileInfoForm({ profile, onUpdate }: { profile: ProfileData; onUpdate
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <div className="flex gap-2">
-            <Input id="email" value={profile.email ?? ""} disabled className="flex-1" />
+            <Input id="email" value={displayEmail} disabled className="flex-1" />
             <AlertDialog open={emailChangeOpen} onOpenChange={setEmailChangeOpen}>
               <AlertDialogTrigger asChild>
                 <Button variant="outline">Change</Button>
@@ -206,12 +210,12 @@ function ProfileInfoForm({ profile, onUpdate }: { profile: ProfileData; onUpdate
               </AlertDialogContent>
             </AlertDialog>
           </div>
-          {profile.email && (
+          {displayEmail && (
             <p className="text-xs text-muted-foreground">
-              {profile.emailVerified ? "Email verified" : "Email not verified - check your inbox"}
+              {displayEmailVerified ? "Email verified" : "Email not verified - check your inbox"}
             </p>
           )}
-          {profile.email && !profile.emailVerified && (
+          {displayEmail && !displayEmailVerified && (
             <Button
               variant="ghost"
               size="sm"
