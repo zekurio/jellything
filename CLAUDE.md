@@ -115,8 +115,8 @@ When adding new API routes, define them in the Elysia app and the types flow aut
 - `/login` - Login form (authenticates against Jellyfin)
 - `/invite/:code` - Registration via invite link
 - `/verify-email/:token` - Email verification
-- `/reset-password/:token` - Password reset
-- `/forgot-password` - Request password reset
+- `/forgot-password` - Request password reset email
+- `/reset-password` - Verify PIN and set new password (requires `?username=...&pin=...` query params)
 
 **Protected Routes (require authentication):**
 
@@ -167,12 +167,11 @@ jellything/
 │   │   ├── password-reset.ts     # Password reset
 │   │   ├── server.ts             # Server actions
 │   │   └── types.ts              # Action types
-│   ├── forgot-password/          # Forgot password page
+│   ├── forgot-password/          # Request password reset email
 │   ├── invite/
 │   │   └── [code]/               # Invite registration
 │   ├── login/                    # Login page
-│   ├── reset-password/
-│   │   └── [token]/              # Reset password page
+│   ├── reset-password/           # Verify PIN and set new password
 │   ├── verify-email/
 │   │   └── [token]/              # Email verification page
 │   ├── api/

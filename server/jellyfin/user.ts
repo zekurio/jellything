@@ -1,27 +1,24 @@
-import type { Api } from "@jellyfin/sdk/lib/api";
-import { getUserApi } from "@jellyfin/sdk/lib/utils/api";
-import { JELLYFIN_URL } from "./client";
+import type { JellyfinClient, JellyfinUserDto } from "./client";
 
 /**
  * Get the user's own profile information.
  * Uses the user's access token.
  */
 export async function getOwnProfile(
-  api: Api,
-  userId: string,
+	api: JellyfinClient,
+	userId: string,
 ): Promise<{ id: string; name: string; isAdmin: boolean }> {
-  const result = await getUserApi(api).getUserById({ userId });
-  const user = result.data;
+	const user = await api.get<JellyfinUserDto>(`/Users/${userId}`);
 
-  if (!user.Id || !user.Name) {
-    throw new Error("User not found");
-  }
+	if (!user.Id || !user.Name) {
+		throw new Error("User not found");
+	}
 
-  return {
-    id: user.Id,
-    name: user.Name,
-    isAdmin: user.Policy?.IsAdministrator ?? false,
-  };
+	return {
+		id: user.Id,
+		name: user.Name,
+		isAdmin: user.Policy?.IsAdministrator ?? false,
+	};
 }
 
 /**
@@ -29,24 +26,20 @@ export async function getOwnProfile(
  * Uses the user's access token.
  */
 export async function updateOwnProfile(
-  api: Api,
-  userId: string,
-  updates: { name?: string },
+	api: JellyfinClient,
+	userId: string,
+	updates: { name?: string },
 ): Promise<void> {
-  const currentUser = await getUserApi(api).getUserById({ userId });
-  const currentData = currentUser.data;
+	const currentData = await api.get<JellyfinUserDto>(`/Users/${userId}`);
 
-  if (!currentData) {
-    throw new Error("User not found");
-  }
+	if (!currentData) {
+		throw new Error("User not found");
+	}
 
-  await getUserApi(api).updateUser({
-    userId,
-    userDto: {
-      ...currentData,
-      ...(updates.name !== undefined && { Name: updates.name }),
-    },
-  });
+	await api.post(`/Users/${userId}`, {
+		...currentData,
+		...(updates.name !== undefined && { Name: updates.name }),
+	});
 }
 
 /**
@@ -54,18 +47,15 @@ export async function updateOwnProfile(
  * Uses the user's access token.
  */
 export async function changePassword(
-  api: Api,
-  userId: string,
-  currentPassword: string,
-  newPassword: string,
+	api: JellyfinClient,
+	userId: string,
+	currentPassword: string,
+	newPassword: string,
 ): Promise<void> {
-  await getUserApi(api).updateUserPassword({
-    userId,
-    updateUserPassword: {
-      CurrentPw: currentPassword,
-      NewPw: newPassword,
-    },
-  });
+	await api.post(`/Users/${userId}/Password`, {
+		CurrentPw: currentPassword,
+		NewPw: newPassword,
+	});
 }
 
 /**
@@ -76,24 +66,11 @@ export async function changePassword(
  * @param mimeType MIME type of the image
  */
 export async function uploadOwnAvatar(
-  api: Api,
-  userId: string,
-  imageBuffer: Buffer,
-  mimeType: string,
+	api: JellyfinClient,
+	userId: string,
+	imageBuffer: Buffer,
+	mimeType: string,
 ): Promise<void> {
-  const base64Image = imageBuffer.toString("base64");
-
-  const response = await fetch(`${JELLYFIN_URL}/Users/${userId}/Images/Primary`, {
-    method: "POST",
-    headers: {
-      "X-Emby-Token": api.accessToken ?? "",
-      "Content-Type": mimeType,
-    },
-    body: base64Image,
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to upload avatar: ${response.status} ${errorText}`);
-  }
+	const base64Image = imageBuffer.toString("base64");
+	await api.upload(`/Users/${userId}/Images/Primary`, base64Image, mimeType);
 }

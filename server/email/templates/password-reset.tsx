@@ -15,7 +15,7 @@ export function PasswordResetTemplate({
 }: PasswordResetProps) {
   return (
     <EmailLayout preview={`Reset your ${serverName} password`} serverName={serverName}>
-      <Heading style={heading}>Password Reset Request</Heading>
+      <Heading style={heading}>Password Reset</Heading>
       <Text style={paragraph}>Hi {username},</Text>
       <Text style={paragraph}>
         We received a request to reset your password. Click the button below to choose a new
@@ -24,10 +24,9 @@ export function PasswordResetTemplate({
       <Button style={button} href={resetUrl}>
         Reset Password
       </Button>
-      <Text style={paragraph}>This link will expire in 1 hour.</Text>
+      <Text style={paragraph}>This PIN will expire in 1 hour.</Text>
       <Text style={paragraph}>
-        If you didn't request a password reset, you can safely ignore this email. Your password will
-        remain unchanged.
+        If you didn't request a password reset, you can safely ignore this email.
       </Text>
     </EmailLayout>
   );

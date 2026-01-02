@@ -49,7 +49,8 @@ export function validatePassword(password: string): PasswordValidationResult {
   if (passedCount >= 4) strength = "good";
   if (passedCount === 5) strength = "strong";
 
-  const isValid = checks.minLength && checks.hasUppercase && checks.hasLowercase;
+  const isValid =
+    checks.minLength && checks.hasUppercase && checks.hasLowercase;
 
   return { isValid, strength, errors, checks };
 }
@@ -84,7 +85,9 @@ export const userSelectSchema = createSelectSchema(users);
 
 export const inviteUsageInsertSchema = createInsertSchema(inviteUsages);
 export const sessionInsertSchema = createInsertSchema(sessions);
-export const emailVerificationTokenInsertSchema = createInsertSchema(emailVerificationTokens);
+export const emailVerificationTokenInsertSchema = createInsertSchema(
+  emailVerificationTokens,
+);
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -121,23 +124,23 @@ export const updateProfileSchema = z.object({
 });
 
 export const createInviteSchema = z.object({
-  profileId: z.string().uuid("Invalid profile ID"),
+  profileId: z.uuid("Invalid profile ID"),
   label: z.string().max(100).optional(),
   useLimit: z.number().min(1).optional(),
-  expiresAt: z.string().datetime().optional(),
+  expiresAt: z.iso.datetime().optional(),
 });
 
 export const updateInviteSchema = z.object({
   label: z.string().max(100).optional(),
   useLimit: z.number().min(1).nullable().optional(),
-  expiresAt: z.string().datetime().nullable().optional(),
+  expiresAt: z.iso.datetime().nullable().optional(),
 });
 
 export const redeemInviteSchema = z.object({
   code: z.string().min(1, "Invite code is required"),
   username: z.string().min(1, "Username is required").max(100),
   password: passwordSchema,
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
   avatar: z.string().optional(),
 });
 
@@ -161,7 +164,12 @@ export const bulkDeleteSchema = z.object({
 });
 
 export const passwordResetRequestSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
+});
+
+export const passwordResetVerifyPinSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  pin: z.string().min(1, "PIN is required"),
 });
 
 export const passwordResetCompleteSchema = z.object({
@@ -184,7 +192,7 @@ export const updateOwnProfileSchema = z.object({
 });
 
 export const updateEmailSchema = z.object({
-  newEmail: z.string().email("Invalid email address"),
+  newEmail: z.email("Invalid email address"),
 });
 
 export const confirmEmailChangeSchema = z.object({

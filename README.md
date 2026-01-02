@@ -115,12 +115,11 @@ jellything/
 │   │   ├── password-reset.ts     # Password reset
 │   │   ├── server.ts             # Server actions
 │   │   └── types.ts              # Action types
-│   ├── forgot-password/          # Forgot password page
+│   ├── forgot-password/          # Request password reset email
+│   ├── reset-password/           # Verify PIN and set new password
 │   ├── invite/
 │   │   └── [code]/               # Invite registration
 │   ├── login/                    # Login page
-│   ├── reset-password/
-│   │   └── [token]/              # Reset password page
 │   ├── verify-email/
 │   │   └── [token]/              # Email verification page
 │   ├── api/

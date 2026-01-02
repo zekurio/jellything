@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
@@ -10,20 +9,30 @@ import {
   forgotPasswordPin,
   getUserById,
   authenticateUser,
+  getPasswordResetPin,
 } from "@/server/jellyfin/admin";
+import { changePassword } from "@/server/jellyfin/user";
+import { JELLYFIN_URL, JellyfinClient } from "@/server/jellyfin/client";
 import { sendEmail, isEmailConfigured } from "@/server/email";
-import { createSession, sessionCookieConfig } from "@/server/session";
+import { renderPasswordReset } from "@/server/email/templates/password-reset";
+import { env } from "@/lib/env";
 import { success, error, type ActionResult } from "@/app/actions/types";
-import { passwordResetRequestSchema, passwordResetCompleteSchema } from "@/lib/schemas";
+import {
+  passwordResetRequestSchema,
+  passwordResetVerifyPinSchema,
+  passwordResetCompleteSchema,
+} from "@/lib/schemas";
 
-export async function requestPasswordReset(input: { email: string }): Promise<ActionResult<null>> {
+export async function requestPasswordReset(input: {
+  email: string;
+}): Promise<ActionResult<{ username: string }>> {
   const parsed = passwordResetRequestSchema.safeParse(input);
   if (!parsed.success) {
     return error(parsed.error.issues[0]?.message || "Validation failed");
   }
 
   if (!isEmailConfigured()) {
-    return success(null);
+    return success({ username: "" });
   }
 
   const [user] = await db
@@ -32,28 +41,63 @@ export async function requestPasswordReset(input: { email: string }): Promise<Ac
     .where(eq(users.email, parsed.data.email.toLowerCase()));
 
   if (!user || !user.emailVerified || !user.email) {
-    return success(null);
+    return success({ username: "" });
   }
+
+  let pinInfo: Awaited<ReturnType<typeof getPasswordResetPin>> = null;
+  let jellyfinUsername = "";
 
   try {
     const jellyfinUser = await getUserById(user.jellyfinUserId);
+    jellyfinUsername = jellyfinUser.name;
+
     const result = await forgotPassword(jellyfinUser.name);
 
-    if (result.action !== "PinCode" || !result.pinFile) {
-      console.error("Unexpected forgot password response:", result);
+    if (result.action !== "PinCode") {
       return error("Password reset not available for this user");
     }
 
-    const pinData = JSON.parse(result.pinFile);
-    const pin = pinData.Pin;
+    pinInfo = await getPasswordResetPin(jellyfinUser.name);
+
+    if (!pinInfo) {
+      return error("Failed to retrieve password reset PIN");
+    }
+
+    const resetUrl = `${env.NEXT_PUBLIC_APP_URL}/reset-password?username=${encodeURIComponent(jellyfinUser.name)}&pin=${encodeURIComponent(pinInfo.pin)}`;
+
+    const html = await renderPasswordReset({
+      username: jellyfinUser.name,
+      resetUrl,
+    });
 
     await sendEmail({
       to: user.email,
       subject: "Your Jellyfin Password Reset PIN",
-      html: `<p>Your PIN is: <strong>${pin}</strong></p><p>This PIN expires at ${new Date(result.pinExpirationDate ?? "").toLocaleString()}</p>`,
+      html,
     });
-  } catch (emailError) {
-    console.error("Failed to send password reset email:", emailError);
+  } catch {
+    // Silent fail for email sending
+  }
+
+  return success({ username: jellyfinUsername });
+}
+
+export async function verifyPasswordResetPin(input: {
+  username: string;
+  pin: string;
+}): Promise<ActionResult<null>> {
+  const parsed = passwordResetVerifyPinSchema.safeParse(input);
+  if (!parsed.success) {
+    return error(parsed.error.issues[0]?.message || "Validation failed");
+  }
+
+  const { username: _username, pin } = parsed.data;
+  const cleanPin = pin.replace(/-/g, "").toUpperCase();
+
+  try {
+    await forgotPasswordPin(cleanPin);
+  } catch {
+    return error("Invalid or expired PIN. Please request a new one.");
   }
 
   return success(null);
@@ -73,23 +117,12 @@ export async function completePasswordReset(input: {
   const cleanPin = pin.replace(/-/g, "").toUpperCase();
 
   try {
-    await forgotPasswordPin(cleanPin);
+    const authResult = await authenticateUser(username, cleanPin);
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    const authResult = await authenticateUser(username, newPassword);
-
-    const sessionId = await createSession(
-      authResult.id,
-      authResult.isAdmin,
-      authResult.accessToken,
-    );
-
-    const cookieStore = await cookies();
-    cookieStore.set("session", sessionId, sessionCookieConfig);
-  } catch (err) {
-    console.error("Failed to reset password:", err);
-    return error(err instanceof Error ? err.message : "Failed to reset password");
+    const tempApi = new JellyfinClient(JELLYFIN_URL, authResult.accessToken);
+    await changePassword(tempApi, authResult.id, cleanPin, newPassword);
+  } catch {
+    return error("Failed to reset password. Please try again or request a new PIN.");
   }
 
   revalidatePath("/");

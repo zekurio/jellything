@@ -57,11 +57,6 @@ const navGroups: NavGroup[] = [
         url: "/users",
         icon: IconUsers,
       },
-      {
-        title: "Security",
-        url: "/dashboard/security",
-        icon: IconShield,
-      },
     ],
   },
 ];
@@ -85,7 +80,12 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   isAdmin?: boolean;
 }
 
-export function AppSidebar({ user, serverInfo, isAdmin = false, ...props }: AppSidebarProps) {
+export function AppSidebar({
+  user,
+  serverInfo,
+  isAdmin = false,
+  ...props
+}: AppSidebarProps) {
   const visibleGroups = useMemo(() => {
     return navGroups.filter((group) => !group.adminOnly || isAdmin);
   }, [isAdmin]);
@@ -103,11 +103,13 @@ export function AppSidebar({ user, serverInfo, isAdmin = false, ...props }: AppS
                 <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
                   <IconServer className="size-5" />
                 </div>
-                <div className="flex flex-col gap-0.5 leading-none">
+                <div className="flex flex-col gap-0.5 leading-none h-8 justify-center">
                   {serverInfo ? (
                     <>
                       <span className="font-medium">{serverInfo.name}</span>
-                      <span className="text-xs text-muted-foreground">v{serverInfo.version}</span>
+                      <span className="text-xs text-muted-foreground">
+                        v{serverInfo.version}
+                      </span>
                     </>
                   ) : (
                     <>
