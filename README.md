@@ -34,9 +34,11 @@ cp .env.example .env
 Edit `.env` with your configuration:
 
 - `DATABASE_URL` - PostgreSQL connection string
-- `JELLYFIN_URL` - Your Jellyfin server URL
-- `JELLYFIN_API_KEY` - Admin API key from Jellyfin
 - `ENCRYPTION_KEY` - Generate with `openssl rand -hex 32`
+- `NEXT_PUBLIC_APP_URL` - Your app's public URL (e.g., `http://localhost:3000`)
+- `CONFIG_PATH` - (optional) Path to config file, defaults to `./config.json`
+
+Jellyfin and email settings are configured through the web UI during onboarding.
 
 3. Set up the database:
 

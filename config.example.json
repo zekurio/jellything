@@ -1,0 +1,15 @@
+{
+	"app": {
+		"title": "Jellything",
+		"description": "User management and invitation system for Jellyfin"
+	},
+	"jellyfin": {
+		"internalUrl": "http://jellyfin:8096",
+		"externalUrl": "https://jellyfin.example.com",
+		"apiKey": "your-jellyfin-api-key"
+	},
+	"email": {
+		"from": "Jellything <noreply@example.com>",
+		"resendApiKey": "re_xxxxx"
+	}
+}

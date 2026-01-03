@@ -1,21 +1,23 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { IconLoader2 } from "@tabler/icons-react";
+import { Camera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PasswordInput } from "@/components/shared/password-input";
-import { AvatarUpload, type AvatarFile } from "@/components/shared/avatar-upload";
+import { AVATAR_CONFIG, type AvatarFile, type AcceptedMimeType } from "@/components/shared/avatar-upload";
 import { Spinner } from "@/components/ui/spinner";
 import { redeemInvite, validateInvite } from "@/app/actions/invite";
 import { getSession } from "@/lib/auth";
 import { resendVerification } from "@/app/actions/email";
 import { validatePassword, normalizeEmail } from "@/lib/schemas";
+import { cn, getInitials } from "@/lib/utils";
 
 export default function InviteRedeemPage() {
   const params = useParams();
@@ -305,19 +307,18 @@ export default function InviteRedeemPage() {
 
             <div className="space-y-2">
               <Label>Avatar (optional)</Label>
-              <AvatarUpload
+              <AvatarUploadButton
                 name={username}
+                avatarFile={avatarFile}
                 onFileSelect={setAvatarFile}
-                onClear={() => setAvatarFile(null)}
                 disabled={submitting}
-                size="md"
               />
             </div>
 
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? (
                 <>
-                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creating Account...
                 </>
               ) : (
@@ -327,6 +328,90 @@ export default function InviteRedeemPage() {
           </form>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+interface AvatarUploadButtonProps {
+  name: string;
+  avatarFile: AvatarFile | null;
+  onFileSelect: (file: AvatarFile | null) => void;
+  disabled?: boolean;
+}
+
+function AvatarUploadButton({ name, avatarFile, onFileSelect, disabled }: AvatarUploadButtonProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!AVATAR_CONFIG.acceptedTypes.includes(file.type as AcceptedMimeType)) {
+        toast.error("Invalid image type. Only JPEG, PNG, and WebP are allowed.");
+        return;
+      }
+
+      if (file.size > AVATAR_CONFIG.maxSize) {
+        toast.error("Image must be less than 1MB");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        const rawBase64 = base64.split(",")[1] || "";
+
+        onFileSelect({
+          base64,
+          mimeType: file.type as AcceptedMimeType,
+          rawBase64,
+        });
+      };
+      reader.readAsDataURL(file);
+    },
+    [onFileSelect],
+  );
+
+  const displayUrl = avatarFile?.base64;
+
+  return (
+    <div className="flex items-center gap-3">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={AVATAR_CONFIG.acceptString}
+        onChange={handleFileSelect}
+        className="hidden"
+        disabled={disabled}
+      />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={disabled}
+        className="group relative shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-full"
+        aria-label="Upload avatar"
+      >
+        <Avatar className="h-16 w-16">
+          {displayUrl && <AvatarImage src={displayUrl} alt={name || "Avatar"} />}
+          <AvatarFallback className="text-lg">
+            {name ? getInitials(name) : <Camera className="h-5 w-5 text-muted-foreground" />}
+          </AvatarFallback>
+        </Avatar>
+        {/* Upload indicator overlay */}
+        <div
+          className={cn(
+            "absolute inset-0 flex items-center justify-center rounded-full bg-black/50 transition-opacity",
+            "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
+          )}
+        >
+          <Camera className="h-5 w-5 text-white" />
+        </div>
+      </button>
+      <div className="text-xs text-muted-foreground">
+        <p>Click to upload</p>
+        <p>JPG, PNG, or WebP. Max 1MB.</p>
+      </div>
     </div>
   );
 }

@@ -13,9 +13,7 @@ export default async function DashboardPage() {
           <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
             <div className="px-4 lg:px-6">
               <h1 className="text-2xl font-semibold">Dashboard</h1>
-              <p className="text-muted-foreground">
-                Welcome back, {user?.name ?? "User"}
-              </p>
+              <p className="text-muted-foreground">Welcome back, {user?.name ?? "User"}</p>
             </div>
             <div className="px-4 lg:px-6">
               <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed py-12 text-center">

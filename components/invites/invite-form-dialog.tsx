@@ -58,7 +58,18 @@ export function InviteFormDialog({
   const [useLimit, setUseLimit] = useState("");
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(undefined);
 
-  const isEditMode = !!inviteId;
+  // Track edit mode state to prevent layout shift during close animation.
+  // We only update this when the dialog opens, not when it closes.
+  const [wasEditMode, setWasEditMode] = useState(false);
+
+  const isEditMode = open ? !!inviteId : wasEditMode;
+
+  // Update wasEditMode when dialog opens
+  useEffect(() => {
+    if (open) {
+      setWasEditMode(!!inviteId);
+    }
+  }, [open, inviteId]);
 
   const resetForm = useCallback(() => {
     setLabel("");

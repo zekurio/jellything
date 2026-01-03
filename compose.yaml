@@ -16,17 +16,5 @@ services:
       timeout: 5s
       retries: 5
 
-  jellyfin:
-    image: jellyfin/jellyfin:latest
-    container_name: jellything-jellyfin
-    ports:
-      - "8096:8096"
-    volumes:
-      - ./jellyfin/config:/config
-      - ./jellyfin/cache:/cache
-      - ./jellyfin/media:/media
-    environment:
-      - JELLYFIN_PublishedServerUrl=http://localhost:8096
-
 volumes:
   postgres_data:

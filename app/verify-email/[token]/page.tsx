@@ -5,13 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { verifyEmail } from "@/app/actions/email";
 
@@ -20,9 +14,7 @@ export default function VerifyEmailPage() {
   const router = useRouter();
   const token = params.token as string;
 
-  const [status, setStatus] = useState<"verifying" | "success" | "error">(
-    "verifying",
-  );
+  const [status, setStatus] = useState<"verifying" | "success" | "error">("verifying");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,9 +49,7 @@ export default function VerifyEmailPage() {
         <Card className="w-full max-w-sm">
           <CardContent className="flex flex-col items-center justify-center gap-4 py-12">
             <Spinner size="lg" />
-            <span className="text-sm text-muted-foreground">
-              Verifying email...
-            </span>
+            <span className="text-sm text-muted-foreground">Verifying email...</span>
           </CardContent>
         </Card>
       </div>
@@ -90,12 +80,9 @@ export default function VerifyEmailPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-semibold tracking-tight">
-            Email verified
-          </CardTitle>
+          <CardTitle className="text-2xl font-semibold tracking-tight">Email verified</CardTitle>
           <CardDescription>
-            Your email has been successfully verified. Redirecting to
-            dashboard...
+            Your email has been successfully verified. Redirecting to dashboard...
           </CardDescription>
         </CardHeader>
       </Card>

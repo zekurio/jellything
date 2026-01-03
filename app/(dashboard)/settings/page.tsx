@@ -1,37 +1,24 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { SiteHeader } from "@/components/layout/site-header";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
-import { getFullProfileAction } from "@/app/actions/user/profile";
-import { useSession, useAsyncData } from "@/lib/hooks";
-import { ProfileTab } from "@/components/settings/profile-tab";
-import { ServerSettingsTab } from "@/components/settings/server-settings-tab";
-
-interface ProfileData {
-  id: string;
-  name: string;
-  email: string | null;
-  emailVerified: boolean;
-  avatarUrl: string;
-}
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { JellyfinSettingsTab } from "@/components/settings/jellyfin-settings-tab";
+import { AppSettingsTab } from "@/components/settings/app-settings-tab";
+import { EmailSettingsTab } from "@/components/settings/email-settings-tab";
+import { useSession } from "@/lib/hooks";
 
 export default function SettingsPage() {
-  const { isAdmin } = useSession();
-  const [activeTab, setActiveTab] = useState("profile");
+  const { isAdmin, isLoading } = useSession();
+  const router = useRouter();
 
-  const fetchProfile = useCallback(async () => {
-    const result = await getFullProfileAction();
-    if (!result.success || !result.data) {
-      throw new Error("Failed to load profile");
+  useEffect(() => {
+    if (!isLoading && !isAdmin) {
+      router.push("/dashboard");
     }
-    return result.data;
-  }, []);
-
-  const { data: profile, isLoading } = useAsyncData<ProfileData>(fetchProfile, [], {
-    errorMessage: "Failed to load settings",
-  });
+  }, [isAdmin, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -46,28 +33,29 @@ export default function SettingsPage() {
     );
   }
 
+  if (!isAdmin) {
+    return null;
+  }
+
   return (
     <>
       <SiteHeader breadcrumbs={[{ label: "Settings" }]} />
       <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs defaultValue="jellyfin" className="w-full">
           <TabsList>
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="server" disabled className="opacity-50 cursor-not-allowed">
-                Server Settings
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="jellyfin">Jellyfin</TabsTrigger>
+            <TabsTrigger value="app">App</TabsTrigger>
+            <TabsTrigger value="email">Email</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="profile" className="mt-6">
-            <ProfileTab profile={profile} onUpdate={() => setActiveTab("profile")} />
+          <TabsContent value="jellyfin" className="mt-4">
+            <JellyfinSettingsTab />
           </TabsContent>
-          {isAdmin && (
-            <TabsContent value="server" className="mt-6">
-              <ServerSettingsTab />
-            </TabsContent>
-          )}
+          <TabsContent value="app" className="mt-4">
+            <AppSettingsTab />
+          </TabsContent>
+          <TabsContent value="email" className="mt-4">
+            <EmailSettingsTab />
+          </TabsContent>
         </Tabs>
       </div>
     </>

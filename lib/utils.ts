@@ -1,5 +1,5 @@
 import { type ClassValue, clsx } from "clsx";
-import { formatDistanceToNow, parseISO } from "date-fns";
+import { format, formatDistanceToNow, parseISO } from "date-fns";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -14,6 +14,11 @@ export function formatRelativeTime(dateString: string | null): string {
   } catch {
     return dateString;
   }
+}
+
+export function formatMemberSince(date: Date | string): string {
+  const dateObj = typeof date === "string" ? parseISO(date) : date;
+  return format(dateObj, "MMMM yyyy");
 }
 
 export function getInitials(name: string): string {

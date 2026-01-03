@@ -1,5 +1,6 @@
 import {
-	JELLYFIN_URL,
+	JELLYFIN_INTERNAL_URL,
+	JELLYFIN_EXTERNAL_URL,
 	JellyfinClient,
 	createAdminApi,
 	type CompanionPasswordResetResponse,
@@ -11,8 +12,15 @@ import {
 	type JellyfinUserPolicy,
 } from "@/server/jellyfin/client";
 
-// API instance with server API key for admin operations
-const api = createAdminApi();
+// Lazy API instance with caching - avoids issues with config not being loaded at module init
+let cachedApi: JellyfinClient | null = null;
+
+function getApi(): JellyfinClient {
+	if (!cachedApi) {
+		cachedApi = createAdminApi();
+	}
+	return cachedApi;
+}
 
 export interface JellyfinUser {
 	id: string;
@@ -34,7 +42,7 @@ export async function authenticateUser(
 	password: string,
 ): Promise<JellyfinAuthResult> {
 	// Create a temporary API instance WITHOUT credentials for authentication
-	const tempApi = new JellyfinClient(JELLYFIN_URL);
+	const tempApi = new JellyfinClient(JELLYFIN_INTERNAL_URL());
 
 	const result = await tempApi.post<JellyfinAuthResponse>("/Users/AuthenticateByName", {
 		Username: username,
@@ -62,7 +70,7 @@ export async function authenticateUser(
  * Uses the server API key to fetch user policy.
  */
 export async function isUserAdmin(userId: string): Promise<boolean> {
-	const result = await api.get<JellyfinUserDto>(`/Users/${userId}`);
+	const result = await getApi().get<JellyfinUserDto>(`/Users/${userId}`);
 	return result.Policy?.IsAdministrator ?? false;
 }
 
@@ -70,7 +78,7 @@ export async function isUserAdmin(userId: string): Promise<boolean> {
  * Get user details by ID.
  */
 export async function getUserById(userId: string): Promise<JellyfinUser> {
-	const user = await api.get<JellyfinUserDto>(`/Users/${userId}`);
+	const user = await getApi().get<JellyfinUserDto>(`/Users/${userId}`);
 
 	if (!user.Id || !user.Name) {
 		throw new Error("User not found");
@@ -90,7 +98,7 @@ export async function getUserById(userId: string): Promise<JellyfinUser> {
  * Requests 512x512 to look sharp on retina displays (2x/3x DPI).
  */
 export function getUserAvatarUrl(userId: string): string {
-	return `${JELLYFIN_URL}/Users/${userId}/Images/Primary?fillWidth=512&fillHeight=512&quality=90`;
+	return `${JELLYFIN_EXTERNAL_URL()}/Users/${userId}/Images/Primary?fillWidth=512&fillHeight=512&quality=90`;
 }
 
 export interface JellyfinUserListItem {
@@ -108,7 +116,7 @@ export interface JellyfinUserListItem {
  * Requires admin API key.
  */
 export async function getAllUsers(): Promise<JellyfinUserListItem[]> {
-	const result = await api.get<JellyfinUserDto[]>("/Users");
+	const result = await getApi().get<JellyfinUserDto[]>("/Users");
 	return (result ?? []).map((user) => ({
 		id: user.Id ?? "",
 		name: user.Name ?? "Unknown",
@@ -130,7 +138,7 @@ export interface ServerInfo {
  * Uses the public system info endpoint.
  */
 export async function getServerInfo(): Promise<ServerInfo> {
-	const result = await api.get<JellyfinSystemInfo>("/System/Info/Public");
+	const result = await getApi().get<JellyfinSystemInfo>("/System/Info/Public");
 	return {
 		name: result.ServerName ?? "Jellyfin",
 		version: result.Version ?? "Unknown",
@@ -147,7 +155,7 @@ export interface MediaLibrary {
  * Get all media libraries from the server.
  */
 export async function getMediaLibraries(): Promise<MediaLibrary[]> {
-	const result = await api.get<JellyfinMediaFoldersResponse>("/Library/MediaFolders");
+	const result = await getApi().get<JellyfinMediaFoldersResponse>("/Library/MediaFolders");
 	return (result.Items ?? []).map((item) => ({
 		id: item.Id ?? "",
 		name: item.Name ?? "Unknown",
@@ -169,7 +177,7 @@ export interface UserPolicyDetails {
  * Get user policy details including library access and bitrate limits.
  */
 export async function getUserPolicy(userId: string): Promise<UserPolicyDetails> {
-	const result = await api.get<JellyfinUserDto>(`/Users/${userId}`);
+	const result = await getApi().get<JellyfinUserDto>(`/Users/${userId}`);
 	const policy = result.Policy;
 	return {
 		enabledFolders: policy?.EnabledFolders ?? [],
@@ -196,7 +204,7 @@ export interface UserPolicyUpdate {
  * Delete a user from Jellyfin.
  */
 export async function deleteUser(userId: string): Promise<void> {
-	await api.delete(`/Users/${userId}`);
+	await getApi().delete(`/Users/${userId}`);
 }
 
 /**
@@ -204,7 +212,7 @@ export async function deleteUser(userId: string): Promise<void> {
  * Merges updates with existing policy to preserve other settings.
  */
 export async function updateUserPolicy(userId: string, updates: UserPolicyUpdate): Promise<void> {
-	const currentUser = await api.get<JellyfinUserDto>(`/Users/${userId}`);
+	const currentUser = await getApi().get<JellyfinUserDto>(`/Users/${userId}`);
 	const currentPolicy = currentUser.Policy;
 
 	if (!currentPolicy) {
@@ -236,14 +244,14 @@ export async function updateUserPolicy(userId: string, updates: UserPolicyUpdate
 		}),
 	};
 
-	await api.post(`/Users/${userId}/Policy`, updatedPolicy);
+	await getApi().post(`/Users/${userId}/Policy`, updatedPolicy);
 }
 
 /**
  * Create a new Jellyfin user with username and password.
  */
 export async function createUser(username: string, password: string): Promise<JellyfinUser> {
-	const result = await api.post<JellyfinUserDto>("/Users/New", {
+	const result = await getApi().post<JellyfinUserDto>("/Users/New", {
 		Name: username,
 		Password: password,
 	});
@@ -276,7 +284,7 @@ export async function adminResetUserPassword(
 	jellyfinUserId: string,
 	newPassword: string,
 ): Promise<void> {
-	await api.post(`/Users/${jellyfinUserId}/Password`, {
+	await getApi().post(`/Users/${jellyfinUserId}/Password`, {
 		NewPw: newPassword,
 		ResetPassword: true, // Admin-only: bypass current password requirement
 	});
@@ -295,7 +303,7 @@ export async function uploadUserAvatar(
 ): Promise<void> {
 	// Jellyfin API expects base64-encoded string, not raw binary
 	const base64Image = imageBuffer.toString("base64");
-	await api.upload(`/Users/${userId}/Images/Primary`, base64Image, mimeType);
+	await getApi().upload(`/Users/${userId}/Images/Primary`, base64Image, mimeType);
 }
 
 export interface ForgotPasswordResult {
@@ -309,7 +317,7 @@ export interface ForgotPasswordResult {
  * This triggers Jellyfin's forgot password flow.
  */
 export async function forgotPassword(username: string): Promise<ForgotPasswordResult> {
-	const result = await api.post<JellyfinForgotPasswordResponse>("/Users/ForgotPassword", {
+	const result = await getApi().post<JellyfinForgotPasswordResponse>("/Users/ForgotPassword", {
 		EnteredUsername: username,
 	});
 
@@ -325,7 +333,7 @@ export async function forgotPassword(username: string): Promise<ForgotPasswordRe
  * After this, the user's password is set to the PIN itself.
  */
 export async function forgotPasswordPin(pin: string): Promise<void> {
-	await api.post("/Users/ForgotPassword/Pin", {
+	await getApi().post("/Users/ForgotPassword/Pin", {
 		Pin: pin,
 	});
 }
@@ -353,7 +361,7 @@ export interface PasswordResetPinInfo {
  */
 export async function getPasswordResetPin(username: string): Promise<PasswordResetPinInfo | null> {
 	try {
-		const result = await api.get<CompanionPasswordResetResponse>(
+		const result = await getApi().get<CompanionPasswordResetResponse>(
 			`/JellythingCompanion/PasswordReset/${encodeURIComponent(username)}`,
 		);
 

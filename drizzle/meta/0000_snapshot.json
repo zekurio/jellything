@@ -1,5 +1,5 @@
 {
-  "id": "20a85037-aa0e-4540-b271-844fec2e823a",
+  "id": "0e56aab1-24b1-4ba5-89ff-bc6ac25b8170",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -49,15 +49,15 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "email_verification_tokens_user_id_users_jellyfin_user_id_fk": {
-          "name": "email_verification_tokens_user_id_users_jellyfin_user_id_fk",
+        "email_verification_tokens_user_id_users_user_id_fk": {
+          "name": "email_verification_tokens_user_id_users_user_id_fk",
           "tableFrom": "email_verification_tokens",
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
           "columnsTo": [
-            "jellyfin_user_id"
+            "user_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -123,15 +123,15 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "invite_usages_user_id_users_jellyfin_user_id_fk": {
-          "name": "invite_usages_user_id_users_jellyfin_user_id_fk",
+        "invite_usages_user_id_users_user_id_fk": {
+          "name": "invite_usages_user_id_users_user_id_fk",
           "tableFrom": "invite_usages",
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
           "columnsTo": [
-            "jellyfin_user_id"
+            "user_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -220,15 +220,15 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "invites_created_by_id_users_jellyfin_user_id_fk": {
-          "name": "invites_created_by_id_users_jellyfin_user_id_fk",
+        "invites_created_by_id_users_user_id_fk": {
+          "name": "invites_created_by_id_users_user_id_fk",
           "tableFrom": "invites",
           "tableTo": "users",
           "columnsFrom": [
             "created_by_id"
           ],
           "columnsTo": [
-            "jellyfin_user_id"
+            "user_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -354,15 +354,15 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "sessions_user_id_users_jellyfin_user_id_fk": {
-          "name": "sessions_user_id_users_jellyfin_user_id_fk",
+        "sessions_user_id_users_user_id_fk": {
+          "name": "sessions_user_id_users_user_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
           "columnsTo": [
-            "jellyfin_user_id"
+            "user_id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -378,8 +378,8 @@
       "name": "users",
       "schema": "",
       "columns": {
-        "jellyfin_user_id": {
-          "name": "jellyfin_user_id",
+        "user_id": {
+          "name": "user_id",
           "type": "text",
           "primaryKey": true,
           "notNull": true

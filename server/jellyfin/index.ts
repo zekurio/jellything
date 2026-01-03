@@ -1,6 +1,7 @@
 // Re-export client utilities
 export {
-	JELLYFIN_URL,
+	JELLYFIN_INTERNAL_URL,
+	JELLYFIN_EXTERNAL_URL,
 	JellyfinClient,
 	JellyfinApiError,
 	createAdminApi,

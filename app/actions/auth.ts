@@ -17,7 +17,7 @@ import type { JellyfinUser } from "@/server/jellyfin/admin";
 export async function login(input: {
   username: string;
   password: string;
-}): Promise<ActionResult<{ id: string; name: string; isAdmin: boolean }>> {
+}): Promise<ActionResult<{ userId: string; name: string; isAdmin: boolean }>> {
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) {
     return error(parsed.error.issues[0]?.message || "Validation failed");
@@ -35,7 +35,7 @@ export async function login(input: {
     cookieStore.set("session", sessionId, sessionCookieConfig);
 
     return success({
-      id: authResult.id,
+      userId: authResult.id,
       name: authResult.name,
       isAdmin: authResult.isAdmin,
     });
@@ -60,8 +60,7 @@ export async function logout(): Promise<ActionResult<null>> {
 
 export async function getCurrentUser(): Promise<
   ActionResult<{
-    id: string;
-    jellyfinUserId: string;
+    userId: string;
     name: string;
     isAdmin: boolean;
   } | null>
@@ -73,12 +72,11 @@ export async function getCurrentUser(): Promise<
 
   const [isAdmin, jellyfinUser] = await Promise.all([
     getAdminStatus(session),
-    getUserById(session.user.jellyfinUserId),
+    getUserById(session.user.userId),
   ]);
 
   return success({
-    id: session.user.jellyfinUserId,
-    jellyfinUserId: session.user.jellyfinUserId,
+    userId: session.user.userId,
     name: jellyfinUser.name,
     isAdmin,
   });
@@ -97,7 +95,7 @@ export async function getCurrentUserFull(): Promise<
 
   const [isAdmin, jellyfinUser] = await Promise.all([
     getAdminStatus(session),
-    getUserById(session.user.jellyfinUserId),
+    getUserById(session.user.userId),
   ]);
 
   return success({

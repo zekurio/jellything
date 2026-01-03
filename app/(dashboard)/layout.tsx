@@ -12,7 +12,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
-  const session = { userId: user.id, isAdmin: user.isAdmin };
+  const session = {
+    userId: user.userId,
+    isAdmin: user.isAdmin,
+    email: user.email,
+    emailVerified: user.emailVerified,
+  };
 
   return (
     <SessionProviderWrapper session={session}>

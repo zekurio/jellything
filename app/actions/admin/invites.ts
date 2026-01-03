@@ -46,7 +46,6 @@ export type InviteHistoryItem = {
   inviteLabel: string | null;
   inviteCode: string;
   userId: string;
-  jellyfinUserId: string | null;
   userName: string;
   avatarUrl: string | null;
   usedAt: string;
@@ -275,22 +274,20 @@ export async function getInviteHistory(): Promise<ActionResult<InviteHistoryItem
         inviteLabel: invites.label,
         inviteCode: invites.code,
         userId: inviteUsages.userId,
-        jellyfinUserId: users.jellyfinUserId,
         usedAt: inviteUsages.usedAt,
       })
       .from(inviteUsages)
       .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
-      .leftJoin(users, eq(inviteUsages.userId, users.jellyfinUserId))
+      .leftJoin(users, eq(inviteUsages.userId, users.userId))
       .orderBy(desc(inviteUsages.usedAt));
 
     const usagesWithUserData = await Promise.all(
       result.map(async (usage) => {
         let userName = "Unknown";
-        let jellyfinUserId = usage.jellyfinUserId ?? null;
         let avatarUrl = null;
-        if (usage.jellyfinUserId) {
+        if (usage.userId) {
           try {
-            const jellyfinUser = await getUserById(usage.jellyfinUserId);
+            const jellyfinUser = await getUserById(usage.userId);
             userName = jellyfinUser.name;
             avatarUrl = jellyfinUser.avatarUrl;
           } catch {
@@ -303,7 +300,6 @@ export async function getInviteHistory(): Promise<ActionResult<InviteHistoryItem
           inviteLabel: usage.inviteLabel,
           inviteCode: usage.inviteCode ?? "",
           userId: usage.userId,
-          jellyfinUserId,
           userName,
           avatarUrl,
           usedAt: usage.usedAt.toISOString(),

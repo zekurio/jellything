@@ -32,8 +32,8 @@ export async function verifyEmail(input: { token: string }): Promise<ActionResul
   await db
     .update(users)
     .set({ emailVerified: true })
-    .where(eq(users.jellyfinUserId, user.jellyfinUserId));
-  await deleteEmailVerificationToken(user.jellyfinUserId);
+    .where(eq(users.userId, user.userId));
+  await deleteEmailVerificationToken(user.userId);
 
   revalidatePath("/");
 
@@ -60,9 +60,9 @@ export async function resendVerification(): Promise<ActionResult<null>> {
     return error("No email address on file");
   }
 
-  const jellyfinUser = await getUserById(user.jellyfinUserId);
+  const jellyfinUser = await getUserById(user.userId);
 
-  const token = await createEmailVerificationToken(user.jellyfinUserId);
+  const token = await createEmailVerificationToken(user.userId);
   const verifyUrl = `${env.NEXT_PUBLIC_APP_URL}/verify-email/${token}`;
 
   const html = await renderVerifyEmail({

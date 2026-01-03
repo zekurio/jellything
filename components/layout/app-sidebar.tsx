@@ -5,7 +5,6 @@ import {
   IconMail,
   IconServer,
   IconSettings,
-  IconShield,
   IconUser,
   IconUsers,
 } from "@tabler/icons-react";
@@ -66,6 +65,7 @@ const navSecondary = [
     title: "Settings",
     url: "/settings",
     icon: IconSettings,
+    adminOnly: true,
   },
 ];
 
@@ -80,14 +80,13 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   isAdmin?: boolean;
 }
 
-export function AppSidebar({
-  user,
-  serverInfo,
-  isAdmin = false,
-  ...props
-}: AppSidebarProps) {
+export function AppSidebar({ user, serverInfo, isAdmin = false, ...props }: AppSidebarProps) {
   const visibleGroups = useMemo(() => {
     return navGroups.filter((group) => !group.adminOnly || isAdmin);
+  }, [isAdmin]);
+
+  const visibleSecondaryItems = useMemo(() => {
+    return navSecondary.filter((item) => !item.adminOnly || isAdmin);
   }, [isAdmin]);
 
   return (
@@ -107,9 +106,7 @@ export function AppSidebar({
                   {serverInfo ? (
                     <>
                       <span className="font-medium">{serverInfo.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        v{serverInfo.version}
-                      </span>
+                      <span className="text-xs text-muted-foreground">v{serverInfo.version}</span>
                     </>
                   ) : (
                     <>
@@ -125,7 +122,9 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain groups={visibleGroups} />
-        <NavSecondary items={navSecondary} className="mt-auto" />
+        {visibleSecondaryItems.length > 0 && (
+          <NavSecondary items={visibleSecondaryItems} className="mt-auto" />
+        )}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

@@ -47,3 +47,6 @@ next-env.d.ts
 
 # jellyfin
 jellyfin/
+
+# config (contains secrets)
+config.json

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import {
   getAllUsers,
@@ -11,6 +12,8 @@ import {
   getMediaLibraries,
 } from "@/server/jellyfin";
 import { requireAdmin } from "@/lib/auth";
+import { db } from "@/server/db";
+import { users } from "@/server/db/schema";
 import { success, error, type ActionResult } from "../types";
 import { policyUpdateSchema, bulkPolicyUpdateSchema, bulkDeleteSchema } from "@/lib/schemas";
 import type { JellyfinUserListItem, JellyfinUser, MediaLibrary } from "@/server/jellyfin/admin";
@@ -153,5 +156,19 @@ export async function bulkDeleteUsersAction(input: z.infer<typeof bulkDeleteSche
     });
   } catch (err) {
     return error(err instanceof Error ? err.message : "Failed to bulk delete users");
+  }
+}
+
+export async function getUserCreatedAtAction(
+  userId: string,
+): Promise<ActionResult<{ createdAt: Date | null }>> {
+  try {
+    await requireAdmin();
+    const user = await db.query.users.findFirst({
+      where: eq(users.userId, userId),
+    });
+    return success({ createdAt: user?.createdAt ?? null });
+  } catch (err) {
+    return error(err instanceof Error ? err.message : "Failed to get user info");
   }
 }

@@ -9,7 +9,7 @@ import { cn, getInitials } from "@/lib/utils";
 
 // Unified avatar validation constants
 export const AVATAR_CONFIG = {
-  maxSize: 5 * 1024 * 1024, // 5MB
+  maxSize: 1024 * 1024, // 1MB
   acceptedTypes: ["image/jpeg", "image/png", "image/webp"] as const,
   acceptString: "image/jpeg,image/png,image/webp",
 } as const;
@@ -88,7 +88,7 @@ export function AvatarUpload({
 
       // Validate file size
       if (file.size > AVATAR_CONFIG.maxSize) {
-        toast.error("Image must be less than 5MB");
+        toast.error("Image must be less than 1MB");
         return;
       }
 
@@ -170,7 +170,9 @@ export function AvatarUpload({
             </>
           )}
         </Button>
-        <p className="mt-1 text-xs text-muted-foreground">JPG, PNG, or WebP. Max 5MB.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          JPG, PNG, or WebP. Max {AVATAR_CONFIG.maxSize / 1024 / 1024}MB.
+        </p>
       </div>
     </div>
   );

@@ -1,7 +1,9 @@
-import { env } from "@/lib/env";
+import { configManager } from "@/lib/config";
 import { version } from "@/package.json";
 
-export const JELLYFIN_URL = env.JELLYFIN_URL;
+// Export URLs from config for external use
+export const JELLYFIN_INTERNAL_URL = () => configManager.jellyfinInternalUrl;
+export const JELLYFIN_EXTERNAL_URL = () => configManager.jellyfinExternalUrl;
 
 // Client info for Jellyfin authentication headers
 const CLIENT_NAME = "Jellything";
@@ -66,13 +68,20 @@ export class JellyfinClient {
 			headers.set("Content-Type", "application/json");
 		}
 
+		const startTime = Date.now();
+		console.log(`[jellyfin] ${options.method || "GET"} ${url}`);
+
 		const response = await fetch(url, {
 			...options,
 			headers,
 		});
 
+		const duration = Date.now() - startTime;
+		console.log(`[jellyfin] ${response.status} ${response.statusText} (${duration}ms) ${url}`);
+
 		if (!response.ok) {
 			const errorText = await response.text();
+			console.error(`[jellyfin] Error response: ${errorText}`);
 			throw new JellyfinApiError(
 				`Jellyfin API error: ${response.status} ${response.statusText}`,
 				response.status,
@@ -127,14 +136,19 @@ export class JellyfinClient {
 		headers.set("X-Emby-Authorization", buildAuthHeader(this.token));
 		headers.set("Content-Type", contentType);
 
+		console.log(`[jellyfin] POST ${url}`);
+
 		const response = await fetch(url, {
 			method: "POST",
 			headers,
 			body: data,
 		});
 
+		console.log(`[jellyfin] ${response.status} ${response.statusText} ${url}`);
+
 		if (!response.ok) {
 			const errorText = await response.text();
+			console.error(`[jellyfin] Upload error response: ${errorText}`);
 			throw new JellyfinApiError(
 				`Upload failed: ${response.status} ${response.statusText}`,
 				response.status,
@@ -162,14 +176,14 @@ export class JellyfinApiError extends Error {
  * Create an API client with a user's access token.
  */
 export function createApiWithToken(token: string): JellyfinClient {
-	return new JellyfinClient(env.JELLYFIN_URL, token);
+	return new JellyfinClient(configManager.jellyfinInternalUrl, token);
 }
 
 /**
  * Create an API client with the admin API key.
  */
 export function createAdminApi(): JellyfinClient {
-	return new JellyfinClient(env.JELLYFIN_URL, env.JELLYFIN_API_KEY);
+	return new JellyfinClient(configManager.jellyfinInternalUrl, configManager.jellyfin.apiKey);
 }
 
 // Jellyfin API response types

@@ -28,17 +28,17 @@ function generateSessionId(): string {
  * Creates the user record if it doesn't exist.
  */
 export async function createSession(
-  jellyfinUserId: string,
+  userId: string,
   isAdmin: boolean,
   accessToken: string,
 ): Promise<string> {
   // Find or create user
   let user = await db.query.users.findFirst({
-    where: eq(users.jellyfinUserId, jellyfinUserId),
+    where: eq(users.userId, userId),
   });
 
   if (!user) {
-    const [newUser] = await db.insert(users).values({ jellyfinUserId }).returning();
+    const [newUser] = await db.insert(users).values({ userId }).returning();
     user = newUser;
   }
 
@@ -52,7 +52,7 @@ export async function createSession(
 
   await db.insert(sessions).values({
     id: sessionId,
-    userId: user.jellyfinUserId,
+    userId: user.userId,
     accessToken: encryptedToken,
     isAdmin,
     adminCheckedAt: now,
@@ -113,7 +113,7 @@ export function isAdminStatusStale(session: Session): boolean {
  * Returns the updated admin status.
  */
 export async function refreshAdminStatus(session: SessionWithUser): Promise<boolean> {
-  const isAdmin = await isUserAdmin(session.user.jellyfinUserId);
+  const isAdmin = await isUserAdmin(session.user.userId);
 
   await db
     .update(sessions)

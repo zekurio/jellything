@@ -31,7 +31,7 @@ export const profiles = pgTable("profiles", {
 });
 
 export const users = pgTable("users", {
-  jellyfinUserId: text("jellyfin_user_id").primaryKey(),
+  userId: text("user_id").primaryKey(),
   email: text("email").unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   inviteId: uuid("invite_id"),
@@ -48,7 +48,7 @@ export const invites = pgTable("invites", {
   useLimit: integer("use_limit"),
   useCount: integer("use_count").notNull().default(0),
   expiresAt: timestamp("expires_at"),
-  createdById: text("created_by_id").references(() => users.jellyfinUserId),
+  createdById: text("created_by_id").references(() => users.userId),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -59,7 +59,7 @@ export const inviteUsages = pgTable("invite_usages", {
     .references(() => invites.id),
   userId: text("user_id")
     .notNull()
-    .references(() => users.jellyfinUserId),
+    .references(() => users.userId),
   usedAt: timestamp("used_at").notNull().defaultNow(),
 });
 
@@ -67,7 +67,7 @@ export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.jellyfinUserId, { onDelete: "cascade" }),
+    .references(() => users.userId, { onDelete: "cascade" }),
   accessToken: text("access_token").notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
   adminCheckedAt: timestamp("admin_checked_at").notNull().defaultNow(),
@@ -78,7 +78,7 @@ export const emailVerificationTokens = pgTable("email_verification_tokens", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id")
     .notNull()
-    .references(() => users.jellyfinUserId, { onDelete: "cascade" }),
+    .references(() => users.userId, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
   pendingEmail: text("pending_email"),
   expiresAt: timestamp("expires_at").notNull(),
@@ -106,7 +106,7 @@ export const invitesRelations = relations(invites, ({ one, many }) => ({
   }),
   createdBy: one(users, {
     fields: [invites.createdById],
-    references: [users.jellyfinUserId],
+    references: [users.userId],
   }),
   usages: many(inviteUsages),
 }));
@@ -118,21 +118,21 @@ export const inviteUsagesRelations = relations(inviteUsages, ({ one }) => ({
   }),
   user: one(users, {
     fields: [inviteUsages.userId],
-    references: [users.jellyfinUserId],
+    references: [users.userId],
   }),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
   user: one(users, {
     fields: [sessions.userId],
-    references: [users.jellyfinUserId],
+    references: [users.userId],
   }),
 }));
 
 export const emailVerificationTokensRelations = relations(emailVerificationTokens, ({ one }) => ({
   user: one(users, {
     fields: [emailVerificationTokens.userId],
-    references: [users.jellyfinUserId],
+    references: [users.userId],
   }),
 }));
 

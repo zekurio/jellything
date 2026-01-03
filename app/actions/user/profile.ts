@@ -31,30 +31,6 @@ import { destroySession } from "@/server/session";
 
 const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 
-export async function getOwnProfileAction(): Promise<
-  ActionResult<{
-    id: string;
-    name: string;
-  }>
-> {
-  try {
-    const session = await getSession();
-    if (!session) {
-      return error("Unauthorized");
-    }
-
-    const userApi = createApiWithToken(session.decryptedAccessToken);
-    const profile = await getOwnProfile(userApi, session.user.jellyfinUserId);
-
-    return success({
-      id: session.user.jellyfinUserId,
-      name: profile.name ?? "Unknown",
-    });
-  } catch (err) {
-    return error(err instanceof Error ? err.message : "Failed to get profile");
-  }
-}
-
 export async function getFullProfileAction(): Promise<
   ActionResult<{
     id: string;
@@ -62,6 +38,7 @@ export async function getFullProfileAction(): Promise<
     email: string | null;
     emailVerified: boolean;
     avatarUrl: string;
+    createdAt: Date;
   }>
 > {
   try {
@@ -71,14 +48,20 @@ export async function getFullProfileAction(): Promise<
     }
 
     const userApi = createApiWithToken(session.decryptedAccessToken);
-    const profile = await getOwnProfile(userApi, session.user.jellyfinUserId);
+    const profile = await getOwnProfile(userApi, session.user.userId);
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.userId, session.user.userId),
+      columns: { createdAt: true },
+    });
 
     return success({
-      id: session.user.jellyfinUserId,
+      id: session.user.userId,
       name: profile.name ?? "Unknown",
       email: session.user.email,
       emailVerified: session.user.emailVerified,
-      avatarUrl: getUserAvatarUrl(session.user.jellyfinUserId),
+      avatarUrl: getUserAvatarUrl(session.user.userId),
+      createdAt: user?.createdAt ?? new Date(),
     });
   } catch (err) {
     return error(err instanceof Error ? err.message : "Failed to get profile");
@@ -100,7 +83,7 @@ export async function updateOwnProfileAction(
     }
 
     const userApi = createApiWithToken(session.decryptedAccessToken);
-    await updateOwnProfile(userApi, session.user.jellyfinUserId, parsed.data);
+    await updateOwnProfile(userApi, session.user.userId, parsed.data);
 
     revalidatePath("/dashboard");
     return success(null);
@@ -126,7 +109,7 @@ export async function changePasswordAction(
     const userApi = createApiWithToken(session.decryptedAccessToken);
     await changePasswordApi(
       userApi,
-      session.user.jellyfinUserId,
+      session.user.userId,
       parsed.data.currentPassword,
       parsed.data.newPassword,
     );
@@ -159,15 +142,15 @@ export async function updateEmailAction(
 
     const jellyfinUser = await getOwnProfile(
       createApiWithToken(session.decryptedAccessToken),
-      session.user.jellyfinUserId,
+      session.user.userId,
     );
 
     await db
       .update(users)
       .set({ email: newEmail, emailVerified: false })
-      .where(eq(users.jellyfinUserId, session.user.jellyfinUserId));
+      .where(eq(users.userId, session.user.userId));
 
-    const verifyToken = await createEmailVerificationToken(session.user.jellyfinUserId);
+    const verifyToken = await createEmailVerificationToken(session.user.userId);
     const verifyUrl = `${env.NEXT_PUBLIC_APP_URL}/verify-email/${verifyToken}`;
 
     const html = await renderVerifyEmail({
@@ -215,7 +198,7 @@ export async function uploadAvatarAction(
     }
 
     const userApi = createApiWithToken(session.decryptedAccessToken);
-    await uploadOwnAvatar(userApi, session.user.jellyfinUserId, imageBuffer, mimeType);
+    await uploadOwnAvatar(userApi, session.user.userId, imageBuffer, mimeType);
 
     revalidatePath("/dashboard");
     return success(null);
@@ -231,9 +214,9 @@ export async function deleteAccountAction(): Promise<ActionResult<null>> {
       return error("Unauthorized");
     }
 
-    await deleteUser(session.user.jellyfinUserId);
+    await deleteUser(session.user.userId);
 
-    await db.delete(users).where(eq(users.jellyfinUserId, session.user.jellyfinUserId));
+    await db.delete(users).where(eq(users.userId, session.user.userId));
 
     const cookieStore = await cookies();
     const sessionId = cookieStore.get("session")?.value;

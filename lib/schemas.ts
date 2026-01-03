@@ -1,13 +1,4 @@
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
-import {
-  profiles,
-  invites,
-  users,
-  inviteUsages,
-  sessions,
-  emailVerificationTokens,
-} from "@/server/db/schema";
 
 // Password validation types
 export type PasswordStrength = "weak" | "fair" | "good" | "strong";
@@ -49,8 +40,7 @@ export function validatePassword(password: string): PasswordValidationResult {
   if (passedCount >= 4) strength = "good";
   if (passedCount === 5) strength = "strong";
 
-  const isValid =
-    checks.minLength && checks.hasUppercase && checks.hasLowercase;
+  const isValid = checks.minLength && checks.hasUppercase && checks.hasLowercase;
 
   return { isValid, strength, errors, checks };
 }
@@ -73,21 +63,6 @@ export const passwordSchema = z
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
-
-export const profileInsertSchema = createInsertSchema(profiles);
-export const profileSelectSchema = createSelectSchema(profiles);
-
-export const inviteInsertSchema = createInsertSchema(invites);
-export const inviteSelectSchema = createSelectSchema(invites);
-
-export const userInsertSchema = createInsertSchema(users);
-export const userSelectSchema = createSelectSchema(users);
-
-export const inviteUsageInsertSchema = createInsertSchema(inviteUsages);
-export const sessionInsertSchema = createInsertSchema(sessions);
-export const emailVerificationTokenInsertSchema = createInsertSchema(
-  emailVerificationTokens,
-);
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -163,21 +138,6 @@ export const bulkDeleteSchema = z.object({
   userIds: z.array(z.string().min(1, "User ID is required")),
 });
 
-export const passwordResetRequestSchema = z.object({
-  email: z.email("Invalid email address"),
-});
-
-export const passwordResetVerifyPinSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  pin: z.string().min(1, "PIN is required"),
-});
-
-export const passwordResetCompleteSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  pin: z.string().min(1, "PIN is required"),
-  newPassword: passwordSchema,
-});
-
 export const emailVerificationSchema = z.object({
   token: z.string().min(1, "Token is required"),
 });
@@ -193,10 +153,6 @@ export const updateOwnProfileSchema = z.object({
 
 export const updateEmailSchema = z.object({
   newEmail: z.email("Invalid email address"),
-});
-
-export const confirmEmailChangeSchema = z.object({
-  code: z.string().length(6, "Code must be 6 digits"),
 });
 
 export const uploadAvatarSchema = z.object({

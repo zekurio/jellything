@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, eq, gt, isNull, lt } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/server/db";
 import { emailVerificationTokens, users, type User } from "@/server/db/schema";
 
@@ -39,7 +39,7 @@ export async function validateEmailVerificationToken(rawToken: string): Promise<
       user: users,
     })
     .from(emailVerificationTokens)
-    .innerJoin(users, eq(emailVerificationTokens.userId, users.jellyfinUserId))
+    .innerJoin(users, eq(emailVerificationTokens.userId, users.userId))
     .where(
       and(
         eq(emailVerificationTokens.token, hashedToken),
@@ -57,9 +57,4 @@ export async function validateEmailVerificationToken(rawToken: string): Promise<
 
 export async function deleteEmailVerificationToken(userId: string): Promise<void> {
   await db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
-}
-
-export async function cleanupExpiredTokens(): Promise<void> {
-  const now = new Date();
-  await db.delete(emailVerificationTokens).where(lt(emailVerificationTokens.expiresAt, now));
 }

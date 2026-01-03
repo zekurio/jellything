@@ -32,7 +32,6 @@ type InviteUsage = {
   inviteLabel: string | null;
   inviteCode: string;
   userId: string;
-  jellyfinUserId: string | null;
   userName: string;
   avatarUrl: string | null;
   usedAt: string;
@@ -84,7 +83,7 @@ export function InviteHistoryTable() {
         header: "User",
         cell: ({ row }) => (
           <Link
-            href={`/users/${row.original.jellyfinUserId}`}
+            href={`/users/${row.original.userId}`}
             className="flex items-center gap-3 hover:underline"
           >
             <Avatar className="h-8 w-8 rounded-lg">

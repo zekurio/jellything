@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "@/server/db";
+import { db, getUserByEmail } from "@/server/db";
 import { inviteUsages, invites, profiles, users } from "@/server/db/schema";
 import {
   authenticateUser,
@@ -75,7 +75,7 @@ export async function validateInvite(code: string): Promise<
 export async function redeemInvite(input: z.infer<typeof redeemInviteSchema>): Promise<
   ActionResult<{
     success: boolean;
-    user?: { id: string; name: string; jellyfinUserId: string };
+    user?: { userId: string; name: string };
     error?: string;
   }>
 > {
@@ -115,10 +115,15 @@ export async function redeemInvite(input: z.infer<typeof redeemInviteSchema>): P
     return error("Username is already taken");
   }
 
+  const normalizedEmail = parsed.data.email.toLowerCase();
+  if (await getUserByEmail(normalizedEmail)) {
+    return error("Email is already registered");
+  }
+
   let result:
     | {
         success: true;
-        user: { id: string; name: string; jellyfinUserId: string };
+        user: { userId: string; name: string };
       }
     | { success: false; error: string; status: number };
 
@@ -190,7 +195,7 @@ export async function redeemInvite(input: z.infer<typeof redeemInviteSchema>): P
       const [newUser] = await tx
         .insert(users)
         .values({
-          jellyfinUserId: jellyfinUser.id,
+          userId: jellyfinUser.id,
           inviteId: invite.id,
           email: parsed.data.email.toLowerCase(),
           emailVerified: false,
@@ -199,15 +204,14 @@ export async function redeemInvite(input: z.infer<typeof redeemInviteSchema>): P
 
       await tx.insert(inviteUsages).values({
         inviteId: invite.id,
-        userId: newUser.jellyfinUserId,
+        userId: newUser.userId,
       });
 
       return {
         success: true,
         user: {
-          id: newUser.jellyfinUserId,
+          userId: newUser.userId,
           name: jellyfinUser.name,
-          jellyfinUserId: jellyfinUser.id,
         },
       } as const;
     });
@@ -224,7 +228,7 @@ export async function redeemInvite(input: z.infer<typeof redeemInviteSchema>): P
 
   if (isEmailConfigured()) {
     try {
-      const token = await createEmailVerificationToken(result.user.id);
+      const token = await createEmailVerificationToken(result.user.userId);
       const verifyUrl = `${env.NEXT_PUBLIC_APP_URL}/verify-email/${token}`;
 
       const html = await renderVerifyEmail({
@@ -245,7 +249,7 @@ export async function redeemInvite(input: z.infer<typeof redeemInviteSchema>): P
   try {
     const authResult = await authenticateUser(parsed.data.username, parsed.data.password);
     const sessionId = await createSession(
-      result.user.jellyfinUserId,
+      result.user.userId,
       false,
       authResult.accessToken,
     );

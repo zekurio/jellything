@@ -1,7 +1,8 @@
 "use client";
 
-import { IconDotsVertical, IconLogout, IconShieldCheck } from "@tabler/icons-react";
+import { IconDotsVertical, IconLogout, IconShieldCheck, IconUser } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -61,6 +62,12 @@ export function NavUser({ user }: NavUserProps) {
             align="start"
             sideOffset={4}
           >
+            <DropdownMenuItem asChild>
+              <Link href="/profile">
+                <IconUser />
+                Profile
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleLogout}>
               <IconLogout />
               Log out

@@ -48,7 +48,7 @@ CREATE TABLE "sessions" (
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
-	"jellyfin_user_id" text PRIMARY KEY NOT NULL,
+	"user_id" text PRIMARY KEY NOT NULL,
 	"email" text,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"invite_id" uuid,
@@ -56,9 +56,9 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-ALTER TABLE "email_verification_tokens" ADD CONSTRAINT "email_verification_tokens_user_id_users_jellyfin_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("jellyfin_user_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "email_verification_tokens" ADD CONSTRAINT "email_verification_tokens_user_id_users_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("user_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invite_usages" ADD CONSTRAINT "invite_usages_invite_id_invites_id_fk" FOREIGN KEY ("invite_id") REFERENCES "public"."invites"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "invite_usages" ADD CONSTRAINT "invite_usages_user_id_users_jellyfin_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("jellyfin_user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invite_usages" ADD CONSTRAINT "invite_usages_user_id_users_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invites" ADD CONSTRAINT "invites_profile_id_profiles_id_fk" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "invites" ADD CONSTRAINT "invites_created_by_id_users_jellyfin_user_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."users"("jellyfin_user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_jellyfin_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("jellyfin_user_id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "invites" ADD CONSTRAINT "invites_created_by_id_users_user_id_fk" FOREIGN KEY ("created_by_id") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("user_id") ON DELETE cascade ON UPDATE no action;

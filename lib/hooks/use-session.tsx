@@ -6,6 +6,8 @@ import { getSession } from "@/lib/auth";
 export interface SessionData {
   userId: string;
   isAdmin: boolean;
+  email: string | null;
+  emailVerified: boolean;
 }
 
 interface SessionContextValue {
@@ -31,7 +33,12 @@ export function SessionProvider({
     try {
       const result = await getSession();
       if (result) {
-        setSession({ userId: result.userId, isAdmin: result.isAdmin });
+        setSession({
+          userId: result.userId,
+          isAdmin: result.isAdmin,
+          email: result.user.email,
+          emailVerified: result.user.emailVerified,
+        });
       } else {
         setSession(null);
       }
@@ -66,9 +73,4 @@ export function useSession() {
     throw new Error("useSession must be used within a SessionProvider");
   }
   return context;
-}
-
-export function useIsAdmin() {
-  const { isAdmin, isLoading } = useSession();
-  return { isAdmin, isLoading };
 }

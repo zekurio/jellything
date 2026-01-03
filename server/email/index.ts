@@ -1,16 +1,25 @@
 import { Resend } from "resend";
-import { env } from "@/lib/env";
+import { configManager } from "@/lib/config";
 
 let resendClient: Resend | null = null;
 
 function getResendClient(): Resend {
   if (!resendClient) {
-    if (!env.RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is not configured");
+    const apiKey = configManager.email?.resendApiKey;
+    if (!apiKey) {
+      throw new Error("Resend API key is not configured");
     }
-    resendClient = new Resend(env.RESEND_API_KEY);
+    resendClient = new Resend(apiKey);
   }
   return resendClient;
+}
+
+/**
+ * Reset the cached Resend client.
+ * Call this after updating email configuration to ensure the new API key is used.
+ */
+export function resetEmailClient(): void {
+  resendClient = null;
 }
 
 export interface SendEmailOptions {
@@ -22,9 +31,14 @@ export interface SendEmailOptions {
 
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
   const client = getResendClient();
+  const emailConfig = configManager.email;
+
+  if (!emailConfig?.from) {
+    throw new Error("Email 'from' address is not configured");
+  }
 
   const { error } = await client.emails.send({
-    from: env.EMAIL_FROM,
+    from: emailConfig.from,
     to: options.to,
     subject: options.subject,
     html: options.html,
@@ -37,5 +51,5 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
 }
 
 export function isEmailConfigured(): boolean {
-  return Boolean(env.RESEND_API_KEY);
+  return Boolean(configManager.email?.resendApiKey);
 }
