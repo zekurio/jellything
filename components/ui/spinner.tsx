@@ -1,4 +1,4 @@
-import { IconLoader2 } from "@tabler/icons-react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SpinnerProps {
@@ -15,7 +15,7 @@ const sizeClasses = {
 
 export function Spinner({ className, size = "md", centered = false }: SpinnerProps) {
   const spinner = (
-    <IconLoader2
+    <Loader2
       className={cn("animate-spin text-muted-foreground", sizeClasses[size], className)}
     />
   );

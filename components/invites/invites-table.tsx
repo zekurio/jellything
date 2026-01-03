@@ -1,15 +1,15 @@
 "use client";
 
 import {
-  IconCheck,
-  IconClock,
-  IconCopy,
-  IconEdit,
-  IconPlus,
-  IconSearch,
-  IconTrash,
-  IconX,
-} from "@tabler/icons-react";
+  Check,
+  Clock,
+  Copy,
+  Edit,
+  Plus,
+  Search,
+  Trash,
+  X,
+} from "lucide-react";
 import {
   type ColumnDef,
   flexRender,
@@ -64,21 +64,21 @@ function getStatusBadge(status: Invite["status"]) {
     case "active":
       return (
         <Badge variant="default" className="gap-1">
-          <IconCheck className="h-3 w-3" />
+          <Check className="h-3 w-3" />
           Active
         </Badge>
       );
     case "expired":
       return (
         <Badge variant="secondary" className="gap-1">
-          <IconClock className="h-3 w-3" />
+          <Clock className="h-3 w-3" />
           Expired
         </Badge>
       );
     case "exhausted":
       return (
         <Badge variant="outline" className="gap-1">
-          <IconX className="h-3 w-3" />
+          <X className="h-3 w-3" />
           Exhausted
         </Badge>
       );
@@ -179,7 +179,7 @@ export function InvitesTable() {
               }}
               aria-label="Copy invite link"
             >
-              <IconCopy className="h-4 w-4" />
+              <Copy className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
@@ -190,7 +190,7 @@ export function InvitesTable() {
               }}
               aria-label="Edit invite"
             >
-              <IconEdit className="h-4 w-4" />
+              <Edit className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
@@ -201,7 +201,7 @@ export function InvitesTable() {
               }}
               aria-label="Delete invite"
             >
-              <IconTrash className="h-4 w-4 text-destructive" />
+              <Trash className="h-4 w-4 text-destructive" />
             </Button>
           </div>
         ),
@@ -256,7 +256,7 @@ export function InvitesTable() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 flex-1">
           <div className="relative flex-1 max-w-sm">
-            <IconSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search invites..."
               value={globalFilter}
@@ -266,7 +266,7 @@ export function InvitesTable() {
           </div>
         </div>
         <Button onClick={createDialog.open}>
-          <IconPlus className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 h-4 w-4" />
           Create Invite
         </Button>
       </div>

@@ -1,4 +1,4 @@
-import { IconHome } from "@tabler/icons-react";
+import { Home } from "lucide-react";
 import Link from "next/link";
 import {
   Breadcrumb,
@@ -34,7 +34,7 @@ export function SiteHeader({ breadcrumbs }: SiteHeaderProps) {
             <BreadcrumbItemUI>
               <BreadcrumbLink asChild>
                 <Link href="/dashboard">
-                  <IconHome className="size-4" />
+                  <Home className="size-4" />
                 </Link>
               </BreadcrumbLink>
             </BreadcrumbItemUI>

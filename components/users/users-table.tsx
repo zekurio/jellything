@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  IconBan,
-  IconCheck,
-  IconEdit,
-  IconSearch,
-  IconSettings,
-  IconTrash,
-} from "@tabler/icons-react";
+  Ban,
+  Check,
+  Edit,
+  Search,
+  Settings,
+  Trash,
+} from "lucide-react";
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -180,7 +180,7 @@ export function UsersTable() {
               }}
               aria-label={"Edit " + row.original.name}
             >
-              <IconEdit className="h-4 w-4" />
+              <Edit className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
@@ -196,9 +196,9 @@ export function UsersTable() {
               }
             >
               {row.original.isDisabled ? (
-                <IconCheck className="h-4 w-4 text-success" />
+                <Check className="h-4 w-4 text-success" />
               ) : (
-                <IconBan className="h-4 w-4 text-warning" />
+                <Ban className="h-4 w-4 text-warning" />
               )}
             </Button>
             <Button
@@ -210,7 +210,7 @@ export function UsersTable() {
               }}
               aria-label={"Delete " + row.original.name}
             >
-              <IconTrash className="h-4 w-4 text-destructive" />
+              <Trash className="h-4 w-4 text-destructive" />
             </Button>
           </div>
         ),
@@ -350,7 +350,7 @@ export function UsersTable() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 flex-1">
           <div className="relative flex-1 max-w-sm">
-            <IconSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search users..."
               value={globalFilter}
@@ -364,7 +364,7 @@ export function UsersTable() {
             <>
               <span className="text-sm text-muted-foreground">{selectedCount} selected</span>
               <Button variant="outline" size="sm" onClick={bulkEditDialog.open}>
-                <IconSettings className="mr-2 h-4 w-4" />
+                <Settings className="mr-2 h-4 w-4" />
                 Edit Selected
               </Button>
               <Button
@@ -374,9 +374,9 @@ export function UsersTable() {
                 disabled={bulkLoading}
               >
                 {bulkActionWillEnable ? (
-                  <IconCheck className="mr-2 h-4 w-4 text-success" />
+                  <Check className="mr-2 h-4 w-4 text-success" />
                 ) : (
-                  <IconBan className="mr-2 h-4 w-4 text-warning" />
+                  <Ban className="mr-2 h-4 w-4 text-warning" />
                 )}
                 {bulkActionWillEnable ? "Enable Selected" : "Disable Selected"}
               </Button>
@@ -386,7 +386,7 @@ export function UsersTable() {
                 onClick={() => handleBulkDelete()}
                 disabled={bulkLoading}
               >
-                <IconTrash className="mr-2 h-4 w-4" />
+                <Trash className="mr-2 h-4 w-4" />
                 Delete Selected
               </Button>
             </>

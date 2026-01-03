@@ -1,6 +1,6 @@
 "use client";
 
-import { IconEdit, IconPlus, IconSearch, IconStar, IconTrash } from "@tabler/icons-react";
+import { Edit, Plus, Search, Star, Trash } from "lucide-react";
 import {
   type ColumnDef,
   flexRender,
@@ -147,7 +147,7 @@ export function ProfilesTable() {
               }}
               title="Edit"
             >
-              <IconEdit className="h-4 w-4" />
+              <Edit className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
@@ -159,7 +159,7 @@ export function ProfilesTable() {
               disabled={row.original.isDefault || defaultLoading}
               title={row.original.isDefault ? "Already default" : "Set as default"}
             >
-              <IconStar
+              <Star
                 className={
                   row.original.isDefault ? "h-4 w-4 fill-current text-amber-500" : "h-4 w-4"
                 }
@@ -176,7 +176,7 @@ export function ProfilesTable() {
               title={row.original.isDefault ? "Cannot delete default profile" : "Delete"}
               className="text-destructive hover:text-destructive"
             >
-              <IconTrash className="h-4 w-4" />
+              <Trash className="h-4 w-4" />
             </Button>
           </div>
         ),
@@ -231,7 +231,7 @@ export function ProfilesTable() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 flex-1">
           <div className="relative flex-1 max-w-sm">
-            <IconSearch className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search profiles..."
               value={globalFilter}
@@ -241,7 +241,7 @@ export function ProfilesTable() {
           </div>
         </div>
         <Button onClick={createDialog.open}>
-          <IconPlus className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 h-4 w-4" />
           Create Profile
         </Button>
       </div>

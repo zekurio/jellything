@@ -1,6 +1,6 @@
 "use client";
 
-import { IconDotsVertical, IconLogout, IconShieldCheck, IconUser } from "@tabler/icons-react";
+import { EllipsisVertical, LogOut, ShieldCheck, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -48,12 +48,12 @@ export function NavUser({ user }: NavUserProps) {
                 <span className="truncate font-medium">{user.name}</span>
                 {user.isAdmin && (
                   <span className="text-muted-foreground truncate text-xs flex items-center gap-1">
-                    <IconShieldCheck className="size-3" />
+                    <ShieldCheck className="size-3" />
                     Administrator
                   </span>
                 )}
               </div>
-              <IconDotsVertical className="ml-auto size-4" />
+              <EllipsisVertical className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -64,12 +64,12 @@ export function NavUser({ user }: NavUserProps) {
           >
             <DropdownMenuItem asChild>
               <Link href="/profile">
-                <IconUser />
+                <User />
                 Profile
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleLogout}>
-              <IconLogout />
+              <LogOut />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

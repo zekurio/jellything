@@ -1,13 +1,13 @@
 "use client";
 
 import {
-  IconHistory,
-  IconMail,
-  IconServer,
-  IconSettings,
-  IconUser,
-  IconUsers,
-} from "@tabler/icons-react";
+  History,
+  Mail,
+  Server,
+  Settings,
+  User,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import type * as React from "react";
 import { useMemo } from "react";
@@ -33,17 +33,17 @@ const navGroups: NavGroup[] = [
       {
         title: "Invites",
         url: "/invites",
-        icon: IconMail,
+        icon: Mail,
       },
       {
         title: "Profiles",
         url: "/profiles",
-        icon: IconUser,
+        icon: User,
       },
       {
         title: "History",
         url: "/invites/history",
-        icon: IconHistory,
+        icon: History,
       },
     ],
   },
@@ -54,7 +54,7 @@ const navGroups: NavGroup[] = [
       {
         title: "Users",
         url: "/users",
-        icon: IconUsers,
+        icon: Users,
       },
     ],
   },
@@ -64,7 +64,7 @@ const navSecondary = [
   {
     title: "Settings",
     url: "/settings",
-    icon: IconSettings,
+    icon: Settings,
     adminOnly: true,
   },
 ];
@@ -100,7 +100,7 @@ export function AppSidebar({ user, serverInfo, isAdmin = false, ...props }: AppS
             >
               <Link href="/dashboard">
                 <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                  <IconServer className="size-5" />
+                  <Server className="size-5" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none h-8 justify-center">
                   {serverInfo ? (

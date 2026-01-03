@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useId } from "react";
-import { IconEye, IconEyeOff, IconCheck, IconX } from "@tabler/icons-react";
+import { Eye, EyeOff, Check, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -78,9 +78,9 @@ export function PasswordInput({
           tabIndex={-1}
         >
           {showPassword ? (
-            <IconEyeOff className="h-4 w-4 text-muted-foreground" />
+            <EyeOff className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <IconEye className="h-4 w-4 text-muted-foreground" />
+            <Eye className="h-4 w-4 text-muted-foreground" />
           )}
         </Button>
       </div>
@@ -137,9 +137,9 @@ function RequirementCheck({
   return (
     <div className="flex items-center gap-2 text-xs">
       {passed ? (
-        <IconCheck className="h-3 w-3 text-green-500" />
+        <Check className="h-3 w-3 text-green-500" />
       ) : (
-        <IconX className={cn("h-3 w-3", optional ? "text-muted-foreground" : "text-destructive")} />
+        <X className={cn("h-3 w-3", optional ? "text-muted-foreground" : "text-destructive")} />
       )}
       <span
         className={cn(

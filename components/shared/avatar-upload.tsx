@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { IconCamera, IconUser, IconX } from "@tabler/icons-react";
+import { Camera, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -127,7 +127,7 @@ export function AvatarUpload({
         <Avatar className={sizeClasses[size]}>
           <AvatarImage src={displayUrl || undefined} alt={name} />
           <AvatarFallback className={fallbackTextSizes[size]}>
-            {name ? getInitials(name) : <IconUser className={iconSizes[size]} />}
+            {name ? getInitials(name) : <User className={iconSizes[size]} />}
           </AvatarFallback>
         </Avatar>
 
@@ -140,7 +140,7 @@ export function AvatarUpload({
             onClick={handleClear}
             disabled={disabled || isUploading}
           >
-            <IconX className="h-3 w-3" />
+            <X className="h-3 w-3" />
           </Button>
         )}
       </div>
@@ -165,7 +165,7 @@ export function AvatarUpload({
             <>Uploading...</>
           ) : (
             <>
-              <IconCamera className="mr-2 h-4 w-4" />
+              <Camera className="mr-2 h-4 w-4" />
               {previewUrl || currentAvatarUrl ? "Change" : "Upload"} Photo
             </>
           )}
