@@ -28,6 +28,7 @@
         let
           packageJson = lib.importJSON ./package.json;
           version = if appVersion != null then appVersion else packageJson.version;
+          pnpm = pkgs.pnpm_10;
           src = lib.cleanSourceWith {
             src = ./.;
             filter =
@@ -55,13 +56,14 @@
 
           pnpmDeps = pkgs.fetchPnpmDeps {
             inherit (finalAttrs) pname version src;
+            inherit pnpm;
             fetcherVersion = 3;
             hash = "sha256-VThSwKfhqCfs/wCBGmoH5iDd3RBZZywX6NFBn9rBBE0=";
           };
 
           nativeBuildInputs = [
             pkgs.nodejs_24
-            pkgs.pnpm
+            pnpm
             pkgs.pnpmConfigHook
           ];
 
@@ -134,6 +136,7 @@
         { config, pkgs, ... }:
         let
           cfg = config.services.jellything;
+          system = pkgs.stdenv.hostPlatform.system;
           inherit (lib)
             mkEnableOption
             mkIf
@@ -147,8 +150,8 @@
 
             package = mkOption {
               type = types.package;
-              default = self.packages.${pkgs.system}.default;
-              defaultText = lib.literalExpression "jellything.packages.${pkgs.system}.default";
+              default = self.packages.${system}.default;
+              defaultText = lib.literalExpression "jellything.packages.${system}.default";
               description = "Jellything package to run.";
             };
 
@@ -298,7 +301,7 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             nodejs_24
-            pnpm
+            pnpm_10
           ];
         };
       }
