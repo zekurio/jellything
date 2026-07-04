@@ -339,9 +339,7 @@ export function InvitesGrid({
       scopedStore.getState().setInvites(pageResult.data.invites)
       scopedStore
         .getState()
-        .setAvailableProfiles(
-          Array.from(pageResult.data.profileOptions as ProfileDto[]),
-        )
+        .setAvailableProfiles(Array.from(pageResult.data.profileOptions))
     } finally {
       scopedStore.getState().setIsLoading(false)
     }

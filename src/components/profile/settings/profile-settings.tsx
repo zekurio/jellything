@@ -34,11 +34,15 @@ import { getApiErrorMessage } from "@/lib/api/error-message"
 import {
   LOCALE_LABELS,
   SUPPORTED_LOCALES,
+  isValidLocale,
   useTranslations,
-  type Locale,
 } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
-import { getProfileTabPath, type ProfileTab } from "@/lib/profile-tabs"
+import {
+  getProfileTabPath,
+  isProfileTab,
+  type ProfileTab,
+} from "@/lib/profile-tabs"
 import type { MyExpiryInfo } from "@/lib/renewal-types"
 import {
   normalizeEmail,
@@ -183,6 +187,10 @@ export function ProfileSettings({
 
   const handleTabChange = useCallback(
     (nextTab: string) => {
+      if (!isProfileTab(nextTab)) {
+        return
+      }
+
       if (nextTab === activeTab) {
         return
       }
@@ -195,7 +203,7 @@ export function ProfileSettings({
       }
 
       void navigate({
-        to: getProfileTabPath(nextTab as ProfileTab),
+        to: getProfileTabPath(nextTab),
         replace: true,
       })
     },
@@ -317,8 +325,12 @@ export function ProfileSettings({
   async function handlePreferencesSubmit(data: {
     locale: string
   }): Promise<void> {
-    const localeValue =
-      data.locale === "_default" ? null : (data.locale as Locale)
+    const localeValue = data.locale === "_default" ? null : data.locale
+    if (localeValue !== null && !isValidLocale(localeValue)) {
+      toast.error(t("settings.languageSaveFailed"))
+      return
+    }
+
     const client = getBrowserORPCClient()
 
     store.getState().setIsPreferencesSaving(true)

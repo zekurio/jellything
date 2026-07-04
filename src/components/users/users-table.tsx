@@ -87,6 +87,12 @@ type BulkOperationSuccessResult = Extract<
   { ok: true }
 >
 
+function isBulkOperationSuccessResult(
+  result: BulkManagedUserResultDto,
+): result is BulkOperationSuccessResult {
+  return result.ok && !("skipped" in result)
+}
+
 function patchUserFromUpdateResult(
   user: ManagedUserListItemDto,
   result: UpdateManagedUserDto,
@@ -564,8 +570,8 @@ export function UsersTable({
       }
 
       const successResults = result.data.results.filter(
-        (result) => result.ok && !("skipped" in result),
-      ) as BulkOperationSuccessResult[]
+        isBulkOperationSuccessResult,
+      )
       const success = successResults.length
       const failed = result.data.results.filter((result) => !result.ok).length
 

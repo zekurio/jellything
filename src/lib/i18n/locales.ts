@@ -16,11 +16,13 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   de: "Deutsch",
 }
 
+const SUPPORTED_LOCALE_VALUES: ReadonlySet<string> = new Set(SUPPORTED_LOCALES)
+
 /**
  * Check if a string is a valid locale.
  */
 export function isValidLocale(locale: string): locale is Locale {
-  return SUPPORTED_LOCALES.includes(locale as Locale)
+  return SUPPORTED_LOCALE_VALUES.has(locale)
 }
 
 /**
