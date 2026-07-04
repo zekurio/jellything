@@ -10,7 +10,7 @@ import { and, eq, isNull } from "drizzle-orm"
 
 import { env } from "@/env"
 import { configManager } from "@/lib/server/config.server"
-import { db, ensureMigrated } from "@/server/db.server"
+import { db, ensureMigrated } from "@/server/db"
 import { sessions } from "@/server/db/schema"
 import { createChildLogger } from "@/server/logger"
 

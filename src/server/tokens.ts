@@ -2,7 +2,7 @@ import crypto from "node:crypto"
 
 import { and, eq, gt } from "drizzle-orm"
 
-import { db, ensureMigrated } from "@/server/db.server"
+import { db, ensureMigrated } from "@/server/db"
 import { emailVerificationTokens, users, type User } from "@/server/db/schema"
 
 const EMAIL_VERIFICATION_EXPIRY_MS = 24 * 60 * 60 * 1000

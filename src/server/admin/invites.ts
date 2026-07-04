@@ -14,13 +14,13 @@ import {
   inviteHistoryPageInputSchema,
   invitesPageInputSchema,
 } from "@/server/api/schemas/admin-schemas"
-import { db, ensureMigrated } from "@/server/db.server"
+import { db, ensureMigrated } from "@/server/db"
 import { inviteUsages, invites, profiles, users } from "@/server/db/schema"
-import { generateInviteCode } from "@/server/invite"
+import { generateInviteCode } from "@/server/invites"
 import { getAllUsers } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
 
-const log = createChildLogger({ module: "admin-invites-service" })
+const log = createChildLogger({ module: "admin-invites" })
 
 type InviteListItem = {
   id: string

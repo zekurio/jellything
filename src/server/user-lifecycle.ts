@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull, ne, or, sql } from "drizzle-orm"
 
 import { resolveLocale } from "@/lib/i18n"
 import { configManager } from "@/lib/server/config.server"
-import { db, ensureMigrated } from "@/server/db.server"
+import { db, ensureMigrated } from "@/server/db"
 import {
   emailVerificationTokens,
   inviteUsages,

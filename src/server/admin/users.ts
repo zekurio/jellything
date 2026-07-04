@@ -10,14 +10,14 @@ import {
 } from "@/lib/api/contracts/errors"
 import { normalizeEmail, updateManagedUserSchema } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
-import { ensureDefaultProfileService } from "@/server/admin/profiles-service"
+import { ensureDefaultProfileService } from "@/server/admin/profiles"
 import {
   bulkManagedUsersSchema,
   usersPageInputSchema,
   type BulkManagedUserResultDto,
   type BulkManagedUsersDto,
 } from "@/server/api/schemas/admin-schemas"
-import { db, ensureMigrated } from "@/server/db.server"
+import { db, ensureMigrated } from "@/server/db"
 import { profiles, users } from "@/server/db/schema"
 import {
   deleteUser,
@@ -41,7 +41,7 @@ import {
   deleteLinkedSeerrUser,
   ensureUserRecord,
   syncUsersWithJellyfin,
-} from "@/server/users"
+} from "@/server/user-lifecycle"
 
 const userIdSchema = z.string().min(1, "User ID is required")
 

@@ -10,7 +10,7 @@ import {
 import { resolveLocale } from "@/lib/i18n"
 import { passwordSchema } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
-import { db, ensureMigrated } from "@/server/db.server"
+import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
 import { isEmailConfigured, sendEmail } from "@/server/email"
 import {

@@ -2,15 +2,15 @@ import { and, count, desc, gte, lte, sql } from "drizzle-orm"
 
 import { success, type ActionResult } from "@/lib/api/contracts/errors"
 import { classifyInviteStatus, deriveInviteStatus } from "@/lib/invite-status"
-import { db, ensureMigrated } from "@/server/db.server"
+import { db, ensureMigrated } from "@/server/db"
 import { inviteUsages, invites, users } from "@/server/db/schema"
 import { getAllUsers } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
 
-const log = createChildLogger({ module: "admin-overview-service" })
+const log = createChildLogger({ module: "admin-overview" })
 
 const DAY_MS = 24 * 60 * 60 * 1000
-// Mirrors USER_EXPIRY_WARNING_WINDOW_MS in src/server/users.ts (72h) so the
+// Mirrors USER_EXPIRY_WARNING_WINDOW_MS in src/server/user-lifecycle.ts (72h) so the
 // "expiring soon" tile matches the window that actually triggers warning mail.
 const EXPIRING_SOON_WINDOW_MS = 72 * 60 * 60 * 1000
 const REDEMPTION_WINDOW_DAYS = 7

@@ -55,7 +55,7 @@ async function loadModules() {
 
   const session = await import("@/server/session")
   const resolver = await import("@/server/session-resolver")
-  const database = await import("@/server/db.server")
+  const database = await import("@/server/db")
   const schema = await import("@/server/db/schema")
 
   await database.ensureMigrated()

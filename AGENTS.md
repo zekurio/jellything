@@ -135,6 +135,12 @@ function requireInviteInput(input: unknown) {
 - Prefer shared ORPC contracts, schemas, and error helpers over ad-hoc request/response shapes.
 - Forwarded request metadata (`x-forwarded-for`/`x-real-ip`/`x-forwarded-host`) is only trusted when `TRUST_PROXY=true`; by default the client IP is `null` and IP rate limiters share one fail-closed bucket. Deployments behind a trusted, header-overwriting proxy set `TRUST_PROXY=true` for per-client buckets. Keep this in mind when touching rate limiting, request-origin, or onboarding app-URL code.
 
+### Server Module Names
+
+- Name `src/server` modules for their domain without a `-service` suffix.
+- Do not use a `.server.ts` suffix for server modules.
+- Modules that must never be client-imported carry `import "@tanstack/react-start/server-only"` as their first import.
+
 ### Schema Definitions (Drizzle)
 
 For new schema work, use snake_case field names so column names do not need to be redefined as strings.

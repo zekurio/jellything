@@ -7,7 +7,7 @@ export {
   updateJellyfinConfigService,
   updateMemberOnboardingConfigService,
   updateSeerrConfigService,
-} from "@/server/admin/config-service"
+} from "@/server/admin/config"
 
 export async function updateAppConfig(payload: UpdateAppSettingsInput) {
   const updates: Partial<AppConfig> = {}

@@ -3,7 +3,7 @@ import { redirect } from "@tanstack/react-router"
 
 import type { PageAccessResult } from "@/lib/bootstrap-data"
 import { DEFAULT_LOCALE, resolveLocale } from "@/lib/i18n"
-import { clearAuthCookies } from "@/server/auth-service"
+import { clearAuthCookies } from "@/server/auth"
 import { getAppBootstrap } from "@/server/bootstrap-data"
 
 type PageAccessMode =
