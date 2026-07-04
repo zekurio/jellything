@@ -61,6 +61,31 @@ function createId(): string {
   return `page_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
 }
 
+function applyLinePrefix(
+  value: string,
+  start: number,
+  end: number,
+  prefix: string,
+): { value: string; cursor: number } {
+  const lineStart = value.lastIndexOf("\n", start - 1) + 1
+  const lineContent = value.slice(lineStart, end)
+
+  if (lineContent.startsWith(prefix)) {
+    return {
+      value:
+        value.slice(0, lineStart) +
+        lineContent.slice(prefix.length) +
+        value.slice(end),
+      cursor: Math.max(lineStart, start - prefix.length),
+    }
+  }
+
+  return {
+    value: value.slice(0, lineStart) + prefix + value.slice(lineStart),
+    cursor: start + prefix.length,
+  }
+}
+
 function mapConfigToFormValues(
   config: MemberOnboardingConfig,
 ): MemberOnboardingSettingsFormValues {
@@ -250,17 +275,10 @@ function PageEditor({
 
       requestAnimationFrame(() => {
         textarea.focus()
-        if (selected) {
-          textarea.setSelectionRange(
-            start + before.length,
-            start + before.length + selected.length,
-          )
-        } else {
-          textarea.setSelectionRange(
-            start + before.length,
-            start + before.length + placeholder.length,
-          )
-        }
+        const selectionStart = start + before.length
+        const selectionEnd =
+          selectionStart + (selected ? selected.length : placeholder.length)
+        textarea.setSelectionRange(selectionStart, selectionEnd)
       })
     },
     [getTextareaRef, pageIndex, updatePage],
@@ -273,29 +291,16 @@ function PageEditor({
       if (!textarea) return
 
       const { selectionStart: start, selectionEnd: end, value } = textarea
-      const lineStart = value.lastIndexOf("\n", start - 1) + 1
-      const lineContent = value.slice(lineStart, end)
+      const nextLine = applyLinePrefix(value, start, end, prefix)
 
-      const hasPrefix = lineContent.startsWith(prefix)
-      let newValue: string
-      let newCursor: number
-
-      if (hasPrefix) {
-        newValue =
-          value.slice(0, lineStart) +
-          lineContent.slice(prefix.length) +
-          value.slice(end)
-        newCursor = Math.max(lineStart, start - prefix.length)
-      } else {
-        newValue = value.slice(0, lineStart) + prefix + value.slice(lineStart)
-        newCursor = start + prefix.length
-      }
-
-      updatePage(pageIndex, (current) => ({ ...current, markdown: newValue }))
+      updatePage(pageIndex, (current) => ({
+        ...current,
+        markdown: nextLine.value,
+      }))
 
       requestAnimationFrame(() => {
         textarea.focus()
-        textarea.setSelectionRange(newCursor, newCursor)
+        textarea.setSelectionRange(nextLine.cursor, nextLine.cursor)
       })
     },
     [getTextareaRef, pageIndex, updatePage],

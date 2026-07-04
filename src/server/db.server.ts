@@ -8,7 +8,7 @@ import { drizzle } from "drizzle-orm/libsql/node"
 
 import { env } from "@/env"
 import { normalizeEmail } from "@/lib/schemas"
-import * as schema from "@/server/db/schema"
+import { schema } from "@/server/db/schema"
 import { createChildLogger } from "@/server/logger"
 
 const log = createChildLogger({ module: "database" })

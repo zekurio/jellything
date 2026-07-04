@@ -285,9 +285,10 @@ export function ProfileSettings({
       const result = await runApiEffect(client.me.resendVerification({}))
       if (result.error === null) {
         toast.success(t("profile.verificationSent"))
-      } else {
-        toast.error(t("profile.verificationError"))
+        return
       }
+
+      toast.error(t("profile.verificationError"))
     } finally {
       store.getState().setIsResendingVerification(false)
     }

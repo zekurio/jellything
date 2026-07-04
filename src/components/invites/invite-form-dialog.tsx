@@ -114,28 +114,31 @@ export function InviteFormDialog({
           toast.success(t("invites.inviteUpdated"))
           onOpenChange(false)
           onSaveComplete?.(result.data)
-        } else {
-          toast.error(t("invites.inviteSaveFailed"))
+          return
         }
-      } else {
-        const result = await runApiEffect(
-          client.admin.invites.create({
-            profileId: data.profileId,
-            code: data.code || undefined,
-            useLimit: data.useLimit ? Number.parseInt(data.useLimit, 10) : null,
-            expiresAt: data.expiresAt?.toISOString() ?? null,
-          }),
-        )
 
-        if (result.error === null && result.data) {
-          toast.success(t("invites.inviteCreated"))
-          onOpenChange(false)
-          reset(defaultFormValues)
-          onSaveComplete?.(result.data)
-        } else {
-          toast.error(t("invites.inviteSaveFailed"))
-        }
+        toast.error(t("invites.inviteSaveFailed"))
+        return
       }
+
+      const result = await runApiEffect(
+        client.admin.invites.create({
+          profileId: data.profileId,
+          code: data.code || undefined,
+          useLimit: data.useLimit ? Number.parseInt(data.useLimit, 10) : null,
+          expiresAt: data.expiresAt?.toISOString() ?? null,
+        }),
+      )
+
+      if (result.error === null && result.data) {
+        toast.success(t("invites.inviteCreated"))
+        onOpenChange(false)
+        reset(defaultFormValues)
+        onSaveComplete?.(result.data)
+        return
+      }
+
+      toast.error(t("invites.inviteSaveFailed"))
     } catch (err) {
       reportClientError(err)
       toast.error(t("invites.inviteSaveFailed"))

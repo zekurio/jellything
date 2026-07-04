@@ -86,18 +86,14 @@ function sortInvitesByCreatedAtDesc(invites: Invite[]): Invite[] {
 }
 
 function upsertInvite(invites: Invite[], nextInvite: Invite): Invite[] {
-  let found = false
-  const nextInvites = invites.map((invite) => {
-    if (invite.id !== nextInvite.id) {
-      return invite
-    }
-    found = true
-    return nextInvite
-  })
+  const found = invites.some((invite) => invite.id === nextInvite.id)
+  const nextInvites = found
+    ? invites.map((invite) =>
+        invite.id === nextInvite.id ? nextInvite : invite,
+      )
+    : [nextInvite, ...invites]
 
-  return sortInvitesByCreatedAtDesc(
-    found ? nextInvites : [nextInvite, ...invites],
-  )
+  return sortInvitesByCreatedAtDesc(nextInvites)
 }
 
 const InviteCard = memo(function InviteCard({
@@ -445,19 +441,17 @@ export function InvitesGrid({
   const canGoPrevious = invitePage.page > 1
   const canGoNext = invitePage.page < invitePage.pageCount
 
-  const filteredInvites = useMemo(() => invites, [invites])
-
   const { active, attention, inactive } = useMemo(() => {
     const groups: Record<InviteGroup, Invite[]> = {
       active: [],
       attention: [],
       inactive: [],
     }
-    for (const invite of filteredInvites) {
+    for (const invite of invites) {
       groups[classifyInviteStatus(invite.status)].push(invite)
     }
     return groups
-  }, [filteredInvites])
+  }, [invites])
 
   const totalVisible = invitePage.total
 
@@ -533,7 +527,7 @@ export function InvitesGrid({
         }
       />
 
-      {filteredInvites.length === 0 ? (
+      {invites.length === 0 ? (
         <div className="text-muted-foreground rounded-md border p-6 text-center text-sm">
           {t("invites.noInvitesFound")}
         </div>

@@ -43,7 +43,7 @@ function VerifyEmailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    let isActive = true
+    const abortController = new AbortController()
 
     async function verifyEmailAddress() {
       try {
@@ -51,7 +51,7 @@ function VerifyEmailPage() {
         const result = await runApiEffect(client.email.verify({ token }))
 
         if (result.error !== null) {
-          if (!isActive) {
+          if (abortController.signal.aborted) {
             return
           }
           setStatus("error")
@@ -61,7 +61,7 @@ function VerifyEmailPage() {
           return
         }
 
-        if (!isActive) {
+        if (abortController.signal.aborted) {
           return
         }
         if (result.data) {
@@ -74,7 +74,7 @@ function VerifyEmailPage() {
           void router.invalidate()
         }, 2000)
       } catch {
-        if (!isActive) {
+        if (abortController.signal.aborted) {
           return
         }
         setStatus("error")
@@ -85,7 +85,7 @@ function VerifyEmailPage() {
     verifyEmailAddress()
 
     return () => {
-      isActive = false
+      abortController.abort()
       if (redirectTimeoutRef.current) {
         clearTimeout(redirectTimeoutRef.current)
       }

@@ -365,48 +365,53 @@ export function ProfileFormDialog({
         )
 
         if (res.error === null && res.data) {
-          if ((res.data.syncFailedCount ?? 0) > 0) {
+          const syncFailedCount = res.data.syncFailedCount ?? 0
+          if (syncFailedCount > 0) {
             toast.warning(
               t("profiles.profileUpdatedWithSyncWarnings", {
-                count: res.data.syncFailedCount ?? 0,
+                count: syncFailedCount,
               }),
             )
-          } else {
+          }
+          if (syncFailedCount === 0) {
             toast.success(t("profiles.profileUpdated"))
           }
           onOpenChange(false)
           onSaveComplete?.(res.data)
-        } else {
-          const code = getApiErrorCodeValue(res.error)
-          toast.error(
-            t(
-              resolveErrorKey(toErrorCode(code), {
-                [ErrorCode.ALREADY_EXISTS]: "profiles.profileNameAlreadyExists",
-              }),
-            ),
-          )
+          return
         }
-      } else {
-        const res = await runApiEffect(
-          client.admin.profiles.create({ name: data.name, policy }),
-        )
 
-        if (res.error === null && res.data) {
-          toast.success(t("profiles.profileCreated"))
-          onOpenChange(false)
-          reset(defaultFormValues)
-          onSaveComplete?.(res.data)
-        } else {
-          const code = getApiErrorCodeValue(res.error)
-          toast.error(
-            t(
-              resolveErrorKey(toErrorCode(code), {
-                [ErrorCode.ALREADY_EXISTS]: "profiles.profileNameAlreadyExists",
-              }),
-            ),
-          )
-        }
+        const code = getApiErrorCodeValue(res.error)
+        toast.error(
+          t(
+            resolveErrorKey(toErrorCode(code), {
+              [ErrorCode.ALREADY_EXISTS]: "profiles.profileNameAlreadyExists",
+            }),
+          ),
+        )
+        return
       }
+
+      const res = await runApiEffect(
+        client.admin.profiles.create({ name: data.name, policy }),
+      )
+
+      if (res.error === null && res.data) {
+        toast.success(t("profiles.profileCreated"))
+        onOpenChange(false)
+        reset(defaultFormValues)
+        onSaveComplete?.(res.data)
+        return
+      }
+
+      const code = getApiErrorCodeValue(res.error)
+      toast.error(
+        t(
+          resolveErrorKey(toErrorCode(code), {
+            [ErrorCode.ALREADY_EXISTS]: "profiles.profileNameAlreadyExists",
+          }),
+        ),
+      )
     } catch {
       toast.error(t("profiles.profileSaveFailed"))
     }
@@ -726,11 +731,9 @@ export function ProfileFormDialog({
 
                       if (option.children) {
                         for (const child of option.children) {
-                          if (checked) {
-                            next = next | child.value
-                          } else {
-                            next = next & ~child.value
-                          }
+                          next = checked
+                            ? next | child.value
+                            : next & ~child.value
                         }
                       }
 
@@ -776,9 +779,9 @@ export function ProfileFormDialog({
                                 const on = Boolean(c)
                                 if (option.children) {
                                   toggleParent(option, on)
-                                } else {
-                                  toggle(option.value, on)
+                                  return
                                 }
+                                toggle(option.value, on)
                               }}
                             />
                             <div>

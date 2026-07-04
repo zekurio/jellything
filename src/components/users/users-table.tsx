@@ -583,9 +583,11 @@ export function UsersTable({
 
       if (failed === 0 && success > 0) {
         toast.success(t("users.bulkOperationComplete", { success, failed }))
-      } else if (success > 0) {
+      }
+      if (failed > 0 && success > 0) {
         toast.warning(t("users.bulkOperationComplete", { success, failed }))
-      } else {
+      }
+      if (success === 0) {
         toast.error(t("users.bulkOperationFailed"))
       }
 
