@@ -85,6 +85,15 @@ export interface PasswordValidationResult {
   }
 }
 
+const PASSWORD_STRENGTH_BY_PASSED_COUNT: PasswordStrength[] = [
+  "weak",
+  "weak",
+  "weak",
+  "fair",
+  "good",
+  "strong",
+]
+
 /**
  * Validate password and return detailed results for UI
  */
@@ -104,10 +113,7 @@ export function validatePassword(password: string): PasswordValidationResult {
 
   // Calculate strength based on passed checks
   const passedCount = Object.values(checks).filter(Boolean).length
-  let strength: PasswordStrength = "weak"
-  if (passedCount >= 3) strength = "fair"
-  if (passedCount >= 4) strength = "good"
-  if (passedCount === 5) strength = "strong"
+  const strength = PASSWORD_STRENGTH_BY_PASSED_COUNT[passedCount] ?? "weak"
 
   const isValid = checks.minLength && checks.hasUppercase && checks.hasLowercase
 

@@ -29,7 +29,7 @@ import { resetEmailClient } from "@/server/email"
 import { createChildLogger } from "@/server/logger"
 import { getSeerrStatus } from "@/server/seerr"
 
-const log = createChildLogger({ module: "admin-config-service" })
+const log = createChildLogger({ module: "admin-config" })
 const CONNECTION_TEST_TIMEOUT_MS = 8000
 
 export async function updateJellyfinConfigService(
@@ -84,20 +84,16 @@ export async function getSeerrConfigService(): Promise<
     apiKeySet: boolean
   }>
 > {
-  try {
-    if (!configManager.isConfigured()) {
-      return error(ErrorCode.CONFIG_NOT_INITIALIZED)
-    }
-
-    const config = configManager.seerr
-    return success({
-      internalUrl: config?.internalUrl,
-      externalUrl: config?.externalUrl,
-      apiKeySet: Boolean(config?.apiKey),
-    })
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to get Seerr config")
+  if (!configManager.isConfigured()) {
+    return error(ErrorCode.CONFIG_NOT_INITIALIZED)
   }
+
+  const config = configManager.seerr
+  return success({
+    internalUrl: config?.internalUrl,
+    externalUrl: config?.externalUrl,
+    apiKeySet: Boolean(config?.apiKey),
+  })
 }
 
 export async function updateSeerrConfigService(
@@ -215,18 +211,11 @@ export async function updateEmailConfigService(
 export async function updateMemberOnboardingConfigService(
   data: UpdateMemberOnboardingConfigInput,
 ): Promise<ActionResult<void>> {
-  try {
-    if (!configManager.isConfigured()) {
-      return error(ErrorCode.CONFIG_NOT_INITIALIZED)
-    }
-
-    const nextConfig: MemberOnboardingConfig = data
-    await configManager.setMemberOnboarding(nextConfig)
-    return success(undefined)
-  } catch {
-    return error(
-      ErrorCode.OPERATION_FAILED,
-      "Failed to update member onboarding config",
-    )
+  if (!configManager.isConfigured()) {
+    return error(ErrorCode.CONFIG_NOT_INITIALIZED)
   }
+
+  const nextConfig: MemberOnboardingConfig = data
+  await configManager.setMemberOnboarding(nextConfig)
+  return success(undefined)
 }

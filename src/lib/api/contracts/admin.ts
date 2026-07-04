@@ -25,12 +25,3 @@ export type {
   UsersPageInputDto,
   UsersWithProfilesDto,
 } from "@/server/api/schemas/admin-schemas"
-
-export type {
-  InviteDto as InviteListItem,
-  InviteHistoryItemDto as InviteHistoryItem,
-  ManagedUserListItemDto as ManagedUserListItem,
-  MediaLibraryDto as MediaLibrary,
-  ProfileDto as ProfileListItem,
-  UserProfileOptionDto as UserProfileOption,
-} from "@/server/api/schemas/admin-schemas"

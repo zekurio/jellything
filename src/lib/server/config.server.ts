@@ -208,21 +208,20 @@ class ConfigManager {
         typeof parsedAuth?.encryptionKey === "string" &&
         parsedAuth.encryptionKey.length >= 32
 
-      let updatedConfig = this.config
-
-      if (!hasSessionSecret || !hasEncryptionKey) {
-        updatedConfig = {
-          ...updatedConfig,
-          auth: {
-            sessionSecret: hasSessionSecret
-              ? (parsedAuth?.sessionSecret as string)
-              : generateConfigSecret(),
-            encryptionKey: hasEncryptionKey
-              ? (parsedAuth?.encryptionKey as string)
-              : generateConfigSecret(),
-          },
-        }
-      }
+      const updatedConfig =
+        !hasSessionSecret || !hasEncryptionKey
+          ? {
+              ...this.config,
+              auth: {
+                sessionSecret: hasSessionSecret
+                  ? (parsedAuth?.sessionSecret as string)
+                  : generateConfigSecret(),
+                encryptionKey: hasEncryptionKey
+                  ? (parsedAuth?.encryptionKey as string)
+                  : generateConfigSecret(),
+              },
+            }
+          : this.config
 
       this.config = updatedConfig
 

@@ -1,25 +1,28 @@
-import { eq } from "drizzle-orm"
+import "@tanstack/react-start/server-only"
+import { and, eq, gt, isNotNull } from "drizzle-orm"
 
+import { isValidLocale } from "@/lib/i18n"
 import type { SessionData } from "@/lib/session"
-import { db } from "@/server/db.server"
-import { users } from "@/server/db/schema"
-import { validateUserAccessToken } from "@/server/jellyfin"
+import { db } from "@/server/db"
+import { emailVerificationTokens, users } from "@/server/db/schema"
+import { getUserAvatarUrl, validateUserAccessToken } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
+import { getRequestCookie } from "@/server/request-context"
 import {
   getSessionRecordFromCookie,
   isSessionValidationBackedOff,
   isSessionValidationStale,
   isWithinUnavailableGracePeriod,
   revokeAuthSession,
+  SESSION_COOKIE_NAME,
   SESSION_VALIDATION_BACKOFF_MS,
   touchAuthSession,
   updateAuthSession,
   type SessionRecord,
 } from "@/server/session"
-import { getSessionDataForUser } from "@/server/session-data"
 import { enforceExpiredUserAccess } from "@/server/user-access"
 import { isUserExpired } from "@/server/user-expiry"
-import { ensureUserRecord } from "@/server/users"
+import { ensureUserRecord } from "@/server/user-lifecycle"
 
 const log = createChildLogger({ module: "session-resolver" })
 
@@ -41,6 +44,62 @@ export interface ResolveSessionOptions {
   validationMode?: "never" | "if-stale" | "force"
   allowStaleOnJellyfinFailure?: boolean
   touch?: boolean
+}
+
+export interface SessionFromCookiesResult {
+  status: SessionResolutionStatus
+  session: ResolvedSessionData | null
+  hasCookie: boolean
+  shouldClearCookie: boolean
+}
+
+/**
+ * Hydrate the full, client-safe session payload for a user from persisted state
+ * (current email/verification, locale, avatar). Used both when resolving an
+ * active session and when a service needs a fresh session snapshot after a
+ * profile change.
+ */
+export async function getSessionDataForUser(input: {
+  userId: string
+  name: string
+  isAdmin: boolean
+}): Promise<SessionData> {
+  let user = await db.query.users.findFirst({
+    where: eq(users.userId, input.userId),
+  })
+
+  if (!user) {
+    user = await ensureUserRecord(input.userId)
+  }
+
+  const [pendingVerification] = await db
+    .select({
+      pendingEmail: emailVerificationTokens.pendingEmail,
+    })
+    .from(emailVerificationTokens)
+    .where(
+      and(
+        eq(emailVerificationTokens.userId, input.userId),
+        gt(emailVerificationTokens.expiresAt, new Date()),
+        isNotNull(emailVerificationTokens.pendingEmail),
+      ),
+    )
+    .limit(1)
+
+  const locale = user.locale && isValidLocale(user.locale) ? user.locale : null
+  const email = pendingVerification?.pendingEmail ?? user.email
+  const emailVerified = pendingVerification ? false : user.emailVerified
+
+  return {
+    userId: input.userId,
+    name: input.name,
+    avatarUrl: getUserAvatarUrl(input.userId),
+    isAdmin: input.isAdmin,
+    email,
+    emailVerified,
+    locale,
+    createdAt: user.createdAt.toISOString(),
+  }
 }
 
 async function hydrateSession(
@@ -236,5 +295,37 @@ export async function resolveSession(
     status,
     session: await hydrateSession(record),
     sessionRecord: record,
+  }
+}
+
+/**
+ * Request-facing entry point: read the session cookie from the current request
+ * context and resolve it. Returns `null` when there is no usable session, along
+ * with whether a stale cookie should be cleared from the browser.
+ */
+export async function resolveSessionFromCookies(
+  options: ResolveSessionOptions = {},
+): Promise<SessionFromCookiesResult | null> {
+  const sessionCookieValue = getRequestCookie(SESSION_COOKIE_NAME)
+  const hasCookie = Boolean(sessionCookieValue)
+
+  const resolved = await resolveSession(sessionCookieValue, {
+    validationMode: options.validationMode ?? "if-stale",
+    allowStaleOnJellyfinFailure: options.allowStaleOnJellyfinFailure ?? false,
+    touch: options.touch,
+  })
+
+  if (resolved.status === "unauthenticated") {
+    return null
+  }
+
+  return {
+    status: resolved.status,
+    session: resolved.session,
+    hasCookie,
+    shouldClearCookie:
+      hasCookie &&
+      resolved.status !== "upstream-unreachable" &&
+      !resolved.session,
   }
 }

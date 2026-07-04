@@ -12,7 +12,7 @@ import {
   deleteRequestCookie,
   getRequestCookie,
   setRequestCookie,
-} from "@/server/request-context.server"
+} from "@/server/request-context"
 import {
   createAuthSession,
   getSessionRecordFromCookie,
@@ -21,10 +21,10 @@ import {
   SESSION_COOKIE_NAME,
   updateAuthSession,
 } from "@/server/session"
-import { getSessionDataForUser } from "@/server/session-data"
+import { getSessionDataForUser } from "@/server/session-resolver"
 import { enforceExpiredUserAccess } from "@/server/user-access"
 import { isUserExpired } from "@/server/user-expiry"
-import { ensureUserRecord } from "@/server/users"
+import { ensureUserRecord } from "@/server/user-lifecycle"
 
 const log = createChildLogger({ module: "auth" })
 

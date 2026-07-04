@@ -1,7 +1,9 @@
-import { os } from "@orpc/server"
+import { ORPCError, os } from "@orpc/server"
 
 import { ErrorCode } from "@/lib/api/contracts/errors"
 import { configManager } from "@/lib/server/config.server"
+import { canActAsAdmin } from "@/lib/session"
+import { createChildLogger } from "@/server/logger"
 import type { ORPCContext } from "@/server/orpc/context"
 import { throwAppError } from "@/server/orpc/errors"
 import {
@@ -11,7 +13,30 @@ import {
 } from "@/server/rate-limit"
 import { isAllowedRequestOrigin } from "@/server/request-origin"
 
+const errorBoundaryLog = createChildLogger({ module: "orpc-error-boundary" })
+
 export const orpc = os.$context<ORPCContext>()
+
+// Single top-level safety net for every procedure. Intentional application
+// errors are always thrown as ORPCError (via throwAppError, directly or through
+// unwrapActionResultOrThrow) and pass through untouched. Any other throw is
+// unexpected: log it with context here and translate it into the stable
+// OPERATION_FAILED envelope the client already understands, so per-procedure
+// generic catch-alls are redundant.
+const errorBoundaryMiddleware = orpc.middleware(async ({ next, path }) => {
+  try {
+    return await next()
+  } catch (err) {
+    if (err instanceof ORPCError) {
+      throw err
+    }
+    errorBoundaryLog.error(
+      { err, procedure: path.join(".") },
+      "Unhandled error in ORPC procedure",
+    )
+    throwAppError(ErrorCode.OPERATION_FAILED)
+  }
+})
 
 type SessionRequirement = "optional" | "required" | "admin"
 
@@ -46,7 +71,7 @@ async function enforceSessionRequirement(
   if (
     requirement === "admin" &&
     resolved.session &&
-    !resolved.session.isAdmin
+    !canActAsAdmin(resolved.session)
   ) {
     throwAppError(ErrorCode.FORBIDDEN)
   }
@@ -129,7 +154,7 @@ export async function enforceRateLimit(
   }
 }
 
-export const publicProcedure = orpc
+export const publicProcedure = orpc.use(errorBoundaryMiddleware)
 export const queryProcedure = publicProcedure.use(optionalSessionMiddleware)
 export const mutationProcedure = publicProcedure.use(
   sameOriginMutationMiddleware,

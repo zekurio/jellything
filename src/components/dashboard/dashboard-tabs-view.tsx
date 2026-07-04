@@ -23,14 +23,15 @@ import {
   useDashboardSettingsActiveTabDirty,
 } from "@/hooks/use-dashboard-settings-dirty"
 import type {
-  MediaLibraryDto as MediaLibrary,
-  PagedInviteHistoryDto as PagedInviteHistory,
-  PagedInvitesDto as PagedInvites,
-  ProfileDto as ProfileListItem,
+  MediaLibraryDto,
+  PagedInviteHistoryDto,
+  PagedInvitesDto,
+  ProfileDto,
 } from "@/lib/api/contracts/admin"
 import type { DashboardSettingsBootstrap } from "@/lib/bootstrap-data"
 import {
   getDashboardTabPath,
+  isDashboardTab,
   type DashboardSettingsTab,
   type DashboardTab,
 } from "@/lib/dashboard-tabs"
@@ -70,14 +71,14 @@ interface DashboardTabsViewProps {
   activeSettingsTab: DashboardSettingsTab
   settingsData: DashboardSettingsBootstrap
   invitesData: {
-    invites: PagedInvites
-    profiles: ProfileListItem[]
+    invites: PagedInvitesDto
+    profiles: ProfileDto[]
     query: string
     error: string | null
   }
   profilesData: {
-    profiles: ProfileListItem[]
-    libraries: MediaLibrary[]
+    profiles: ProfileDto[]
+    libraries: MediaLibraryDto[]
     isSeerrConfigured: boolean
     error: string | null
   }
@@ -87,7 +88,7 @@ interface DashboardTabsViewProps {
     error: string | null
   }
   historyData: {
-    page: PagedInviteHistory
+    page: PagedInviteHistoryDto
     query: string
     error: string | null
   }
@@ -108,9 +109,11 @@ function DashboardTabsViewInner({
     useDashboardSettingsActiveTabDirty(activeSettingsTab)
 
   function handleTabChange(value: string): void {
-    const nextTab = value as DashboardTab
+    if (!isDashboardTab(value)) {
+      return
+    }
 
-    if (nextTab === activeTab) {
+    if (value === activeTab) {
       return
     }
 
@@ -122,7 +125,7 @@ function DashboardTabsViewInner({
     }
 
     void navigate({
-      to: getDashboardTabPath(nextTab, activeSettingsTab),
+      to: getDashboardTabPath(value, activeSettingsTab),
       replace: true,
     })
   }

@@ -36,7 +36,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { useSession } from "@/hooks/use-session"
-import type { ErrorCode } from "@/lib/api/contracts/errors"
+import { ErrorCode, isErrorCode } from "@/lib/api/contracts/errors"
 import { toErrorCode } from "@/lib/api/error-code"
 import { getApiErrorMessage } from "@/lib/api/error-message"
 import { useTranslations, resolveErrorKey } from "@/lib/i18n"
@@ -318,7 +318,8 @@ function InviteRedeemPage() {
           type: "setUserEmail",
           userEmail: inviteResult.data.session.email,
         })
-      } else if (inviteResult.error === null) {
+      }
+      if (!inviteResult.data?.session && inviteResult.error === null) {
         setSession(null)
       }
 
@@ -357,12 +358,17 @@ function InviteRedeemPage() {
             onboardingStepTitles: Array.from(data.onboardingSteps),
           })
         }
-      } else {
-        const errorKey = data.error
-          ? resolveErrorKey(data.error as ErrorCode)
-          : "invites.invalidInviteDescription"
-        dispatch({ type: "setErrorMessage", errorMessage: t(errorKey) })
+        dispatch({ type: "setValidating", validating: false })
+        return
       }
+
+      const errorKey =
+        data.error && isErrorCode(data.error)
+          ? resolveErrorKey(data.error)
+          : data.error
+            ? resolveErrorKey(ErrorCode.INTERNAL_ERROR)
+            : "invites.invalidInviteDescription"
+      dispatch({ type: "setErrorMessage", errorMessage: t(errorKey) })
       dispatch({ type: "setValidating", validating: false })
     },
     [code, setSession, t],
@@ -380,10 +386,10 @@ function InviteRedeemPage() {
       return
     }
 
-    let cancelled = false
+    const abortController = new AbortController()
 
-    void hydrateInvitePage(() => cancelled).catch(() => {
-      if (cancelled) return
+    void hydrateInvitePage(() => abortController.signal.aborted).catch(() => {
+      if (abortController.signal.aborted) return
       dispatch({
         type: "setErrorMessage",
         errorMessage: t("errors.internalError"),
@@ -392,7 +398,7 @@ function InviteRedeemPage() {
     })
 
     return () => {
-      cancelled = true
+      abortController.abort()
     }
   }, [code, hydrateInvitePage, reset, t])
 
@@ -429,34 +435,40 @@ function InviteRedeemPage() {
           resolveErrorKey(toErrorCode(codeValue)),
         ),
       )
-    } else if (result.data.success) {
-      const pages = result.data.onboardingPages ?? []
-      if (result.data.session) {
-        setSession(result.data.session)
-      } else {
-        await refresh()
-      }
-      toast.success(t("invites.verificationSent"))
-      if (pages.length === 0) {
-        await navigate({ to: "/" })
-        return
-      }
-      dispatch({
-        type: "setOnboardingStepTitles",
-        onboardingStepTitles: pages.map(
-          (page: { id: string; title: string }) => ({
-            id: page.id,
-            title: page.title,
-          }),
-        ),
-      })
-      dispatch({
-        type: "setOnboardingPages",
-        onboardingPages: Array.from(pages),
-      })
-      dispatch({ type: "setRegistrationComplete", registrationComplete: true })
-      dispatch({ type: "setCurrentStep", currentStep: REGISTRATION_STEP_COUNT })
+      return
     }
+
+    if (!result.data.success) {
+      return
+    }
+
+    const pages = result.data.onboardingPages ?? []
+    if (result.data.session) {
+      setSession(result.data.session)
+    }
+    if (!result.data.session) {
+      await refresh()
+    }
+    toast.success(t("invites.verificationSent"))
+    if (pages.length === 0) {
+      await navigate({ to: "/" })
+      return
+    }
+    dispatch({
+      type: "setOnboardingStepTitles",
+      onboardingStepTitles: pages.map(
+        (page: { id: string; title: string }) => ({
+          id: page.id,
+          title: page.title,
+        }),
+      ),
+    })
+    dispatch({
+      type: "setOnboardingPages",
+      onboardingPages: Array.from(pages),
+    })
+    dispatch({ type: "setRegistrationComplete", registrationComplete: true })
+    dispatch({ type: "setCurrentStep", currentStep: REGISTRATION_STEP_COUNT })
   }
 
   const handleLogout = useCallback(async () => {
@@ -485,14 +497,15 @@ function InviteRedeemPage() {
       const nextFields = STEP_FIELDS[nextStep]
       if (nextFields) clearErrors(nextFields)
       dispatch({ type: "setCurrentStep", currentStep: nextStep })
-    } else {
-      // Onboarding step: just advance
-      if (isLastStep) {
-        void navigate({ to: "/" })
-      } else {
-        dispatch({ type: "setCurrentStep", currentStep: currentStep + 1 })
-      }
+      return
     }
+
+    // Onboarding step: just advance
+    if (isLastStep) {
+      void navigate({ to: "/" })
+      return
+    }
+    dispatch({ type: "setCurrentStep", currentStep: currentStep + 1 })
   }
 
   const handleBack = () => {
@@ -690,7 +703,7 @@ function InviteRedeemPage() {
                       {...register("username")}
                     />
                     {errors.username && (
-                      <FieldError>{usernameErrorMessage}</FieldError>
+                      <FieldError errors={[usernameErrorMessage]} />
                     )}
                   </Field>
                 </FieldGroup>
@@ -773,7 +786,7 @@ function InviteRedeemPage() {
                       {...register("email")}
                     />
                     {emailShouldShowInvalidState && (
-                      <FieldError>{emailErrorMessage}</FieldError>
+                      <FieldError errors={[emailErrorMessage]} />
                     )}
                   </Field>
                 </FieldGroup>

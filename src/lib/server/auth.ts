@@ -1,5 +1,5 @@
-import type { SessionData } from "@/lib/session"
-import { resolveSessionFromCookies } from "@/server/session-from-cookies.server"
+import { canActAsAdmin, type SessionData } from "@/lib/session"
+import { resolveSessionFromCookies } from "@/server/session-resolver"
 
 export class AuthError extends Error {
   readonly reason: "unauthorized" | "forbidden" | "service_unavailable"
@@ -60,7 +60,7 @@ export async function requireSession(): Promise<SessionData> {
 
 export async function requireAdmin(): Promise<SessionData> {
   const session = await requireSession()
-  if (!session.isAdmin) {
+  if (!canActAsAdmin(session)) {
     throw new AuthError("forbidden")
   }
   return session

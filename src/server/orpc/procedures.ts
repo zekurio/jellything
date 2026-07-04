@@ -23,20 +23,20 @@ import {
   deleteInviteService,
   getInviteHistoryPageService,
   updateInviteService,
-} from "@/server/admin/invites-service"
-import { getOverviewService } from "@/server/admin/overview-service"
+} from "@/server/admin/invites"
+import { getOverviewService } from "@/server/admin/overview"
 import {
   createProfileService,
   deleteProfileService,
   updateProfileService,
-} from "@/server/admin/profiles-service"
+} from "@/server/admin/profiles"
 import {
   bulkManageUsersService,
   deleteManagedUserService,
   listUsersWithProfilesService,
   syncUserToSeerrService,
   updateManagedUserService,
-} from "@/server/admin/users-service"
+} from "@/server/admin/users"
 import {
   bulkManagedUsersSchema,
   inviteHistoryPageInputSchema,
@@ -51,18 +51,15 @@ import {
   updateSeerrConfigBodySchema,
 } from "@/server/api/schemas/common-schemas"
 import { initializeConfigBodySchema } from "@/server/api/schemas/public-schemas"
-import { clearAuthCookies, login, logout } from "@/server/auth-service"
+import { clearAuthCookies, login, logout } from "@/server/auth"
 import { getDashboardSettingsBootstrap } from "@/server/bootstrap-data"
 import {
   loadAdminInvitesPageServices,
   loadAdminProfilesPageServices,
 } from "@/server/dashboard-page-data"
 import { isEmailConfigured } from "@/server/email"
-import {
-  verifyEmail,
-  resendVerification,
-} from "@/server/email-verification-service"
-import { redeemInvite, validateInvite } from "@/server/invite-service"
+import { verifyEmail, resendVerification } from "@/server/email-verification"
+import { redeemInvite, validateInvite } from "@/server/invites"
 import {
   changeMyPassword,
   deleteMyAccount,
@@ -71,8 +68,8 @@ import {
   renewMyAccess,
   updateMyAccount,
   uploadMyAvatar,
-} from "@/server/me-service"
-import { initializeConfig, validateSetupKey } from "@/server/onboarding-service"
+} from "@/server/me"
+import { initializeConfig, validateSetupKey } from "@/server/onboarding"
 import { unwrapActionResultOrThrow, throwAppError } from "@/server/orpc/errors"
 import {
   authedProcedure,
@@ -96,7 +93,7 @@ import {
   findPasswordResetPinForCode,
   requestPasswordReset,
   resetPassword,
-} from "@/server/password-reset-service"
+} from "@/server/password-reset"
 import {
   buildRateLimitKey,
   invalidInviteLookupLimiter,

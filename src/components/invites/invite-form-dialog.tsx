@@ -31,10 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type {
-  InviteDto as Invite,
-  ProfileDto as Profile,
-} from "@/lib/api/contracts/admin"
+import type { InviteDto, ProfileDto } from "@/lib/api/contracts/admin"
 import { reportClientError } from "@/lib/client-error"
 import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
@@ -43,9 +40,9 @@ import { inviteFormSchema, type InviteFormValues } from "@/lib/schemas"
 interface InviteFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  invite?: Invite | null
-  availableProfiles: Profile[]
-  onSaveComplete?: (invite: Invite) => void
+  invite?: InviteDto | null
+  availableProfiles: ProfileDto[]
+  onSaveComplete?: (invite: InviteDto) => void
 }
 
 const defaultFormValues: InviteFormValues = {
@@ -114,28 +111,31 @@ export function InviteFormDialog({
           toast.success(t("invites.inviteUpdated"))
           onOpenChange(false)
           onSaveComplete?.(result.data)
-        } else {
-          toast.error(t("invites.inviteSaveFailed"))
+          return
         }
-      } else {
-        const result = await runApiEffect(
-          client.admin.invites.create({
-            profileId: data.profileId,
-            code: data.code || undefined,
-            useLimit: data.useLimit ? Number.parseInt(data.useLimit, 10) : null,
-            expiresAt: data.expiresAt?.toISOString() ?? null,
-          }),
-        )
 
-        if (result.error === null && result.data) {
-          toast.success(t("invites.inviteCreated"))
-          onOpenChange(false)
-          reset(defaultFormValues)
-          onSaveComplete?.(result.data)
-        } else {
-          toast.error(t("invites.inviteSaveFailed"))
-        }
+        toast.error(t("invites.inviteSaveFailed"))
+        return
       }
+
+      const result = await runApiEffect(
+        client.admin.invites.create({
+          profileId: data.profileId,
+          code: data.code || undefined,
+          useLimit: data.useLimit ? Number.parseInt(data.useLimit, 10) : null,
+          expiresAt: data.expiresAt?.toISOString() ?? null,
+        }),
+      )
+
+      if (result.error === null && result.data) {
+        toast.success(t("invites.inviteCreated"))
+        onOpenChange(false)
+        reset(defaultFormValues)
+        onSaveComplete?.(result.data)
+        return
+      }
+
+      toast.error(t("invites.inviteSaveFailed"))
     } catch (err) {
       reportClientError(err)
       toast.error(t("invites.inviteSaveFailed"))

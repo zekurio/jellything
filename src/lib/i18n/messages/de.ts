@@ -29,6 +29,8 @@ export const de: Messages = {
     period: "Tageszeit",
     clearDate: "Datum entfernen",
     actions: "Aktionen",
+    previousPage: "Vorherige Seite",
+    nextPage: "Nächste Seite",
   },
   auth: {
     login: "Anmelden",
@@ -524,6 +526,8 @@ export const de: Messages = {
     searchPlaceholder: "Benutzer suchen...",
     usersLoadFailed: "Benutzer konnten nicht geladen werden",
     noUsersFound: "Keine Benutzer gefunden.",
+    selectAll: "Alle auswählen",
+    selectRow: "{name} auswählen",
     userCountSingle: "{count} Benutzer",
     userCountPlural: "{count} Benutzer",
     selectProfile: "Profil auswählen",

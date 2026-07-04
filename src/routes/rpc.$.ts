@@ -6,7 +6,7 @@ type RpcPluginsModule = typeof import("@orpc/server/plugins")
 type LoggerModule = typeof import("@/server/logger")
 type ORPCContextModule = typeof import("@/server/orpc/context")
 type ORPCRouterModule = typeof import("@/server/orpc/router")
-type RequestContextModule = typeof import("@/server/request-context.server")
+type RequestContextModule = typeof import("@/server/request-context")
 type StartupModule = typeof import("@/server/startup")
 
 type RpcServerModules = {
@@ -33,7 +33,7 @@ const rpcServerModulesPromise: Promise<RpcServerModules> | null = import.meta
       import("@/server/logger"),
       import("@/server/orpc/context"),
       import("@/server/orpc/router"),
-      import("@/server/request-context.server"),
+      import("@/server/request-context"),
       import("@/server/startup"),
     ]).then(
       ([

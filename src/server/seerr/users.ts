@@ -350,38 +350,6 @@ function emailCacheKey(email: string): string {
   return `email:${email.toLowerCase()}`
 }
 
-export async function updateSeerrUserEmail(
-  userId: number,
-  email: string,
-): Promise<void> {
-  const existingUser = await seerrRequest<SeerrUser>(`/user/${userId}`)
-
-  if (existingUser.email?.toLowerCase() === email.toLowerCase()) {
-    return
-  }
-
-  log.debug(
-    { userId, currentEmail: existingUser.email ?? null, requestedEmail: email },
-    "Skipping Seerr email update because the API exposes email as read-only",
-  )
-}
-
-export interface SyncSeerrUserEmailInput extends ResolveSeerrUserInput {
-  email: string
-}
-
-export async function syncSeerrUserEmail(
-  input: SyncSeerrUserEmailInput,
-): Promise<SeerrUser | null> {
-  const seerrUser = await resolveSeerrUser(input)
-  if (!seerrUser) {
-    return null
-  }
-
-  await updateSeerrUserEmail(seerrUser.id, input.email)
-  return seerrUser
-}
-
 export async function setSeerrUserPermissions(
   userId: number,
   permissions: number,

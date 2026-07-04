@@ -7,7 +7,6 @@ import {
   resolveSeerrUser,
   setSeerrUserPermissions,
   setSeerrUserQuotas,
-  syncSeerrUserEmail,
 } from "@/server/seerr"
 import type { SeerrUserLookupCache } from "@/server/seerr/users"
 
@@ -95,18 +94,12 @@ export async function applyProfileToUser({
 
   try {
     const seerrUser =
-      (email
-        ? await syncSeerrUserEmail({
-            jellyfinUserId: userId,
-            userName,
-            email,
-            lookupCache: seerrLookupCache,
-          })
-        : await resolveSeerrUser({
-            jellyfinUserId: userId,
-            userName,
-            lookupCache: seerrLookupCache,
-          })) ?? null
+      (await resolveSeerrUser({
+        jellyfinUserId: userId,
+        userName,
+        email,
+        lookupCache: seerrLookupCache,
+      })) ?? null
 
     if (!seerrUser) {
       throw new Error("Failed to locate Seerr user for profile sync")

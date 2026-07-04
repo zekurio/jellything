@@ -199,31 +199,26 @@ function FieldSeparator({
   )
 }
 
+type FieldErrorValue = { message?: string } | string | undefined
+
 function FieldError({
   className,
-  children,
   errors,
   ...props
-}: React.ComponentProps<"div"> & {
-  errors?: Array<{ message?: string } | undefined>
+}: Omit<React.ComponentProps<"div">, "children"> & {
+  errors?: FieldErrorValue[]
 }) {
   const t = useTranslations()
   const content = useMemo(() => {
-    if (children) {
-      if (typeof children === "string") {
-        return translateMaybeMessageKey(t, children)
-      }
-
-      return children
-    }
-
     if (!errors?.length) {
       return null
     }
 
     const translatedErrors = errors.map((error) => ({
-      ...error,
-      message: translateMaybeMessageKey(t, error?.message),
+      message: translateMaybeMessageKey(
+        t,
+        typeof error === "string" ? error : error?.message,
+      ),
     }))
     const uniqueErrors = [
       ...new Map(
@@ -243,7 +238,7 @@ function FieldError({
         )}
       </ul>
     )
-  }, [children, errors, t])
+  }, [errors, t])
 
   if (!content) {
     return null

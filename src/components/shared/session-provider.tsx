@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react"
 
-import { SessionProvider as BaseSessionProvider } from "@/hooks/use-session"
+import { SessionProvider } from "@/hooks/use-session"
 import type { SessionData } from "@/lib/session"
 
 interface SessionProviderWrapperProps {
@@ -23,8 +23,8 @@ export function SessionProviderWrapper({
   ].join(":")
 
   return (
-    <BaseSessionProvider key={sessionKey} initialSession={session}>
+    <SessionProvider key={sessionKey} initialSession={session}>
       {children}
-    </BaseSessionProvider>
+    </SessionProvider>
   )
 }

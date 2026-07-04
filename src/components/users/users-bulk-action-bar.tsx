@@ -8,8 +8,8 @@ import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { UserEditDialog } from "@/components/users/user-edit-dialog"
 import type {
-  ManagedUserListItemDto as ManagedUserListItem,
-  UserProfileOptionDto as UserProfileOption,
+  ManagedUserListItemDto,
+  UserProfileOptionDto,
 } from "@/lib/api/contracts/admin"
 import { useTranslations } from "@/lib/i18n"
 
@@ -28,13 +28,13 @@ type BulkEditPayload = {
 }
 
 type UsersBulkActionBarProps = {
-  selectedUsers: ManagedUserListItem[]
-  profiles: UserProfileOption[]
+  selectedUsers: ManagedUserListItemDto[]
+  profiles: UserProfileOptionDto[]
   seerrConfigured: boolean
   t: TranslationFn
   onBulkOperation: (
     operation: BulkOperation,
-    users: ManagedUserListItem[],
+    users: ManagedUserListItemDto[],
     payload?: BulkEditPayload,
   ) => Promise<void>
   onClearSelection: () => void

@@ -1,6 +1,6 @@
 "use client"
 
-import { flexRender, type Table as TanstackTable } from "@tanstack/react-table"
+import { flexRender } from "@tanstack/react-table"
 
 import {
   Table,
@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils"
 
 interface DataTableProps<TData> {
-  table: TanstackTable<TData>
+  table: import("@tanstack/react-table").Table<TData>
   emptyLabel: string
   className?: string
   getRowClassName?: (row: TData) => string | undefined

@@ -1,11 +1,13 @@
 "use client"
 
-import { ThemeProvider as NextThemesProvider } from "next-themes"
-import type * as React from "react"
+import { ThemeProvider } from "next-themes"
+import type { ComponentProps } from "react"
 
-export function ThemeProvider({
+function JellythingThemeProvider({
   children,
   ...props
-}: React.ComponentProps<typeof NextThemesProvider>) {
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
+}: ComponentProps<typeof ThemeProvider>) {
+  return <ThemeProvider {...props}>{children}</ThemeProvider>
 }
+
+export { JellythingThemeProvider as ThemeProvider }

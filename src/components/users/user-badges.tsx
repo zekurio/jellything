@@ -1,11 +1,11 @@
 import { Badge } from "@/components/ui/badge"
-import type { ManagedUserListItemDto as ManagedUserListItem } from "@/lib/api/contracts/admin"
+import type { ManagedUserListItemDto } from "@/lib/api/contracts/admin"
 import { useTranslations } from "@/lib/i18n"
 
 type TranslationFn = ReturnType<typeof useTranslations>
 
 type UserBadgesProps = {
-  user: ManagedUserListItem
+  user: ManagedUserListItemDto
   t: TranslationFn
 }
 

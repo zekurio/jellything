@@ -24,7 +24,7 @@ vi.mock("@/lib/server/config.server", () => ({
   },
 }))
 
-vi.mock("@/server/auth-service", () => ({
+vi.mock("@/server/auth", () => ({
   establishAuthenticatedSession: vi.fn<() => Promise<void>>(),
 }))
 
@@ -72,10 +72,10 @@ vi.mock("@/server/jellyfin", () => ({
 
 vi.mock("@/server/seerr", () => ({
   deleteSeerrUser: vi.fn<() => Promise<void>>(),
-  syncSeerrUserEmail: vi.fn<() => Promise<unknown>>(),
+  resolveSeerrUser: vi.fn<() => Promise<unknown>>(),
 }))
 
-vi.mock("@/server/session-data", () => ({
+vi.mock("@/server/session-resolver", () => ({
   getSessionDataForUser: vi.fn<() => Promise<undefined>>(() =>
     Promise.resolve(undefined),
   ),
@@ -88,8 +88,8 @@ async function loadInviteModules() {
   configureTestEnvironment(testDatabase)
   vi.resetModules()
 
-  const inviteService = await import("@/server/invite-service")
-  const database = await import("@/server/db.server")
+  const inviteService = await import("@/server/invites")
+  const database = await import("@/server/db")
   const schema = await import("@/server/db/schema")
   const errors = await import("@/lib/api/contracts/errors")
   const jellyfin = await import("@/server/jellyfin")
@@ -149,9 +149,7 @@ async function getInviteUseCount(
 }
 
 function expectSuccessfulInviteValidation(
-  result: Awaited<
-    ReturnType<typeof import("@/server/invite-service").validateInvite>
-  >,
+  result: Awaited<ReturnType<typeof import("@/server/invites").validateInvite>>,
 ) {
   if (!result.success) {
     throw new Error("Expected validateInvite to return a successful result")

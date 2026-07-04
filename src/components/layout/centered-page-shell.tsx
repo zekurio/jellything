@@ -1,8 +1,8 @@
-import type * as React from "react"
+import type { ComponentProps } from "react"
 
 import { cn } from "@/lib/utils"
 
-type CenteredPageShellProps = React.ComponentProps<"div">
+type CenteredPageShellProps = ComponentProps<"div">
 
 export function CenteredPageShell({
   className,

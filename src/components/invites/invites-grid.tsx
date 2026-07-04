@@ -1,19 +1,8 @@
 "use client"
 
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
-import {
-  Ban,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Copy,
-  Edit,
-  Plus,
-  Trash,
-  Tv,
-  Users,
-} from "lucide-react"
+import { Ban, Clock, Copy, Edit, Plus, Trash, Tv, Users } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo } from "react"
 import { toast } from "sonner"
 
@@ -23,6 +12,7 @@ import { InviteFormDialog } from "@/components/invites/invite-form-dialog"
 import { ConfirmAlertShell } from "@/components/shared/confirm-alert-shell"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { DataTablePagination } from "@/components/ui/data-table-pagination"
 import { RelativeTime } from "@/components/ui/relative-time"
 import { Spinner } from "@/components/ui/spinner"
 import { createAppStore } from "@/hooks/store-utils"
@@ -30,9 +20,9 @@ import { useDialogAction, useSimpleDialog } from "@/hooks/use-dialog-action"
 import { useInvitesTableStore } from "@/hooks/use-invites-table-store"
 import { useScopedStore } from "@/hooks/use-scoped-store"
 import type {
-  InviteDto as Invite,
-  PagedInvitesDto as PagedInvites,
-  ProfileDto as Profile,
+  InviteDto,
+  PagedInvitesDto,
+  ProfileDto,
 } from "@/lib/api/contracts/admin"
 import { toErrorCode } from "@/lib/api/error-code"
 import { getApiErrorCode } from "@/lib/api/error-message"
@@ -44,26 +34,26 @@ import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 import { cn } from "@/lib/utils"
 
 interface InvitesGridProps {
-  initialInvites: PagedInvites
+  initialInvites: PagedInvitesDto
   initialQuery: string
-  availableProfiles: Profile[]
+  availableProfiles: ProfileDto[]
   initialError?: string | null
 }
 
 interface InvitesGridState {
-  invites: PagedInvites
-  availableProfiles: Profile[]
+  invites: PagedInvitesDto
+  availableProfiles: ProfileDto[]
   error: string | null
   isLoading: boolean
   query: string
-  setInvites: (invites: PagedInvites) => void
-  setAvailableProfiles: (availableProfiles: Profile[]) => void
+  setInvites: (invites: PagedInvitesDto) => void
+  setAvailableProfiles: (availableProfiles: ProfileDto[]) => void
   setError: (error: string | null) => void
   setIsLoading: (isLoading: boolean) => void
   setQuery: (query: string) => void
 }
 
-function getStatusAccent(status: Invite["status"]): string {
+function getStatusAccent(status: InviteDto["status"]): string {
   switch (status) {
     case "active":
       return "border-l-emerald-500"
@@ -79,25 +69,24 @@ function getStatusAccent(status: Invite["status"]): string {
   }
 }
 
-function sortInvitesByCreatedAtDesc(invites: Invite[]): Invite[] {
+function sortInvitesByCreatedAtDesc(invites: InviteDto[]): InviteDto[] {
   return invites.toSorted(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   )
 }
 
-function upsertInvite(invites: Invite[], nextInvite: Invite): Invite[] {
-  let found = false
-  const nextInvites = invites.map((invite) => {
-    if (invite.id !== nextInvite.id) {
-      return invite
-    }
-    found = true
-    return nextInvite
-  })
+function upsertInvite(
+  invites: InviteDto[],
+  nextInvite: InviteDto,
+): InviteDto[] {
+  const found = invites.some((invite) => invite.id === nextInvite.id)
+  const nextInvites = found
+    ? invites.map((invite) =>
+        invite.id === nextInvite.id ? nextInvite : invite,
+      )
+    : [nextInvite, ...invites]
 
-  return sortInvitesByCreatedAtDesc(
-    found ? nextInvites : [nextInvite, ...invites],
-  )
+  return sortInvitesByCreatedAtDesc(nextInvites)
 }
 
 const InviteCard = memo(function InviteCard({
@@ -109,13 +98,13 @@ const InviteCard = memo(function InviteCard({
   onDisable,
   onDelete,
 }: {
-  invite: Invite
+  invite: InviteDto
   locale: string
   t: ReturnType<typeof useTranslations>
   onCopy: (code: string) => void
   onEdit: (id: string) => void
-  onDisable: (invite: Invite) => void
-  onDelete: (invite: Invite) => void
+  onDisable: (invite: InviteDto) => void
+  onDelete: (invite: InviteDto) => void
 }) {
   const isInactive = classifyInviteStatus(invite.status) === "inactive"
 
@@ -222,13 +211,13 @@ const InviteSection = memo(function InviteSection({
   onDelete,
 }: {
   title: string
-  invites: Invite[]
+  invites: InviteDto[]
   locale: string
   t: ReturnType<typeof useTranslations>
   onCopy: (code: string) => void
   onEdit: (id: string) => void
-  onDisable: (invite: Invite) => void
-  onDelete: (invite: Invite) => void
+  onDisable: (invite: InviteDto) => void
+  onDelete: (invite: InviteDto) => void
 }) {
   if (invites.length === 0) return null
 
@@ -262,6 +251,7 @@ export function InvitesGrid({
   initialError = null,
 }: InvitesGridProps) {
   const navigate = useNavigate()
+  const router = useRouter()
   const locale = useLocale()
   const t = useTranslations()
   const scopedStore = useScopedStore(() =>
@@ -288,12 +278,12 @@ export function InvitesGrid({
   const createDialog = useSimpleDialog()
   const editInviteId = useInvitesTableStore((state) => state.editInviteId)
   const setEditInviteId = useInvitesTableStore((state) => state.setEditInviteId)
-  const deleteDialog = useDialogAction<Invite>({
+  const deleteDialog = useDialogAction<InviteDto>({
     onSuccess: () => {
       void refetch()
     },
   })
-  const disableDialog = useDialogAction<Invite, Invite>({
+  const disableDialog = useDialogAction<InviteDto, InviteDto>({
     onSuccess: () => {
       void refetch()
     },
@@ -304,6 +294,11 @@ export function InvitesGrid({
     errorMessage: t("invites.inviteDisableFailed"),
   })
 
+  // The loader owns the invites list. Pagination/search navigate the URL and
+  // post-mutation revalidation calls router.invalidate(); both re-run the
+  // loader, and this effect mirrors the fresh server data into the scoped
+  // store. Optimistic mutations update the store directly and are reconciled
+  // here on the next load.
   useEffect(() => {
     scopedStore.getState().setInvites(initialInvites)
     scopedStore.getState().setAvailableProfiles(availableProfiles)
@@ -324,42 +319,24 @@ export function InvitesGrid({
     [editInviteId, invites],
   )
 
+  // Revalidate through the route loader instead of a bespoke page fetch, so
+  // the loader stays the single source of truth (no duplicated query logic).
   const refetch = useCallback(async () => {
     scopedStore.getState().setIsLoading(true)
     scopedStore.getState().setError(null)
 
     try {
-      const client = getBrowserORPCClient()
-      const currentInvites = scopedStore.getState().invites
-      const currentQuery = scopedStore.getState().query
-      const pageResult = await runApiEffect(
-        client.admin.invites.page({
-          page: currentInvites.page,
-          pageSize: currentInvites.pageSize,
-          query: currentQuery || undefined,
-          sort: "createdAt",
-          direction: "desc",
-        }),
-      )
-
-      if (pageResult.error !== null || !pageResult.data) {
-        scopedStore.getState().setError(t("invites.inviteLoadFailed"))
-        return
-      }
-
-      scopedStore.getState().setInvites(pageResult.data.invites)
-      scopedStore
-        .getState()
-        .setAvailableProfiles(
-          Array.from(pageResult.data.profileOptions as Profile[]),
-        )
+      await router.invalidate()
+    } catch (err) {
+      reportClientError(err)
+      scopedStore.getState().setError(t("invites.inviteLoadFailed"))
     } finally {
       scopedStore.getState().setIsLoading(false)
     }
-  }, [scopedStore, t])
+  }, [router, scopedStore, t])
 
   const setInvitesState = useCallback(
-    (updater: (current: Invite[]) => Invite[]): Invite[] => {
+    (updater: (current: InviteDto[]) => InviteDto[]): InviteDto[] => {
       const previousPage = scopedStore.getState().invites
       scopedStore
         .getState()
@@ -370,7 +347,7 @@ export function InvitesGrid({
   )
 
   const handleInviteSaved = useCallback(
-    (savedInvite: Invite) => {
+    (savedInvite: InviteDto) => {
       setInvitesState((current) => upsertInvite(current, savedInvite))
       void refetch()
     },
@@ -445,19 +422,17 @@ export function InvitesGrid({
   const canGoPrevious = invitePage.page > 1
   const canGoNext = invitePage.page < invitePage.pageCount
 
-  const filteredInvites = useMemo(() => invites, [invites])
-
   const { active, attention, inactive } = useMemo(() => {
-    const groups: Record<InviteGroup, Invite[]> = {
+    const groups: Record<InviteGroup, InviteDto[]> = {
       active: [],
       attention: [],
       inactive: [],
     }
-    for (const invite of filteredInvites) {
+    for (const invite of invites) {
       groups[classifyInviteStatus(invite.status)].push(invite)
     }
     return groups
-  }, [filteredInvites])
+  }, [invites])
 
   const totalVisible = invitePage.total
 
@@ -533,7 +508,7 @@ export function InvitesGrid({
         }
       />
 
-      {filteredInvites.length === 0 ? (
+      {invites.length === 0 ? (
         <div className="text-muted-foreground rounded-md border p-6 text-center text-sm">
           {t("invites.noInvitesFound")}
         </div>
@@ -563,31 +538,14 @@ export function InvitesGrid({
             ? t("invites.inviteCountSingle", { count: totalVisible })
             : t("invites.inviteCountPlural", { count: totalVisible })}
         </p>
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={handlePreviousPage}
-            disabled={!canGoPrevious}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-muted-foreground min-w-16 text-center text-xs tabular-nums">
-            {invitePage.page} / {pageCount}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={handleNextPage}
-            disabled={!canGoNext}
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <DataTablePagination
+          page={invitePage.page}
+          pageCount={pageCount}
+          canPrevious={canGoPrevious}
+          canNext={canGoNext}
+          onPrevious={handlePreviousPage}
+          onNext={handleNextPage}
+        />
       </div>
 
       <InviteFormDialog

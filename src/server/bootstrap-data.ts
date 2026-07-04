@@ -6,7 +6,7 @@ import type {
 } from "@/lib/bootstrap-data"
 import { configManager } from "@/lib/server/config.server"
 import { isEmailConfigured } from "@/server/email"
-import { resolveSessionFromCookies } from "@/server/session-from-cookies.server"
+import { resolveSessionFromCookies } from "@/server/session-resolver"
 import { runStartupTasks } from "@/server/startup"
 
 runStartupTasks()

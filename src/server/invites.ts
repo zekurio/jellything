@@ -8,6 +8,7 @@ import {
   type ActionResult,
 } from "@/lib/api/contracts/errors"
 import { normalizeInviteCode } from "@/lib/invite-codes"
+import { isInviteExpired } from "@/lib/invite-status"
 import {
   MAX_AVATAR_BYTES,
   normalizeEmail,
@@ -15,8 +16,8 @@ import {
 } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
-import { establishAuthenticatedSession } from "@/server/auth-service"
-import { db, ensureMigrated, getUserByEmail } from "@/server/db.server"
+import { establishAuthenticatedSession } from "@/server/auth"
+import { db, ensureMigrated, getUserByEmail } from "@/server/db"
 import {
   inviteUsages,
   invites,
@@ -41,9 +42,17 @@ import {
   applyProfileToUser,
   SeerrProfileSyncError,
 } from "@/server/profile-sync"
-import { deleteSeerrUser, syncSeerrUserEmail } from "@/server/seerr"
-import { getSessionDataForUser } from "@/server/session-data"
+import { deleteSeerrUser, resolveSeerrUser } from "@/server/seerr"
+import { getSessionDataForUser } from "@/server/session-resolver"
 import { createEmailVerificationToken } from "@/server/tokens"
+
+const ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+const CODE_LENGTH = 8
+
+export function generateInviteCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH))
+  return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join("")
+}
 
 async function resolveInviteProfile(input: { profileId: string }): Promise<
   ActionResult<{
@@ -80,80 +89,76 @@ export async function validateInvite(code: string): Promise<
     onboardingSteps?: Array<{ id: string; title: string }>
   }>
 > {
-  try {
-    const normalizedCode = normalizeInviteCode(code)
-    await ensureMigrated()
+  const normalizedCode = normalizeInviteCode(code)
+  await ensureMigrated()
 
-    const [invite] = await db
-      .select({
-        id: invites.id,
-        profileId: invites.profileId,
-        isDisabled: invites.isDisabled,
-        useLimit: invites.useLimit,
-        useCount: invites.useCount,
-        expiresAt: invites.expiresAt,
-      })
-      .from(invites)
-      .where(eq(invites.code, normalizedCode))
-
-    if (!invite) {
-      return success({
-        valid: false,
-        profileName: "",
-        error: ErrorCode.INVITE_INVALID,
-      })
-    }
-
-    if (invite.isDisabled) {
-      return success({
-        valid: false,
-        profileName: "",
-        error: ErrorCode.INVITE_DISABLED,
-      })
-    }
-
-    if (invite.expiresAt && invite.expiresAt <= new Date()) {
-      return success({
-        valid: false,
-        profileName: "",
-        error: ErrorCode.INVITE_EXPIRED,
-      })
-    }
-
-    if (invite.useLimit !== null && invite.useCount >= invite.useLimit) {
-      return success({
-        valid: false,
-        profileName: "",
-        error: ErrorCode.INVITE_EXHAUSTED,
-      })
-    }
-
-    const resolvedProfile = await resolveInviteProfile({
-      profileId: invite.profileId,
+  const [invite] = await db
+    .select({
+      id: invites.id,
+      profileId: invites.profileId,
+      isDisabled: invites.isDisabled,
+      useLimit: invites.useLimit,
+      useCount: invites.useCount,
+      expiresAt: invites.expiresAt,
     })
+    .from(invites)
+    .where(eq(invites.code, normalizedCode))
 
-    if (!resolvedProfile.success) {
-      return success({
-        valid: false,
-        profileName: "",
-        error: resolvedProfile.code,
-      })
-    }
-
-    const onboarding = configManager.memberOnboarding
-    const onboardingSteps =
-      onboarding.enabled && onboarding.pages.length > 0
-        ? onboarding.pages.map((p) => ({ id: p.id, title: p.title }))
-        : undefined
-
+  if (!invite) {
     return success({
-      valid: true,
-      profileName: resolvedProfile.data.profileName,
-      onboardingSteps,
+      valid: false,
+      profileName: "",
+      error: ErrorCode.INVITE_INVALID,
     })
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to validate invite")
   }
+
+  if (invite.isDisabled) {
+    return success({
+      valid: false,
+      profileName: "",
+      error: ErrorCode.INVITE_DISABLED,
+    })
+  }
+
+  if (isInviteExpired(invite.expiresAt)) {
+    return success({
+      valid: false,
+      profileName: "",
+      error: ErrorCode.INVITE_EXPIRED,
+    })
+  }
+
+  if (invite.useLimit !== null && invite.useCount >= invite.useLimit) {
+    return success({
+      valid: false,
+      profileName: "",
+      error: ErrorCode.INVITE_EXHAUSTED,
+    })
+  }
+
+  const resolvedProfile = await resolveInviteProfile({
+    profileId: invite.profileId,
+  })
+
+  if (!resolvedProfile.success) {
+    return success({
+      valid: false,
+      profileName: "",
+      error: resolvedProfile.code,
+    })
+  }
+
+  const onboarding = configManager.memberOnboarding
+  const onboardingSteps =
+    onboarding.enabled && onboarding.pages.length > 0
+      ? onboarding.pages.map((p) => ({ id: p.id, title: p.title }))
+      : undefined
+
+  return success({
+    valid: true,
+    profileName: resolvedProfile.data.profileName,
+    onboardingSteps,
+  })
 }
 
 export async function redeemInvite(
@@ -196,7 +201,7 @@ export async function redeemInvite(
       return error(ErrorCode.INVITE_DISABLED)
     }
 
-    if (invite.expiresAt && invite.expiresAt <= new Date()) {
+    if (isInviteExpired(invite.expiresAt)) {
       return error(ErrorCode.INVITE_EXPIRED)
     }
 
@@ -246,7 +251,7 @@ export async function redeemInvite(
         return error(ErrorCode.INVITE_DISABLED)
       }
 
-      if (latestInvite?.expiresAt && latestInvite.expiresAt <= now) {
+      if (isInviteExpired(latestInvite?.expiresAt ?? null, now)) {
         return error(ErrorCode.INVITE_EXPIRED)
       }
 
@@ -403,7 +408,7 @@ export async function redeemInvite(
           if (resolvedProfile.data.policy && policyApplied) {
             seerrSynced = true
           } else if (!resolvedProfile.data.policy) {
-            const syncedSeerrUser = await syncSeerrUserEmail({
+            const syncedSeerrUser = await resolveSeerrUser({
               jellyfinUserId: jellyfinUser.id,
               userName: jellyfinUser.name,
               email: normalizedEmail,

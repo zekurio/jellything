@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { ProfilePageShell } from "@/components/profile/profile-page-shell"
 import { getProfilePageDataFn } from "@/lib/profile-page-fns"
-import { isProfileTab, type ProfileTab } from "@/lib/profile-tabs"
+import { DEFAULT_PROFILE_TAB, isProfileTab } from "@/lib/profile-tabs"
 
 export const Route = createFileRoute("/profile/$tab")({
   loader: async ({ params }) => {
@@ -20,7 +20,7 @@ function ProfileTabPage() {
   const { emailConfigured, expiry } = Route.useLoaderData()
   return (
     <ProfilePageShell
-      activeTab={tab as ProfileTab}
+      activeTab={isProfileTab(tab) ? tab : DEFAULT_PROFILE_TAB}
       emailConfigured={emailConfigured}
       expiry={expiry}
     />
