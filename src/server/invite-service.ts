@@ -43,7 +43,7 @@ import {
   SeerrProfileSyncError,
 } from "@/server/profile-sync"
 import { deleteSeerrUser, resolveSeerrUser } from "@/server/seerr"
-import { getSessionDataForUser } from "@/server/session-data"
+import { getSessionDataForUser } from "@/server/session-resolver"
 import { createEmailVerificationToken } from "@/server/tokens"
 
 async function resolveInviteProfile(input: { profileId: string }): Promise<

@@ -21,7 +21,7 @@ import {
   SESSION_COOKIE_NAME,
   updateAuthSession,
 } from "@/server/session"
-import { getSessionDataForUser } from "@/server/session-data"
+import { getSessionDataForUser } from "@/server/session-resolver"
 import { enforceExpiredUserAccess } from "@/server/user-access"
 import { isUserExpired } from "@/server/user-expiry"
 import { ensureUserRecord } from "@/server/users"

@@ -2,6 +2,7 @@ import { ORPCError, os } from "@orpc/server"
 
 import { ErrorCode } from "@/lib/api/contracts/errors"
 import { configManager } from "@/lib/server/config.server"
+import { canActAsAdmin } from "@/lib/session"
 import { createChildLogger } from "@/server/logger"
 import type { ORPCContext } from "@/server/orpc/context"
 import { throwAppError } from "@/server/orpc/errors"
@@ -67,7 +68,7 @@ async function enforceSessionRequirement(
   if (
     requirement === "admin" &&
     resolved.session &&
-    !resolved.session.isAdmin
+    !canActAsAdmin(resolved.session)
   ) {
     throwAppError(ErrorCode.FORBIDDEN)
   }
