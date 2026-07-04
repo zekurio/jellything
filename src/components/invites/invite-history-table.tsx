@@ -21,25 +21,25 @@ import { Spinner } from "@/components/ui/spinner"
 import { createAppStore } from "@/hooks/store-utils"
 import { useScopedStore } from "@/hooks/use-scoped-store"
 import type {
-  InviteHistoryItemDto as InviteUsage,
-  PagedInviteHistoryDto as PagedInviteHistory,
+  InviteHistoryItemDto,
+  PagedInviteHistoryDto,
 } from "@/lib/api/contracts/admin"
 import { useLocale, useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 import { getInitials } from "@/lib/utils"
 
 interface InviteHistoryTableProps {
-  initialPage: PagedInviteHistory
+  initialPage: PagedInviteHistoryDto
   initialQuery: string
   initialError?: string | null
 }
 
 interface InviteHistoryTableState {
-  page: PagedInviteHistory
+  page: PagedInviteHistoryDto
   error: string | null
   isLoading: boolean
   query: string
-  setPage: (page: PagedInviteHistory) => void
+  setPage: (page: PagedInviteHistoryDto) => void
   setError: (error: string | null) => void
   setIsLoading: (isLoading: boolean) => void
   setQuery: (query: string) => void
@@ -50,7 +50,7 @@ type TranslationFn = ReturnType<typeof useTranslations>
 function createInviteHistoryColumns(
   t: TranslationFn,
   locale: string,
-): ColumnDef<InviteUsage>[] {
+): ColumnDef<InviteHistoryItemDto>[] {
   return [
     {
       accessorKey: "userName",

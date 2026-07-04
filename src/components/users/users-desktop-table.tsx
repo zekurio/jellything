@@ -1,14 +1,12 @@
-import type { Table as TanstackTable } from "@tanstack/react-table"
-
 import { DataTable } from "@/components/ui/data-table"
-import type { ManagedUserListItemDto as ManagedUserListItem } from "@/lib/api/contracts/admin"
+import type { ManagedUserListItemDto } from "@/lib/api/contracts/admin"
 
 type UsersDesktopTableProps = {
-  table: TanstackTable<ManagedUserListItem>
+  table: import("@tanstack/react-table").Table<ManagedUserListItemDto>
   emptyLabel: string
-  getRowClassName?: (user: ManagedUserListItem) => string | undefined
+  getRowClassName?: (user: ManagedUserListItemDto) => string | undefined
   getCellClassName?: (
-    user: ManagedUserListItem,
+    user: ManagedUserListItemDto,
     columnId: string,
   ) => string | undefined
 }

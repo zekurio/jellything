@@ -33,10 +33,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type {
-  MediaLibraryDto as MediaLibrary,
-  ProfileDto as Profile,
-} from "@/lib/api/contracts/admin"
+import type { MediaLibraryDto, ProfileDto } from "@/lib/api/contracts/admin"
 import { ErrorCode } from "@/lib/api/contracts/errors"
 import { toErrorCode } from "@/lib/api/error-code"
 import { useTranslations, resolveErrorKey } from "@/lib/i18n"
@@ -53,10 +50,10 @@ import {
 interface ProfileFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  profile?: Profile | null
-  libraries: MediaLibrary[]
+  profile?: ProfileDto | null
+  libraries: MediaLibraryDto[]
   isSeerrConfigured: boolean
-  onSaveComplete?: (profile: Profile) => void
+  onSaveComplete?: (profile: ProfileDto) => void
 }
 
 type SeerrQuotaMode = "unlimited" | "limited"
@@ -175,7 +172,7 @@ function fieldModeClass(active: boolean): string {
 }
 
 function hasOwnQuotaValue(
-  quotas: Profile["policy"] extends { seerrQuotas?: infer T }
+  quotas: ProfileDto["policy"] extends { seerrQuotas?: infer T }
     ? T | undefined
     : never,
   key: "movieQuotaLimit" | "movieQuotaDays" | "tvQuotaLimit" | "tvQuotaDays",
@@ -186,7 +183,7 @@ function hasOwnQuotaValue(
 }
 
 function toProfileFormValues(
-  profile: Profile | null | undefined,
+  profile: ProfileDto | null | undefined,
 ): ProfileFormValues {
   if (!profile) {
     return defaultFormValues

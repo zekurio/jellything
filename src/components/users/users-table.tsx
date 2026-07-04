@@ -32,11 +32,11 @@ import { useDialogAction } from "@/hooks/use-dialog-action"
 import { useScopedStore } from "@/hooks/use-scoped-store"
 import type {
   BulkManagedUserResultDto,
-  DeleteManagedUserDto as DeleteUserResult,
-  ManagedUserListItemDto as ManagedUserListItem,
+  DeleteManagedUserDto,
+  ManagedUserListItemDto,
   PagedUsersWithProfilesDto,
-  UpdateManagedUserDto as UpdateUserResult,
-  UserProfileOptionDto as UserProfileOption,
+  UpdateManagedUserDto,
+  UserProfileOptionDto,
 } from "@/lib/api/contracts/admin"
 import { toErrorCode } from "@/lib/api/error-code"
 import { getApiErrorCode } from "@/lib/api/error-message"
@@ -56,29 +56,31 @@ interface UsersTableProps {
 
 interface UsersTableState {
   users: UsersPayload["users"]
-  profiles: UserProfileOption[]
+  profiles: UserProfileOptionDto[]
   seerrConfigured: boolean
   error: string | null
   isLoading: boolean
   query: string
-  dialogUser: ManagedUserListItem | null
+  dialogUser: ManagedUserListItemDto | null
   isDialogOpen: boolean
   selectedProfileId: string
   editExpiresAt: Date | null
   isSaving: boolean
   setUsers: (users: UsersPayload["users"]) => void
-  setProfiles: (profiles: UserProfileOption[]) => void
+  setProfiles: (profiles: UserProfileOptionDto[]) => void
   setError: (error: string | null) => void
   setIsLoading: (isLoading: boolean) => void
   setQuery: (query: string) => void
-  openDialog: (user: ManagedUserListItem) => void
+  openDialog: (user: ManagedUserListItemDto) => void
   closeDialog: () => void
   setSelectedProfileId: (selectedProfileId: string) => void
   setEditExpiresAt: (editExpiresAt: Date | null) => void
   setIsSaving: (isSaving: boolean) => void
 }
 
-type UserListUpdater = (users: ManagedUserListItem[]) => ManagedUserListItem[]
+type UserListUpdater = (
+  users: ManagedUserListItemDto[],
+) => ManagedUserListItemDto[]
 type GlobalFilterUpdater = string | ((currentFilter: string) => string)
 type BulkOperationSuccessResult = Extract<
   BulkManagedUserResultDto,
@@ -86,9 +88,9 @@ type BulkOperationSuccessResult = Extract<
 >
 
 function patchUserFromUpdateResult(
-  user: ManagedUserListItem,
-  result: UpdateUserResult,
-): ManagedUserListItem {
+  user: ManagedUserListItemDto,
+  result: UpdateManagedUserDto,
+): ManagedUserListItemDto {
   return {
     ...user,
     assignedProfileId: user.isAdmin ? null : result.profileId,
@@ -102,9 +104,9 @@ function patchUserFromUpdateResult(
 }
 
 function applyUserUpdateResult(
-  users: ManagedUserListItem[],
-  result: UpdateUserResult,
-): ManagedUserListItem[] {
+  users: ManagedUserListItemDto[],
+  result: UpdateManagedUserDto,
+): ManagedUserListItemDto[] {
   return users.map((user) =>
     user.userId === result.userId
       ? patchUserFromUpdateResult(user, result)
@@ -113,19 +115,19 @@ function applyUserUpdateResult(
 }
 
 function patchUserById(
-  users: ManagedUserListItem[],
+  users: ManagedUserListItemDto[],
   userId: string,
-  patch: Partial<ManagedUserListItem>,
-): ManagedUserListItem[] {
+  patch: Partial<ManagedUserListItemDto>,
+): ManagedUserListItemDto[] {
   return users.map((user) =>
     user.userId === userId ? { ...user, ...patch } : user,
   )
 }
 
 function removeUserById(
-  users: ManagedUserListItem[],
+  users: ManagedUserListItemDto[],
   userId: string,
-): ManagedUserListItem[] {
+): ManagedUserListItemDto[] {
   return users.filter((user) => user.userId !== userId)
 }
 
@@ -137,7 +139,7 @@ export function UsersTable({
   const navigate = useNavigate()
   const t = useTranslations()
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const emailDialog = useDialogAction<ManagedUserListItem>()
+  const emailDialog = useDialogAction<ManagedUserListItemDto>()
 
   const scopedStore = useScopedStore(() =>
     createAppStore<UsersTableState>((set) => ({
@@ -251,7 +253,7 @@ export function UsersTable({
   }, [refetch])
 
   const openEditDialog = useCallback(
-    (user: ManagedUserListItem) => {
+    (user: ManagedUserListItemDto) => {
       scopedStore.getState().openDialog(user)
     },
     [scopedStore],
@@ -276,7 +278,10 @@ export function UsersTable({
     void refetch()
   }, [refetch])
 
-  const deleteDialog = useDialogAction<ManagedUserListItem, DeleteUserResult>({
+  const deleteDialog = useDialogAction<
+    ManagedUserListItemDto,
+    DeleteManagedUserDto
+  >({
     onSuccess: refetchUsersAfterMutation,
     successMessage: (result) =>
       result.deletedFromJellyfin
@@ -285,7 +290,10 @@ export function UsersTable({
     errorMessage: t("users.userDeleteFailed"),
   })
 
-  const disableDialog = useDialogAction<ManagedUserListItem, UpdateUserResult>({
+  const disableDialog = useDialogAction<
+    ManagedUserListItemDto,
+    UpdateManagedUserDto
+  >({
     onSuccess: refetchUsersAfterMutation,
     successMessage: (result) =>
       result.isDisabled ? t("users.userDisabled") : t("users.userEnabled"),
@@ -385,7 +393,7 @@ export function UsersTable({
   ])
 
   const handleSyncUserToSeerr = useCallback(
-    async (user: ManagedUserListItem): Promise<void> => {
+    async (user: ManagedUserListItemDto): Promise<void> => {
       try {
         const client = getBrowserORPCClient()
         const result = await runApiEffect(
@@ -517,7 +525,7 @@ export function UsersTable({
   const handleBulkOperation = useCallback(
     async (
       operation: BulkOperation,
-      targetUsers: ManagedUserListItem[],
+      targetUsers: ManagedUserListItemDto[],
       payload?: BulkEditPayload,
     ): Promise<void> => {
       const client = getBrowserORPCClient()
@@ -560,24 +568,27 @@ export function UsersTable({
 
       if (success > 0) {
         updateUsers((currentUsers) =>
-          successResults.reduce<ManagedUserListItem[]>((nextUsers, result) => {
-            if (!result.ok || "skipped" in result) {
-              return nextUsers
-            }
+          successResults.reduce<ManagedUserListItemDto[]>(
+            (nextUsers, result) => {
+              if (!result.ok || "skipped" in result) {
+                return nextUsers
+              }
 
-            switch (result.operation) {
-              case "assignProfile":
-              case "disable":
-              case "enable":
-                return applyUserUpdateResult(nextUsers, result.result)
-              case "delete":
-                return removeUserById(nextUsers, result.result.userId)
-              case "syncSeerr":
-                return patchUserById(nextUsers, result.userId, {
-                  seerrSyncedAt: new Date().toISOString(),
-                })
-            }
-          }, currentUsers),
+              switch (result.operation) {
+                case "assignProfile":
+                case "disable":
+                case "enable":
+                  return applyUserUpdateResult(nextUsers, result.result)
+                case "delete":
+                  return removeUserById(nextUsers, result.result.userId)
+                case "syncSeerr":
+                  return patchUserById(nextUsers, result.userId, {
+                    seerrSyncedAt: new Date().toISOString(),
+                  })
+              }
+            },
+            currentUsers,
+          ),
         )
       }
 
@@ -654,12 +665,13 @@ export function UsersTable({
   }, [])
 
   const getUserRowClassName = useCallback(
-    (user: ManagedUserListItem) => cn(user.missingInJellyfin && "bg-muted/20"),
+    (user: ManagedUserListItemDto) =>
+      cn(user.missingInJellyfin && "bg-muted/20"),
     [],
   )
 
   const getUserCellClassName = useCallback(
-    (user: ManagedUserListItem, columnId: string) =>
+    (user: ManagedUserListItemDto, columnId: string) =>
       columnId !== "actions" && columnId !== "select"
         ? cn(
             user.missingInJellyfin && "text-muted-foreground",
@@ -686,7 +698,7 @@ export function UsersTable({
   )
 
   const handleEmailSaved = useCallback(
-    (result: UpdateUserResult) => {
+    (result: UpdateManagedUserDto) => {
       updateUsers((currentUsers) => applyUserUpdateResult(currentUsers, result))
       void refetch()
     },

@@ -23,10 +23,10 @@ import {
   useDashboardSettingsActiveTabDirty,
 } from "@/hooks/use-dashboard-settings-dirty"
 import type {
-  MediaLibraryDto as MediaLibrary,
-  PagedInviteHistoryDto as PagedInviteHistory,
-  PagedInvitesDto as PagedInvites,
-  ProfileDto as ProfileListItem,
+  MediaLibraryDto,
+  PagedInviteHistoryDto,
+  PagedInvitesDto,
+  ProfileDto,
 } from "@/lib/api/contracts/admin"
 import type { DashboardSettingsBootstrap } from "@/lib/bootstrap-data"
 import {
@@ -70,14 +70,14 @@ interface DashboardTabsViewProps {
   activeSettingsTab: DashboardSettingsTab
   settingsData: DashboardSettingsBootstrap
   invitesData: {
-    invites: PagedInvites
-    profiles: ProfileListItem[]
+    invites: PagedInvitesDto
+    profiles: ProfileDto[]
     query: string
     error: string | null
   }
   profilesData: {
-    profiles: ProfileListItem[]
-    libraries: MediaLibrary[]
+    profiles: ProfileDto[]
+    libraries: MediaLibraryDto[]
     isSeerrConfigured: boolean
     error: string | null
   }
@@ -87,7 +87,7 @@ interface DashboardTabsViewProps {
     error: string | null
   }
   historyData: {
-    page: PagedInviteHistory
+    page: PagedInviteHistoryDto
     query: string
     error: string | null
   }

@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { UserProfileOptionDto as UserProfileOption } from "@/lib/api/contracts/admin"
+import type { UserProfileOptionDto } from "@/lib/api/contracts/admin"
 import { useTranslations } from "@/lib/i18n"
 
 type TranslationFn = ReturnType<typeof useTranslations>
@@ -28,7 +28,7 @@ type TranslationFn = ReturnType<typeof useTranslations>
 type UserEditDialogProps = {
   open: boolean
   title: string
-  profiles: UserProfileOption[]
+  profiles: UserProfileOptionDto[]
   selectedProfileId: string
   editExpiresAt: Date | null
   isProfileLocked: boolean

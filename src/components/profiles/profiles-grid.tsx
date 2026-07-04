@@ -16,40 +16,40 @@ import { createAppStore } from "@/hooks/store-utils"
 import { useDialogAction, useSimpleDialog } from "@/hooks/use-dialog-action"
 import { useProfilesTableStore } from "@/hooks/use-profiles-table-store"
 import { useScopedStore } from "@/hooks/use-scoped-store"
-import type {
-  MediaLibraryDto as MediaLibrary,
-  ProfileDto as Profile,
-} from "@/lib/api/contracts/admin"
+import type { MediaLibraryDto, ProfileDto } from "@/lib/api/contracts/admin"
 import { reportClientError } from "@/lib/client-error"
 import { notifyProfilesChanged } from "@/lib/dashboard-events"
 import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 
 interface ProfilesGridProps {
-  initialProfiles: Profile[]
-  initialLibraries: MediaLibrary[]
+  initialProfiles: ProfileDto[]
+  initialLibraries: MediaLibraryDto[]
   isSeerrConfigured: boolean
   initialError?: string | null
 }
 
 interface ProfilesGridState {
-  profiles: Profile[]
-  libraries: MediaLibrary[]
+  profiles: ProfileDto[]
+  libraries: MediaLibraryDto[]
   isSeerrConfigured: boolean
   error: string | null
   isLoading: boolean
-  setProfiles: (profiles: Profile[]) => void
-  setLibraries: (libraries: MediaLibrary[]) => void
+  setProfiles: (profiles: ProfileDto[]) => void
+  setLibraries: (libraries: MediaLibraryDto[]) => void
   setIsSeerrConfigured: (isSeerrConfigured: boolean) => void
   setError: (error: string | null) => void
   setIsLoading: (isLoading: boolean) => void
 }
 
-function sortProfilesByName(profiles: Profile[]): Profile[] {
+function sortProfilesByName(profiles: ProfileDto[]): ProfileDto[] {
   return profiles.toSorted((a, b) => a.name.localeCompare(b.name))
 }
 
-function upsertProfile(profiles: Profile[], nextProfile: Profile): Profile[] {
+function upsertProfile(
+  profiles: ProfileDto[],
+  nextProfile: ProfileDto,
+): ProfileDto[] {
   const found = profiles.some((profile) => profile.id === nextProfile.id)
   const nextProfiles = found
     ? profiles.map((profile) =>
@@ -68,12 +68,12 @@ const ProfileCard = memo(function ProfileCard({
   onSetDefault,
   onDelete,
 }: {
-  profile: Profile
+  profile: ProfileDto
   defaultLoading: boolean
   t: ReturnType<typeof useTranslations>
   onEdit: (id: string) => void
-  onSetDefault: (profile: Profile) => void
-  onDelete: (profile: Profile) => void
+  onSetDefault: (profile: ProfileDto) => void
+  onDelete: (profile: ProfileDto) => void
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-lg border p-4">
@@ -188,7 +188,7 @@ export function ProfilesGrid({
   const setDefaultLoading = useProfilesTableStore(
     (state) => state.setDefaultLoading,
   )
-  const deleteDialog = useDialogAction<Profile>({
+  const deleteDialog = useDialogAction<ProfileDto>({
     onSuccess: () => {
       void refetch()
       notifyProfilesChanged()
@@ -215,10 +215,10 @@ export function ProfilesGrid({
 
       scopedStore
         .getState()
-        .setProfiles(Array.from(result.data.profiles as Profile[]))
+        .setProfiles(Array.from(result.data.profiles as ProfileDto[]))
       scopedStore
         .getState()
-        .setLibraries(Array.from(result.data.libraries as MediaLibrary[]))
+        .setLibraries(Array.from(result.data.libraries as MediaLibraryDto[]))
       scopedStore
         .getState()
         .setIsSeerrConfigured(Boolean(result.data.isSeerrConfigured))
@@ -228,7 +228,7 @@ export function ProfilesGrid({
   }, [scopedStore, t])
 
   const setProfilesState = useCallback(
-    (updater: (current: Profile[]) => Profile[]): Profile[] => {
+    (updater: (current: ProfileDto[]) => ProfileDto[]): ProfileDto[] => {
       const previousProfiles = scopedStore.getState().profiles
       scopedStore.getState().setProfiles(updater(previousProfiles))
       return previousProfiles
@@ -237,7 +237,7 @@ export function ProfilesGrid({
   )
 
   const handleProfileSaved = useCallback(
-    (savedProfile: Profile) => {
+    (savedProfile: ProfileDto) => {
       setProfilesState((current) => upsertProfile(current, savedProfile))
       void refetch()
       notifyProfilesChanged()
@@ -253,7 +253,7 @@ export function ProfilesGrid({
   )
 
   const handleSetDefault = useCallback(
-    async (profile: Profile) => {
+    async (profile: ProfileDto) => {
       setDefaultLoading(true)
       const previousProfiles = setProfilesState((current) =>
         current.map((currentProfile) => ({
@@ -311,7 +311,7 @@ export function ProfilesGrid({
   )
 
   const handleSetDefaultClick = useCallback(
-    (profile: Profile) => {
+    (profile: ProfileDto) => {
       void handleSetDefault(profile)
     },
     [handleSetDefault],

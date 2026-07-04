@@ -1,16 +1,16 @@
 import { Edit } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import type { ManagedUserListItemDto as ManagedUserListItem } from "@/lib/api/contracts/admin"
+import type { ManagedUserListItemDto } from "@/lib/api/contracts/admin"
 import { useTranslations } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 type TranslationFn = ReturnType<typeof useTranslations>
 
 type UserEditActionButtonProps = {
-  user: ManagedUserListItem
+  user: ManagedUserListItemDto
   t: TranslationFn
-  onEditUser: (user: ManagedUserListItem) => void
+  onEditUser: (user: ManagedUserListItemDto) => void
   disabled?: boolean
   disabledLabel?: string
   showLabel?: boolean

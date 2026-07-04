@@ -3,16 +3,16 @@
 import { Trash } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import type { ManagedUserListItemDto as ManagedUserListItem } from "@/lib/api/contracts/admin"
+import type { ManagedUserListItemDto } from "@/lib/api/contracts/admin"
 import { useTranslations } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 type TranslationFn = ReturnType<typeof useTranslations>
 
 type UserDeleteActionButtonProps = {
-  user: ManagedUserListItem
+  user: ManagedUserListItemDto
   t: TranslationFn
-  onDeleteUser: (user: ManagedUserListItem) => void
+  onDeleteUser: (user: ManagedUserListItemDto) => void
   showLabel?: boolean
 }
 

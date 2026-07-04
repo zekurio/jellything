@@ -20,8 +20,8 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import type {
-  ManagedUserListItemDto as ManagedUserListItem,
-  UpdateManagedUserDto as UpdateUserResult,
+  ManagedUserListItemDto,
+  UpdateManagedUserDto,
 } from "@/lib/api/contracts/admin"
 import { toErrorCode } from "@/lib/api/error-code"
 import { getApiErrorCode } from "@/lib/api/error-message"
@@ -31,9 +31,9 @@ import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 
 type UserEmailDialogProps = {
   open: boolean
-  user: ManagedUserListItem | null
+  user: ManagedUserListItemDto | null
   onClose: () => void
-  onSaved: (result: UpdateUserResult) => void
+  onSaved: (result: UpdateManagedUserDto) => void
 }
 
 export function UserEmailDialog({
