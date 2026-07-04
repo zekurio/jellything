@@ -20,7 +20,7 @@ import {
 } from "@/server/email/templates/verify-email"
 import { createChildLogger } from "@/server/logger"
 import { resolveSeerrUser } from "@/server/seerr"
-import { getSessionDataForUser } from "@/server/session-data"
+import { getSessionDataForUser } from "@/server/session-resolver"
 import {
   createEmailVerificationToken,
   validateEmailVerificationToken,

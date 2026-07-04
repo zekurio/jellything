@@ -44,7 +44,7 @@ import {
 import { createChildLogger } from "@/server/logger"
 import { evaluateRenewal, type RenewalEvaluation } from "@/server/renewal"
 import { revokeAllUserSessions } from "@/server/session"
-import { getSessionDataForUser } from "@/server/session-data"
+import { getSessionDataForUser } from "@/server/session-resolver"
 import {
   createEmailVerificationToken,
   deleteEmailVerificationToken,

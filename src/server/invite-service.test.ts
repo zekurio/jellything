@@ -75,7 +75,7 @@ vi.mock("@/server/seerr", () => ({
   resolveSeerrUser: vi.fn<() => Promise<unknown>>(),
 }))
 
-vi.mock("@/server/session-data", () => ({
+vi.mock("@/server/session-resolver", () => ({
   getSessionDataForUser: vi.fn<() => Promise<undefined>>(() =>
     Promise.resolve(undefined),
   ),
