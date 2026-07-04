@@ -7,7 +7,6 @@ import {
   useReactTable,
   type RowSelectionState,
 } from "@tanstack/react-table"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -16,6 +15,7 @@ import { DashboardTabToolbar } from "@/components/dashboard/dashboard-tab-toolba
 import { ConfirmAlertShell } from "@/components/shared/confirm-alert-shell"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { DataTablePagination } from "@/components/ui/data-table-pagination"
 import { Spinner } from "@/components/ui/spinner"
 import { UserEditDialog } from "@/components/users/user-edit-dialog"
 import { UserEmailDialog } from "@/components/users/user-email-dialog"
@@ -42,7 +42,7 @@ import { toErrorCode } from "@/lib/api/error-code"
 import { getApiErrorCode } from "@/lib/api/error-message"
 import { reportClientError } from "@/lib/client-error"
 import { DASHBOARD_PROFILES_CHANGED_EVENT } from "@/lib/dashboard-events"
-import { useTranslations, resolveErrorKey } from "@/lib/i18n"
+import { useLocale, useTranslations, resolveErrorKey } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 import { cn } from "@/lib/utils"
 
@@ -138,6 +138,7 @@ export function UsersTable({
 }: UsersTableProps) {
   const navigate = useNavigate()
   const t = useTranslations()
+  const locale = useLocale()
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const emailDialog = useDialogAction<ManagedUserListItemDto>()
 
@@ -425,6 +426,7 @@ export function UsersTable({
     () =>
       buildUsersTableColumns({
         t,
+        locale,
         seerrConfigured,
         onEditUser: openEditDialog,
         onEditEmail: emailDialog.open,
@@ -437,6 +439,7 @@ export function UsersTable({
       disableDialog.open,
       emailDialog.open,
       handleSyncUserToSeerr,
+      locale,
       openEditDialog,
       seerrConfigured,
       t,
@@ -808,31 +811,14 @@ export function UsersTable({
             ? t("users.userCountSingle", { count: visibleUserCount })
             : t("users.userCountPlural", { count: visibleUserCount })}
         </p>
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={handlePreviousPage}
-            disabled={!canGoPrevious}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-muted-foreground min-w-16 text-center text-xs tabular-nums">
-            {users.page} / {pageCount}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={handleNextPage}
-            disabled={!canGoNext}
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <DataTablePagination
+          page={users.page}
+          pageCount={pageCount}
+          canPrevious={canGoPrevious}
+          canNext={canGoNext}
+          onPrevious={handlePreviousPage}
+          onNext={handleNextPage}
+        />
       </div>
 
       <UserEditDialog

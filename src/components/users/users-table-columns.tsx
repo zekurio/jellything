@@ -15,12 +15,13 @@ import { UserDisableActionButton } from "@/components/users/user-disable-action-
 import { UserEditActionButton } from "@/components/users/user-edit-action-button"
 import type { ManagedUserListItemDto } from "@/lib/api/contracts/admin"
 import { useTranslations } from "@/lib/i18n"
-import { cn, getInitials } from "@/lib/utils"
+import { cn, formatDateTime, getInitials } from "@/lib/utils"
 
 type TranslationFn = ReturnType<typeof useTranslations>
 
 type BuildUsersTableColumnsOptions = {
   t: TranslationFn
+  locale: string
   seerrConfigured: boolean
   onEditUser: (user: ManagedUserListItemDto) => void
   onEditEmail: (user: ManagedUserListItemDto) => void
@@ -31,6 +32,7 @@ type BuildUsersTableColumnsOptions = {
 
 export function buildUsersTableColumns({
   t,
+  locale,
   seerrConfigured,
   onEditUser,
   onEditEmail,
@@ -49,14 +51,14 @@ export function buildUsersTableColumns({
             (table.getIsSomePageRowsSelected() && "indeterminate")
           }
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
+          aria-label={t("users.selectAll")}
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label={`Select ${row.original.name}`}
+          aria-label={t("users.selectRow", { name: row.original.name })}
         />
       ),
       enableSorting: false,
@@ -166,7 +168,7 @@ export function buildUsersTableColumns({
           return (
             <div
               className="flex items-center gap-1.5"
-              title={new Date(syncedAt).toLocaleString()}
+              title={formatDateTime(syncedAt, locale)}
             >
               <CheckCircle2 className="size-3.5 shrink-0 text-green-500" />
               <span className="text-muted-foreground text-sm">

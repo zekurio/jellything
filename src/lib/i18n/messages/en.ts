@@ -28,6 +28,8 @@ export const en: Messages = {
     period: "Period",
     clearDate: "Clear date",
     actions: "Actions",
+    previousPage: "Previous page",
+    nextPage: "Next page",
   },
   auth: {
     login: "Log in",
@@ -515,6 +517,8 @@ export const en: Messages = {
     searchPlaceholder: "Search users...",
     usersLoadFailed: "Failed to load users",
     noUsersFound: "No users found.",
+    selectAll: "Select all",
+    selectRow: "Select {name}",
     userCountSingle: "{count} user",
     userCountPlural: "{count} users",
     selectProfile: "Select profile",
