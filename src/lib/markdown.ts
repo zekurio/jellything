@@ -1,4 +1,4 @@
-import { marked } from "marked"
+import { marked, type Token, type Tokens } from "marked"
 import { createElement, type ReactNode } from "react"
 
 function sanitizeUrl(rawUrl: string): string {
@@ -15,7 +15,7 @@ function sanitizeUrl(rawUrl: string): string {
 }
 
 function renderInlineTokens(
-  tokens: any[] | undefined,
+  tokens: Token[] | undefined,
   keyPrefix: string,
 ): ReactNode[] {
   if (!tokens) {
@@ -67,13 +67,13 @@ function renderInlineTokens(
           renderInlineTokens(token.tokens, key),
         )
       default:
-        return token.raw ?? token.text ?? ""
+        return token.raw
     }
   })
 }
 
 function renderBlockTokens(
-  tokens: any[] | undefined,
+  tokens: Token[] | undefined,
   keyPrefix: string,
 ): ReactNode[] {
   if (!tokens) {
@@ -121,7 +121,7 @@ function renderBlockTokens(
               : "ml-4 list-disc space-y-1 text-sm",
             key,
           },
-          token.items.map((item: any, itemIndex: number) =>
+          token.items.map((item: Tokens.ListItem, itemIndex: number) =>
             createElement(
               "li",
               { key: `${key}-item-${itemIndex}` },

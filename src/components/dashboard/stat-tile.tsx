@@ -1,16 +1,16 @@
 import type { LucideIcon } from "lucide-react"
-import type * as React from "react"
+import type { ReactNode } from "react"
 
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 interface StatTileProps {
   label: string
-  value: React.ReactNode
-  description?: React.ReactNode
+  value: ReactNode
+  description?: ReactNode
   Icon?: LucideIcon
   className?: string
-  children?: React.ReactNode
+  children?: ReactNode
 }
 
 export function StatTile({

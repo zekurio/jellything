@@ -50,16 +50,14 @@ function sortProfilesByName(profiles: Profile[]): Profile[] {
 }
 
 function upsertProfile(profiles: Profile[], nextProfile: Profile): Profile[] {
-  let found = false
-  const nextProfiles = profiles.map((profile) => {
-    if (profile.id !== nextProfile.id) {
-      return profile
-    }
-    found = true
-    return nextProfile
-  })
+  const found = profiles.some((profile) => profile.id === nextProfile.id)
+  const nextProfiles = found
+    ? profiles.map((profile) =>
+        profile.id === nextProfile.id ? nextProfile : profile,
+      )
+    : [...profiles, nextProfile]
 
-  return sortProfilesByName(found ? nextProfiles : [...profiles, nextProfile])
+  return sortProfilesByName(nextProfiles)
 }
 
 const ProfileCard = memo(function ProfileCard({
@@ -274,32 +272,33 @@ export function ProfilesGrid({
         if (result.error !== null || !result.data) {
           scopedStore.getState().setProfiles(previousProfiles)
           toast.error(t("profiles.profileUpdateFailed"))
-        } else {
-          const updatedProfile = result.data
-          setProfilesState((current) =>
-            sortProfilesByName(
-              current.map((currentProfile) =>
-                currentProfile.id === updatedProfile.id
-                  ? updatedProfile
-                  : { ...currentProfile, isDefault: false },
-              ),
-            ),
-          )
-          if ((result.data.syncFailedCount ?? 0) > 0) {
-            toast.warning(
-              t("profiles.setDefaultWithSyncWarnings", {
-                name: profile.name,
-                count: result.data.syncFailedCount ?? 0,
-              }),
-            )
-          } else {
-            toast.success(
-              t("profiles.setDefaultSuccess", { name: profile.name }),
-            )
-          }
-          void refetch()
-          notifyProfilesChanged()
+          return
         }
+
+        const updatedProfile = result.data
+        setProfilesState((current) =>
+          sortProfilesByName(
+            current.map((currentProfile) =>
+              currentProfile.id === updatedProfile.id
+                ? updatedProfile
+                : { ...currentProfile, isDefault: false },
+            ),
+          ),
+        )
+        const syncFailedCount = result.data.syncFailedCount ?? 0
+        if (syncFailedCount > 0) {
+          toast.warning(
+            t("profiles.setDefaultWithSyncWarnings", {
+              name: profile.name,
+              count: syncFailedCount,
+            }),
+          )
+        }
+        if (syncFailedCount === 0) {
+          toast.success(t("profiles.setDefaultSuccess", { name: profile.name }))
+        }
+        void refetch()
+        notifyProfilesChanged()
       } catch (err) {
         reportClientError(err)
         scopedStore.getState().setProfiles(previousProfiles)

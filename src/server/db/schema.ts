@@ -233,6 +233,21 @@ export const emailVerificationTokensRelations = relations(
   }),
 )
 
+export const schema = {
+  profiles,
+  users,
+  sessions,
+  invites,
+  inviteUsages,
+  emailVerificationTokens,
+  profilesRelations,
+  usersRelations,
+  sessionsRelations,
+  invitesRelations,
+  inviteUsagesRelations,
+  emailVerificationTokensRelations,
+}
+
 export type Profile = typeof profiles.$inferSelect
 export type NewProfile = typeof profiles.$inferInsert
 export type Invite = typeof invites.$inferSelect

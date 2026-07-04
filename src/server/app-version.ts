@@ -1,4 +1,4 @@
-import { version as packageVersion } from "../../package.json"
+import { version } from "../../package.json"
 
 function normalizeAppVersion(value: string | undefined): string | null {
   const normalized = value?.trim()
@@ -6,4 +6,4 @@ function normalizeAppVersion(value: string | undefined): string | null {
 }
 
 export const appVersion =
-  normalizeAppVersion(process.env.APP_VERSION) ?? packageVersion
+  normalizeAppVersion(process.env.APP_VERSION) ?? version
