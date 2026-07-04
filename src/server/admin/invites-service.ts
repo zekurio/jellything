@@ -94,33 +94,29 @@ function toInviteListItem(
 export async function listInvitesService(): Promise<
   ActionResult<InviteListItem[]>
 > {
-  try {
-    await ensureMigrated()
+  await ensureMigrated()
 
-    const result = await db
-      .select({
-        id: invites.id,
-        code: invites.code,
-        profileId: invites.profileId,
-        profileName: profiles.name,
-        isDisabled: invites.isDisabled,
-        useLimit: invites.useLimit,
-        useCount: invites.useCount,
-        expiresAt: invites.expiresAt,
-        createdAt: invites.createdAt,
-      })
-      .from(invites)
-      .leftJoin(profiles, eq(invites.profileId, profiles.id))
-      .orderBy(desc(invites.createdAt))
+  const result = await db
+    .select({
+      id: invites.id,
+      code: invites.code,
+      profileId: invites.profileId,
+      profileName: profiles.name,
+      isDisabled: invites.isDisabled,
+      useLimit: invites.useLimit,
+      useCount: invites.useCount,
+      expiresAt: invites.expiresAt,
+      createdAt: invites.createdAt,
+    })
+    .from(invites)
+    .leftJoin(profiles, eq(invites.profileId, profiles.id))
+    .orderBy(desc(invites.createdAt))
 
-    const items = result.map((invite) =>
-      toInviteListItem(invite, invite.profileName),
-    )
+  const items = result.map((invite) =>
+    toInviteListItem(invite, invite.profileName),
+  )
 
-    return success(items)
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to list invites")
-  }
+  return success(items)
 }
 
 export async function listInvitesPageService(
@@ -135,47 +131,41 @@ export async function listInvitesPageService(
   const offset = (invitePage.page - 1) * invitePage.pageSize
   const searchFilter = getInvitesSearchFilter(invitePage.query?.trim())
 
-  try {
-    await ensureMigrated()
+  await ensureMigrated()
 
-    const [totalRow] = await db
-      .select({ total: count() })
-      .from(invites)
-      .leftJoin(profiles, eq(invites.profileId, profiles.id))
-      .where(searchFilter)
-    const total = totalRow?.total ?? 0
+  const [totalRow] = await db
+    .select({ total: count() })
+    .from(invites)
+    .leftJoin(profiles, eq(invites.profileId, profiles.id))
+    .where(searchFilter)
+  const total = totalRow?.total ?? 0
 
-    const result = await db
-      .select({
-        id: invites.id,
-        code: invites.code,
-        profileId: invites.profileId,
-        profileName: profiles.name,
-        isDisabled: invites.isDisabled,
-        useLimit: invites.useLimit,
-        useCount: invites.useCount,
-        expiresAt: invites.expiresAt,
-        createdAt: invites.createdAt,
-      })
-      .from(invites)
-      .leftJoin(profiles, eq(invites.profileId, profiles.id))
-      .where(searchFilter)
-      .orderBy(getInvitesOrderBy(invitePage.sort, invitePage.direction))
-      .limit(invitePage.pageSize)
-      .offset(offset)
-
-    return success({
-      items: result.map((invite) =>
-        toInviteListItem(invite, invite.profileName),
-      ),
-      page: invitePage.page,
-      pageSize: invitePage.pageSize,
-      total,
-      pageCount: Math.ceil(total / invitePage.pageSize),
+  const result = await db
+    .select({
+      id: invites.id,
+      code: invites.code,
+      profileId: invites.profileId,
+      profileName: profiles.name,
+      isDisabled: invites.isDisabled,
+      useLimit: invites.useLimit,
+      useCount: invites.useCount,
+      expiresAt: invites.expiresAt,
+      createdAt: invites.createdAt,
     })
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to list invites")
-  }
+    .from(invites)
+    .leftJoin(profiles, eq(invites.profileId, profiles.id))
+    .where(searchFilter)
+    .orderBy(getInvitesOrderBy(invitePage.sort, invitePage.direction))
+    .limit(invitePage.pageSize)
+    .offset(offset)
+
+  return success({
+    items: result.map((invite) => toInviteListItem(invite, invite.profileName)),
+    page: invitePage.page,
+    pageSize: invitePage.pageSize,
+    total,
+    pageCount: Math.ceil(total / invitePage.pageSize),
+  })
 }
 
 function getInvitesSearchFilter(query: string | undefined): SQL | undefined {
@@ -204,178 +194,162 @@ export async function createInviteService(
   createdById: string | undefined,
   input: z.infer<typeof createInviteSchema>,
 ): Promise<ActionResult<InviteListItem>> {
-  try {
-    await ensureMigrated()
-    const parsed = createInviteSchema.safeParse(input)
-    if (!parsed.success) {
-      return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
-    }
+  await ensureMigrated()
+  const parsed = createInviteSchema.safeParse(input)
+  if (!parsed.success) {
+    return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
+  }
 
-    const [profile] = await db
+  const [profile] = await db
+    .select()
+    .from(profiles)
+    .where(eq(profiles.id, parsed.data.profileId))
+  if (!profile) {
+    return error(ErrorCode.NOT_FOUND, "Profile not found")
+  }
+
+  let code = parsed.data.code
+    ? normalizeInviteCode(parsed.data.code)
+    : generateInviteCode()
+
+  if (parsed.data.code) {
+    const [existingInvite] = await db
       .select()
-      .from(profiles)
-      .where(eq(profiles.id, parsed.data.profileId))
-    if (!profile) {
-      return error(ErrorCode.NOT_FOUND, "Profile not found")
+      .from(invites)
+      .where(eq(invites.code, code))
+    if (existingInvite) {
+      return error(ErrorCode.ALREADY_EXISTS, "Invite code is already in use")
     }
-
-    let code = parsed.data.code
-      ? normalizeInviteCode(parsed.data.code)
-      : generateInviteCode()
-
-    if (parsed.data.code) {
+  } else {
+    let attempts = 0
+    while (attempts < 10) {
       const [existingInvite] = await db
         .select()
         .from(invites)
         .where(eq(invites.code, code))
-      if (existingInvite) {
-        return error(ErrorCode.ALREADY_EXISTS, "Invite code is already in use")
-      }
-    } else {
-      let attempts = 0
-      while (attempts < 10) {
-        const [existingInvite] = await db
-          .select()
-          .from(invites)
-          .where(eq(invites.code, code))
-        if (!existingInvite) {
-          break
-        }
-
-        code = generateInviteCode()
-        attempts++
+      if (!existingInvite) {
+        break
       }
 
-      if (attempts >= 10) {
-        return error(
-          ErrorCode.OPERATION_FAILED,
-          "Failed to generate unique invite code. Please try again.",
-        )
-      }
+      code = generateInviteCode()
+      attempts++
     }
 
-    const [invite] = await db
-      .insert(invites)
-      .values({
-        id: crypto.randomUUID(),
-        code,
-        profileId: parsed.data.profileId,
-        isDisabled: false,
-        useLimit: parsed.data.useLimit ?? null,
-        useCount: 0,
-        expiresAt: parsed.data.expiresAt
-          ? new Date(parsed.data.expiresAt)
-          : null,
-        createdById: createdById ?? null,
-        createdAt: new Date(),
-      })
-      .returning()
-
-    return success(toInviteListItem(invite, profile.name))
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to create invite")
+    if (attempts >= 10) {
+      return error(
+        ErrorCode.OPERATION_FAILED,
+        "Failed to generate unique invite code. Please try again.",
+      )
+    }
   }
+
+  const [invite] = await db
+    .insert(invites)
+    .values({
+      id: crypto.randomUUID(),
+      code,
+      profileId: parsed.data.profileId,
+      isDisabled: false,
+      useLimit: parsed.data.useLimit ?? null,
+      useCount: 0,
+      expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+      createdById: createdById ?? null,
+      createdAt: new Date(),
+    })
+    .returning()
+
+  return success(toInviteListItem(invite, profile.name))
 }
 
 export async function updateInviteService(
   inviteId: string,
   input: z.infer<typeof updateInviteSchema>,
 ): Promise<ActionResult<InviteListItem>> {
-  try {
-    await ensureMigrated()
-    const parsed = updateInviteSchema.safeParse(input)
-    if (!parsed.success) {
-      return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
-    }
-
-    const [existing] = await db
-      .select()
-      .from(invites)
-      .where(eq(invites.id, inviteId))
-    if (!existing) {
-      return error(ErrorCode.NOT_FOUND, "Invite not found")
-    }
-
-    if (parsed.data.profileId !== undefined) {
-      const [profile] = await db
-        .select({ id: profiles.id })
-        .from(profiles)
-        .where(eq(profiles.id, parsed.data.profileId))
-
-      if (!profile) {
-        return error(ErrorCode.NOT_FOUND, "Profile not found")
-      }
-    }
-
-    const updateValues = {
-      ...(parsed.data.profileId !== undefined && {
-        profileId: parsed.data.profileId,
-      }),
-      ...(parsed.data.isDisabled !== undefined && {
-        isDisabled: parsed.data.isDisabled,
-      }),
-      ...(parsed.data.useLimit !== undefined && {
-        useLimit: parsed.data.useLimit,
-      }),
-      ...(parsed.data.expiresAt !== undefined && {
-        expiresAt: parsed.data.expiresAt
-          ? new Date(parsed.data.expiresAt)
-          : null,
-      }),
-    }
-
-    if (parsed.data.code !== undefined) {
-      const normalizedCode = normalizeInviteCode(parsed.data.code)
-      const [codeConflict] = await db
-        .select({ id: invites.id })
-        .from(invites)
-        .where(eq(invites.code, normalizedCode))
-
-      if (codeConflict && codeConflict.id !== existing.id) {
-        return error(ErrorCode.ALREADY_EXISTS, "Invite code is already in use")
-      }
-
-      Object.assign(updateValues, { code: normalizedCode })
-    }
-
-    const [updated] = await db
-      .update(invites)
-      .set(updateValues)
-      .where(eq(invites.id, inviteId))
-      .returning()
-
-    const [profile] = await db
-      .select({ name: profiles.name })
-      .from(profiles)
-      .where(eq(profiles.id, updated.profileId))
-
-    return success(toInviteListItem(updated, profile?.name))
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to update invite")
+  await ensureMigrated()
+  const parsed = updateInviteSchema.safeParse(input)
+  if (!parsed.success) {
+    return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
+
+  const [existing] = await db
+    .select()
+    .from(invites)
+    .where(eq(invites.id, inviteId))
+  if (!existing) {
+    return error(ErrorCode.NOT_FOUND, "Invite not found")
+  }
+
+  if (parsed.data.profileId !== undefined) {
+    const [profile] = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.id, parsed.data.profileId))
+
+    if (!profile) {
+      return error(ErrorCode.NOT_FOUND, "Profile not found")
+    }
+  }
+
+  const updateValues = {
+    ...(parsed.data.profileId !== undefined && {
+      profileId: parsed.data.profileId,
+    }),
+    ...(parsed.data.isDisabled !== undefined && {
+      isDisabled: parsed.data.isDisabled,
+    }),
+    ...(parsed.data.useLimit !== undefined && {
+      useLimit: parsed.data.useLimit,
+    }),
+    ...(parsed.data.expiresAt !== undefined && {
+      expiresAt: parsed.data.expiresAt ? new Date(parsed.data.expiresAt) : null,
+    }),
+  }
+
+  if (parsed.data.code !== undefined) {
+    const normalizedCode = normalizeInviteCode(parsed.data.code)
+    const [codeConflict] = await db
+      .select({ id: invites.id })
+      .from(invites)
+      .where(eq(invites.code, normalizedCode))
+
+    if (codeConflict && codeConflict.id !== existing.id) {
+      return error(ErrorCode.ALREADY_EXISTS, "Invite code is already in use")
+    }
+
+    Object.assign(updateValues, { code: normalizedCode })
+  }
+
+  const [updated] = await db
+    .update(invites)
+    .set(updateValues)
+    .where(eq(invites.id, inviteId))
+    .returning()
+
+  const [profile] = await db
+    .select({ name: profiles.name })
+    .from(profiles)
+    .where(eq(profiles.id, updated.profileId))
+
+  return success(toInviteListItem(updated, profile?.name))
 }
 
 export async function deleteInviteService(
   inviteId: string,
 ): Promise<ActionResult<null>> {
-  try {
-    await ensureMigrated()
+  await ensureMigrated()
 
-    const [existing] = await db
-      .select()
-      .from(invites)
-      .where(eq(invites.id, inviteId))
-    if (!existing) {
-      return error(ErrorCode.NOT_FOUND, "Invite not found")
-    }
-
-    await db.delete(inviteUsages).where(eq(inviteUsages.inviteId, inviteId))
-    await db.delete(invites).where(eq(invites.id, inviteId))
-
-    return success(null)
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to delete invite")
+  const [existing] = await db
+    .select()
+    .from(invites)
+    .where(eq(invites.id, inviteId))
+  if (!existing) {
+    return error(ErrorCode.NOT_FOUND, "Invite not found")
   }
+
+  await db.delete(inviteUsages).where(eq(inviteUsages.inviteId, inviteId))
+  await db.delete(invites).where(eq(invites.id, inviteId))
+
+  return success(null)
 }
 
 export async function getInviteHistoryService(): Promise<
@@ -397,77 +371,73 @@ export async function getInviteHistoryPageService(
   const trimmedQuery = historyPage.query?.trim()
   const searchFilter = getInviteHistorySearchFilter(trimmedQuery)
 
-  try {
-    await ensureMigrated()
+  await ensureMigrated()
 
-    const [totalRow] = await db
-      .select({ total: count() })
-      .from(inviteUsages)
-      .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
-      .leftJoin(users, eq(inviteUsages.userId, users.userId))
-      .where(searchFilter)
-    const total = totalRow?.total ?? 0
+  const [totalRow] = await db
+    .select({ total: count() })
+    .from(inviteUsages)
+    .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
+    .leftJoin(users, eq(inviteUsages.userId, users.userId))
+    .where(searchFilter)
+  const total = totalRow?.total ?? 0
 
-    const result = await db
-      .select({
-        id: inviteUsages.id,
-        inviteId: inviteUsages.inviteId,
-        inviteCode: invites.code,
-        userId: inviteUsages.userId,
-        localEmail: users.email,
-        usedAt: inviteUsages.usedAt,
-      })
-      .from(inviteUsages)
-      .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
-      .leftJoin(users, eq(inviteUsages.userId, users.userId))
-      .where(searchFilter)
-      .orderBy(
-        historyPage.direction === "asc"
-          ? asc(inviteUsages.usedAt)
-          : desc(inviteUsages.usedAt),
-      )
-      .limit(historyPage.pageSize)
-      .offset(offset)
-
-    const jellyfinUsersById = new Map<
-      string,
-      { name: string; avatarUrl: string }
-    >()
-    try {
-      const jellyfinUsers = await getAllUsers()
-      for (const jellyfinUser of jellyfinUsers) {
-        jellyfinUsersById.set(jellyfinUser.id, {
-          name: jellyfinUser.name,
-          avatarUrl: jellyfinUser.avatarUrl,
-        })
-      }
-    } catch (err) {
-      log.warn({ err }, "Failed to fetch Jellyfin users for invite history")
-    }
-
-    return success({
-      items: result.map((usage) => {
-        const jellyfinUser = usage.userId
-          ? jellyfinUsersById.get(usage.userId)
-          : null
-        return {
-          id: usage.id,
-          inviteId: usage.inviteId ?? "",
-          inviteCode: usage.inviteCode ?? "",
-          userId: usage.userId,
-          userName: jellyfinUser?.name ?? "Unknown",
-          avatarUrl: jellyfinUser?.avatarUrl ?? null,
-          usedAt: usage.usedAt.toISOString(),
-        }
-      }),
-      page: historyPage.page,
-      pageSize: historyPage.pageSize,
-      total,
-      pageCount: Math.ceil(total / historyPage.pageSize),
+  const result = await db
+    .select({
+      id: inviteUsages.id,
+      inviteId: inviteUsages.inviteId,
+      inviteCode: invites.code,
+      userId: inviteUsages.userId,
+      localEmail: users.email,
+      usedAt: inviteUsages.usedAt,
     })
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to get invite history")
+    .from(inviteUsages)
+    .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
+    .leftJoin(users, eq(inviteUsages.userId, users.userId))
+    .where(searchFilter)
+    .orderBy(
+      historyPage.direction === "asc"
+        ? asc(inviteUsages.usedAt)
+        : desc(inviteUsages.usedAt),
+    )
+    .limit(historyPage.pageSize)
+    .offset(offset)
+
+  const jellyfinUsersById = new Map<
+    string,
+    { name: string; avatarUrl: string }
+  >()
+  try {
+    const jellyfinUsers = await getAllUsers()
+    for (const jellyfinUser of jellyfinUsers) {
+      jellyfinUsersById.set(jellyfinUser.id, {
+        name: jellyfinUser.name,
+        avatarUrl: jellyfinUser.avatarUrl,
+      })
+    }
+  } catch (err) {
+    log.warn({ err }, "Failed to fetch Jellyfin users for invite history")
   }
+
+  return success({
+    items: result.map((usage) => {
+      const jellyfinUser = usage.userId
+        ? jellyfinUsersById.get(usage.userId)
+        : null
+      return {
+        id: usage.id,
+        inviteId: usage.inviteId ?? "",
+        inviteCode: usage.inviteCode ?? "",
+        userId: usage.userId,
+        userName: jellyfinUser?.name ?? "Unknown",
+        avatarUrl: jellyfinUser?.avatarUrl ?? null,
+        usedAt: usage.usedAt.toISOString(),
+      }
+    }),
+    page: historyPage.page,
+    pageSize: historyPage.pageSize,
+    total,
+    pageCount: Math.ceil(total / historyPage.pageSize),
+  })
 }
 
 function getInviteHistorySearchFilter(
@@ -488,55 +458,51 @@ function getInviteHistorySearchFilter(
 async function getUnboundedInviteHistoryService(): Promise<
   ActionResult<InviteHistoryItem[]>
 > {
+  await ensureMigrated()
+
+  const result = await db
+    .select({
+      id: inviteUsages.id,
+      inviteId: inviteUsages.inviteId,
+      inviteCode: invites.code,
+      userId: inviteUsages.userId,
+      usedAt: inviteUsages.usedAt,
+    })
+    .from(inviteUsages)
+    .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
+    .leftJoin(users, eq(inviteUsages.userId, users.userId))
+    .orderBy(desc(inviteUsages.usedAt))
+
+  const jellyfinUsersById = new Map<
+    string,
+    { name: string; avatarUrl: string }
+  >()
   try {
-    await ensureMigrated()
-
-    const result = await db
-      .select({
-        id: inviteUsages.id,
-        inviteId: inviteUsages.inviteId,
-        inviteCode: invites.code,
-        userId: inviteUsages.userId,
-        usedAt: inviteUsages.usedAt,
+    const jellyfinUsers = await getAllUsers()
+    for (const jellyfinUser of jellyfinUsers) {
+      jellyfinUsersById.set(jellyfinUser.id, {
+        name: jellyfinUser.name,
+        avatarUrl: jellyfinUser.avatarUrl,
       })
-      .from(inviteUsages)
-      .leftJoin(invites, eq(inviteUsages.inviteId, invites.id))
-      .leftJoin(users, eq(inviteUsages.userId, users.userId))
-      .orderBy(desc(inviteUsages.usedAt))
-
-    const jellyfinUsersById = new Map<
-      string,
-      { name: string; avatarUrl: string }
-    >()
-    try {
-      const jellyfinUsers = await getAllUsers()
-      for (const jellyfinUser of jellyfinUsers) {
-        jellyfinUsersById.set(jellyfinUser.id, {
-          name: jellyfinUser.name,
-          avatarUrl: jellyfinUser.avatarUrl,
-        })
-      }
-    } catch (err) {
-      log.warn({ err }, "Failed to fetch Jellyfin users for invite history")
     }
-
-    return success(
-      result.map((usage) => {
-        const jellyfinUser = usage.userId
-          ? jellyfinUsersById.get(usage.userId)
-          : null
-        return {
-          id: usage.id,
-          inviteId: usage.inviteId ?? "",
-          inviteCode: usage.inviteCode ?? "",
-          userId: usage.userId,
-          userName: jellyfinUser?.name ?? "Unknown",
-          avatarUrl: jellyfinUser?.avatarUrl ?? null,
-          usedAt: usage.usedAt.toISOString(),
-        }
-      }),
-    )
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to get invite history")
+  } catch (err) {
+    log.warn({ err }, "Failed to fetch Jellyfin users for invite history")
   }
+
+  return success(
+    result.map((usage) => {
+      const jellyfinUser = usage.userId
+        ? jellyfinUsersById.get(usage.userId)
+        : null
+      return {
+        id: usage.id,
+        inviteId: usage.inviteId ?? "",
+        inviteCode: usage.inviteCode ?? "",
+        userId: usage.userId,
+        userName: jellyfinUser?.name ?? "Unknown",
+        avatarUrl: jellyfinUser?.avatarUrl ?? null,
+        usedAt: usage.usedAt.toISOString(),
+      }
+    }),
+  )
 }

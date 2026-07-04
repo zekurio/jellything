@@ -269,25 +269,21 @@ export async function ensureDefaultProfileService(): Promise<
 export async function listProfilesService(): Promise<
   ActionResult<ProfileListItem[]>
 > {
-  try {
-    await ensureMigrated()
-    await ensureDefaultProfileService()
-    const result = await db
-      .select({
-        id: profiles.id,
-        name: profiles.name,
-        isDefault: profiles.isDefault,
-        policy: profiles.policy,
-        createdAt: profiles.createdAt,
-        updatedAt: profiles.updatedAt,
-      })
-      .from(profiles)
-      .orderBy(profiles.name)
+  await ensureMigrated()
+  await ensureDefaultProfileService()
+  const result = await db
+    .select({
+      id: profiles.id,
+      name: profiles.name,
+      isDefault: profiles.isDefault,
+      policy: profiles.policy,
+      createdAt: profiles.createdAt,
+      updatedAt: profiles.updatedAt,
+    })
+    .from(profiles)
+    .orderBy(profiles.name)
 
-    return success(result.map(toProfileListItem))
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to list profiles")
-  }
+  return success(result.map(toProfileListItem))
 }
 
 export async function createProfileService(
@@ -439,103 +435,99 @@ export async function updateProfileService(
 export async function deleteProfileService(
   profileId: string,
 ): Promise<ActionResult<null>> {
-  try {
-    await ensureMigrated()
+  await ensureMigrated()
 
-    const allProfiles = await db.select().from(profiles)
-    const existing =
-      allProfiles.find((profile) => profile.id === profileId) ?? null
-    if (!existing) {
-      return error(ErrorCode.NOT_FOUND, "Profile not found")
-    }
+  const allProfiles = await db.select().from(profiles)
+  const existing =
+    allProfiles.find((profile) => profile.id === profileId) ?? null
+  if (!existing) {
+    return error(ErrorCode.NOT_FOUND, "Profile not found")
+  }
 
-    if (allProfiles.length <= 1) {
-      return error(ErrorCode.CONFLICT, "Cannot delete the last profile")
-    }
+  if (allProfiles.length <= 1) {
+    return error(ErrorCode.CONFLICT, "Cannot delete the last profile")
+  }
 
-    if (existing.isDefault) {
-      return error(ErrorCode.CONFLICT, "Cannot delete the default profile")
-    }
+  if (existing.isDefault) {
+    return error(ErrorCode.CONFLICT, "Cannot delete the default profile")
+  }
 
-    const defaultProfile =
-      allProfiles.find((profile) => profile.isDefault) ?? null
-    if (!defaultProfile) {
-      return error(
-        ErrorCode.CONFLICT,
-        "Cannot delete a profile before a default profile exists",
-      )
-    }
+  const defaultProfile =
+    allProfiles.find((profile) => profile.isDefault) ?? null
+  if (!defaultProfile) {
+    return error(
+      ErrorCode.CONFLICT,
+      "Cannot delete a profile before a default profile exists",
+    )
+  }
 
-    const affectedUsers = await db
-      .select({
-        userId: users.userId,
-      })
-      .from(users)
-      .where(eq(users.profileId, profileId))
-
-    await db.transaction(async (tx) => {
-      if (affectedUsers.length > 0) {
-        await tx
-          .update(users)
-          .set({ profileId: defaultProfile.id })
-          .where(eq(users.profileId, profileId))
-      }
-
-      await tx.delete(profiles).where(eq(profiles.id, profileId))
+  const affectedUsers = await db
+    .select({
+      userId: users.userId,
     })
+    .from(users)
+    .where(eq(users.profileId, profileId))
 
+  await db.transaction(async (tx) => {
     if (affectedUsers.length > 0) {
-      const jellyfinUsers = await getAllUsers()
-      const affectedUserIds = new Set(affectedUsers.map((user) => user.userId))
-      const jellyfinUsersById = new Map(
-        jellyfinUsers.map((jellyfinUser) => [jellyfinUser.id, jellyfinUser]),
-      )
-      const affectedJellyfinUsers = Array.from(affectedUserIds).flatMap(
-        (userId) => {
-          const jellyfinUser = jellyfinUsersById.get(userId)
-          if (!jellyfinUser || jellyfinUser.isAdmin) {
-            return []
-          }
+      await tx
+        .update(users)
+        .set({ profileId: defaultProfile.id })
+        .where(eq(users.profileId, profileId))
+    }
 
-          return [jellyfinUser]
-        },
-      )
-      const seerrLookupCache = createSeerrUserLookupCache()
+    await tx.delete(profiles).where(eq(profiles.id, profileId))
+  })
 
-      await runWithConcurrency(
-        affectedJellyfinUsers,
-        PROFILE_SYNC_CONCURRENCY,
-        async (jellyfinUser) => {
-          try {
-            await applyProfileToUser({
-              userId: jellyfinUser.id,
-              userName: jellyfinUser.name,
-              policy: defaultProfile.policy,
-              isAdmin: jellyfinUser.isAdmin,
-              seerrLookupCache,
-            })
-            return true
-          } catch (err) {
-            if (err instanceof JellyfinLastAdminError) {
-              log.warn(
-                { userId: jellyfinUser.id, profileId: defaultProfile.id, err },
-                "Skipped fallback profile sync due to last-admin safety guard",
-              )
-              return false
-            }
+  if (affectedUsers.length > 0) {
+    const jellyfinUsers = await getAllUsers()
+    const affectedUserIds = new Set(affectedUsers.map((user) => user.userId))
+    const jellyfinUsersById = new Map(
+      jellyfinUsers.map((jellyfinUser) => [jellyfinUser.id, jellyfinUser]),
+    )
+    const affectedJellyfinUsers = Array.from(affectedUserIds).flatMap(
+      (userId) => {
+        const jellyfinUser = jellyfinUsersById.get(userId)
+        if (!jellyfinUser || jellyfinUser.isAdmin) {
+          return []
+        }
 
+        return [jellyfinUser]
+      },
+    )
+    const seerrLookupCache = createSeerrUserLookupCache()
+
+    await runWithConcurrency(
+      affectedJellyfinUsers,
+      PROFILE_SYNC_CONCURRENCY,
+      async (jellyfinUser) => {
+        try {
+          await applyProfileToUser({
+            userId: jellyfinUser.id,
+            userName: jellyfinUser.name,
+            policy: defaultProfile.policy,
+            isAdmin: jellyfinUser.isAdmin,
+            seerrLookupCache,
+          })
+          return true
+        } catch (err) {
+          if (err instanceof JellyfinLastAdminError) {
             log.warn(
               { userId: jellyfinUser.id, profileId: defaultProfile.id, err },
-              "Failed to sync fallback profile after delete",
+              "Skipped fallback profile sync due to last-admin safety guard",
             )
             return false
           }
-        },
-      )
-    }
 
-    return success(null)
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to delete profile")
+          log.warn(
+            { userId: jellyfinUser.id, profileId: defaultProfile.id, err },
+            "Failed to sync fallback profile after delete",
+          )
+          return false
+        }
+      },
+    )
   }
+
+  return success(null)
 }

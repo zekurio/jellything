@@ -81,80 +81,76 @@ export async function validateInvite(code: string): Promise<
     onboardingSteps?: Array<{ id: string; title: string }>
   }>
 > {
-  try {
-    const normalizedCode = normalizeInviteCode(code)
-    await ensureMigrated()
+  const normalizedCode = normalizeInviteCode(code)
+  await ensureMigrated()
 
-    const [invite] = await db
-      .select({
-        id: invites.id,
-        profileId: invites.profileId,
-        isDisabled: invites.isDisabled,
-        useLimit: invites.useLimit,
-        useCount: invites.useCount,
-        expiresAt: invites.expiresAt,
-      })
-      .from(invites)
-      .where(eq(invites.code, normalizedCode))
-
-    if (!invite) {
-      return success({
-        valid: false,
-        profileName: "",
-        error: ErrorCode.INVITE_INVALID,
-      })
-    }
-
-    if (invite.isDisabled) {
-      return success({
-        valid: false,
-        profileName: "",
-        error: ErrorCode.INVITE_DISABLED,
-      })
-    }
-
-    if (isInviteExpired(invite.expiresAt)) {
-      return success({
-        valid: false,
-        profileName: "",
-        error: ErrorCode.INVITE_EXPIRED,
-      })
-    }
-
-    if (invite.useLimit !== null && invite.useCount >= invite.useLimit) {
-      return success({
-        valid: false,
-        profileName: "",
-        error: ErrorCode.INVITE_EXHAUSTED,
-      })
-    }
-
-    const resolvedProfile = await resolveInviteProfile({
-      profileId: invite.profileId,
+  const [invite] = await db
+    .select({
+      id: invites.id,
+      profileId: invites.profileId,
+      isDisabled: invites.isDisabled,
+      useLimit: invites.useLimit,
+      useCount: invites.useCount,
+      expiresAt: invites.expiresAt,
     })
+    .from(invites)
+    .where(eq(invites.code, normalizedCode))
 
-    if (!resolvedProfile.success) {
-      return success({
-        valid: false,
-        profileName: "",
-        error: resolvedProfile.code,
-      })
-    }
-
-    const onboarding = configManager.memberOnboarding
-    const onboardingSteps =
-      onboarding.enabled && onboarding.pages.length > 0
-        ? onboarding.pages.map((p) => ({ id: p.id, title: p.title }))
-        : undefined
-
+  if (!invite) {
     return success({
-      valid: true,
-      profileName: resolvedProfile.data.profileName,
-      onboardingSteps,
+      valid: false,
+      profileName: "",
+      error: ErrorCode.INVITE_INVALID,
     })
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to validate invite")
   }
+
+  if (invite.isDisabled) {
+    return success({
+      valid: false,
+      profileName: "",
+      error: ErrorCode.INVITE_DISABLED,
+    })
+  }
+
+  if (isInviteExpired(invite.expiresAt)) {
+    return success({
+      valid: false,
+      profileName: "",
+      error: ErrorCode.INVITE_EXPIRED,
+    })
+  }
+
+  if (invite.useLimit !== null && invite.useCount >= invite.useLimit) {
+    return success({
+      valid: false,
+      profileName: "",
+      error: ErrorCode.INVITE_EXHAUSTED,
+    })
+  }
+
+  const resolvedProfile = await resolveInviteProfile({
+    profileId: invite.profileId,
+  })
+
+  if (!resolvedProfile.success) {
+    return success({
+      valid: false,
+      profileName: "",
+      error: resolvedProfile.code,
+    })
+  }
+
+  const onboarding = configManager.memberOnboarding
+  const onboardingSteps =
+    onboarding.enabled && onboarding.pages.length > 0
+      ? onboarding.pages.map((p) => ({ id: p.id, title: p.title }))
+      : undefined
+
+  return success({
+    valid: true,
+    profileName: resolvedProfile.data.profileName,
+    onboardingSteps,
+  })
 }
 
 export async function redeemInvite(

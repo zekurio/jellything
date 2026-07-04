@@ -5,6 +5,16 @@ import { createChildLogger } from "@/server/logger"
 
 const log = createChildLogger({ module: "email" })
 
+// Stable error type for the email/SMTP integration boundary, mirroring
+// JellyfinApiError/SeerrApiError. Callers translate this into
+// ErrorCode.EMAIL_SERVICE_ERROR where an email failure is user-visible.
+export class EmailApiError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options)
+    this.name = "EmailApiError"
+  }
+}
+
 let smtpTransporter: Transporter | null = null
 let smtpTransportKey: string | null = null
 
@@ -13,10 +23,10 @@ type SmtpConfig = NonNullable<EmailConfig["smtp"]>
 function getSmtpConfig(config: EmailConfig): SmtpConfig {
   const smtp = config.smtp
   if (!smtp?.host || !smtp.port) {
-    throw new Error("SMTP settings are not configured")
+    throw new EmailApiError("SMTP settings are not configured")
   }
   if (smtp.username && !smtp.password) {
-    throw new Error("SMTP password is not configured")
+    throw new EmailApiError("SMTP password is not configured")
   }
   return {
     ...smtp,
@@ -77,11 +87,11 @@ export interface SendEmailOptions {
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
   const emailConfig = configManager.email
   if (!emailConfig?.from) {
-    throw new Error("Email 'from' address is not configured")
+    throw new EmailApiError("Email 'from' address is not configured")
   }
 
   if (!isSmtpConfigured(emailConfig)) {
-    throw new Error("SMTP settings are not configured")
+    throw new EmailApiError("SMTP settings are not configured")
   }
 
   log.info({ to: options.to, subject: options.subject }, "Sending email")
@@ -143,6 +153,6 @@ async function sendSmtpEmail(
       "Failed to send email via SMTP",
     )
     const message = err instanceof Error ? err.message : "Unknown SMTP error"
-    throw new Error(`Failed to send email: ${message}`, { cause: err })
+    throw new EmailApiError(`Failed to send email: ${message}`, { cause: err })
   }
 }
