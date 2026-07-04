@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { UserDeleteActionButton } from "@/components/users/user-delete-action-button"
 import { UserDisableActionButton } from "@/components/users/user-disable-action-button"
 import { UserEditActionButton } from "@/components/users/user-edit-action-button"
-import type { ManagedUserListItemDto as ManagedUserListItem } from "@/lib/api/contracts/admin"
+import type { ManagedUserListItemDto } from "@/lib/api/contracts/admin"
 import { useTranslations } from "@/lib/i18n"
 import { cn, getInitials } from "@/lib/utils"
 
@@ -22,11 +22,11 @@ type TranslationFn = ReturnType<typeof useTranslations>
 type BuildUsersTableColumnsOptions = {
   t: TranslationFn
   seerrConfigured: boolean
-  onEditUser: (user: ManagedUserListItem) => void
-  onEditEmail: (user: ManagedUserListItem) => void
-  onToggleUserDisabled: (user: ManagedUserListItem) => void
-  onDeleteUser: (user: ManagedUserListItem) => void
-  onSyncUserToSeerr: (user: ManagedUserListItem) => void
+  onEditUser: (user: ManagedUserListItemDto) => void
+  onEditEmail: (user: ManagedUserListItemDto) => void
+  onToggleUserDisabled: (user: ManagedUserListItemDto) => void
+  onDeleteUser: (user: ManagedUserListItemDto) => void
+  onSyncUserToSeerr: (user: ManagedUserListItemDto) => void
 }
 
 export function buildUsersTableColumns({
@@ -37,8 +37,8 @@ export function buildUsersTableColumns({
   onToggleUserDisabled,
   onDeleteUser,
   onSyncUserToSeerr,
-}: BuildUsersTableColumnsOptions): ColumnDef<ManagedUserListItem>[] {
-  const columns: ColumnDef<ManagedUserListItem>[] = [
+}: BuildUsersTableColumnsOptions): ColumnDef<ManagedUserListItemDto>[] {
+  const columns: ColumnDef<ManagedUserListItemDto>[] = [
     {
       id: "select",
       size: 40,

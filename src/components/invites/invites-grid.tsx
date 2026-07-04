@@ -30,9 +30,9 @@ import { useDialogAction, useSimpleDialog } from "@/hooks/use-dialog-action"
 import { useInvitesTableStore } from "@/hooks/use-invites-table-store"
 import { useScopedStore } from "@/hooks/use-scoped-store"
 import type {
-  InviteDto as Invite,
-  PagedInvitesDto as PagedInvites,
-  ProfileDto as Profile,
+  InviteDto,
+  PagedInvitesDto,
+  ProfileDto,
 } from "@/lib/api/contracts/admin"
 import { toErrorCode } from "@/lib/api/error-code"
 import { getApiErrorCode } from "@/lib/api/error-message"
@@ -44,26 +44,26 @@ import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 import { cn } from "@/lib/utils"
 
 interface InvitesGridProps {
-  initialInvites: PagedInvites
+  initialInvites: PagedInvitesDto
   initialQuery: string
-  availableProfiles: Profile[]
+  availableProfiles: ProfileDto[]
   initialError?: string | null
 }
 
 interface InvitesGridState {
-  invites: PagedInvites
-  availableProfiles: Profile[]
+  invites: PagedInvitesDto
+  availableProfiles: ProfileDto[]
   error: string | null
   isLoading: boolean
   query: string
-  setInvites: (invites: PagedInvites) => void
-  setAvailableProfiles: (availableProfiles: Profile[]) => void
+  setInvites: (invites: PagedInvitesDto) => void
+  setAvailableProfiles: (availableProfiles: ProfileDto[]) => void
   setError: (error: string | null) => void
   setIsLoading: (isLoading: boolean) => void
   setQuery: (query: string) => void
 }
 
-function getStatusAccent(status: Invite["status"]): string {
+function getStatusAccent(status: InviteDto["status"]): string {
   switch (status) {
     case "active":
       return "border-l-emerald-500"
@@ -79,13 +79,16 @@ function getStatusAccent(status: Invite["status"]): string {
   }
 }
 
-function sortInvitesByCreatedAtDesc(invites: Invite[]): Invite[] {
+function sortInvitesByCreatedAtDesc(invites: InviteDto[]): InviteDto[] {
   return invites.toSorted(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   )
 }
 
-function upsertInvite(invites: Invite[], nextInvite: Invite): Invite[] {
+function upsertInvite(
+  invites: InviteDto[],
+  nextInvite: InviteDto,
+): InviteDto[] {
   const found = invites.some((invite) => invite.id === nextInvite.id)
   const nextInvites = found
     ? invites.map((invite) =>
@@ -105,13 +108,13 @@ const InviteCard = memo(function InviteCard({
   onDisable,
   onDelete,
 }: {
-  invite: Invite
+  invite: InviteDto
   locale: string
   t: ReturnType<typeof useTranslations>
   onCopy: (code: string) => void
   onEdit: (id: string) => void
-  onDisable: (invite: Invite) => void
-  onDelete: (invite: Invite) => void
+  onDisable: (invite: InviteDto) => void
+  onDelete: (invite: InviteDto) => void
 }) {
   const isInactive = classifyInviteStatus(invite.status) === "inactive"
 
@@ -218,13 +221,13 @@ const InviteSection = memo(function InviteSection({
   onDelete,
 }: {
   title: string
-  invites: Invite[]
+  invites: InviteDto[]
   locale: string
   t: ReturnType<typeof useTranslations>
   onCopy: (code: string) => void
   onEdit: (id: string) => void
-  onDisable: (invite: Invite) => void
-  onDelete: (invite: Invite) => void
+  onDisable: (invite: InviteDto) => void
+  onDelete: (invite: InviteDto) => void
 }) {
   if (invites.length === 0) return null
 
@@ -284,12 +287,12 @@ export function InvitesGrid({
   const createDialog = useSimpleDialog()
   const editInviteId = useInvitesTableStore((state) => state.editInviteId)
   const setEditInviteId = useInvitesTableStore((state) => state.setEditInviteId)
-  const deleteDialog = useDialogAction<Invite>({
+  const deleteDialog = useDialogAction<InviteDto>({
     onSuccess: () => {
       void refetch()
     },
   })
-  const disableDialog = useDialogAction<Invite, Invite>({
+  const disableDialog = useDialogAction<InviteDto, InviteDto>({
     onSuccess: () => {
       void refetch()
     },
@@ -347,7 +350,7 @@ export function InvitesGrid({
       scopedStore
         .getState()
         .setAvailableProfiles(
-          Array.from(pageResult.data.profileOptions as Profile[]),
+          Array.from(pageResult.data.profileOptions as ProfileDto[]),
         )
     } finally {
       scopedStore.getState().setIsLoading(false)
@@ -355,7 +358,7 @@ export function InvitesGrid({
   }, [scopedStore, t])
 
   const setInvitesState = useCallback(
-    (updater: (current: Invite[]) => Invite[]): Invite[] => {
+    (updater: (current: InviteDto[]) => InviteDto[]): InviteDto[] => {
       const previousPage = scopedStore.getState().invites
       scopedStore
         .getState()
@@ -366,7 +369,7 @@ export function InvitesGrid({
   )
 
   const handleInviteSaved = useCallback(
-    (savedInvite: Invite) => {
+    (savedInvite: InviteDto) => {
       setInvitesState((current) => upsertInvite(current, savedInvite))
       void refetch()
     },
@@ -442,7 +445,7 @@ export function InvitesGrid({
   const canGoNext = invitePage.page < invitePage.pageCount
 
   const { active, attention, inactive } = useMemo(() => {
-    const groups: Record<InviteGroup, Invite[]> = {
+    const groups: Record<InviteGroup, InviteDto[]> = {
       active: [],
       attention: [],
       inactive: [],

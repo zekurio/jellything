@@ -23,21 +23,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { RelativeTime } from "@/components/ui/relative-time"
-import type { ManagedUserListItemDto as ManagedUserListItem } from "@/lib/api/contracts/admin"
+import type { ManagedUserListItemDto } from "@/lib/api/contracts/admin"
 import { useLocale, useTranslations } from "@/lib/i18n"
 import { cn, getInitials } from "@/lib/utils"
 
 type TranslationFn = ReturnType<typeof useTranslations>
 
 type UsersMobileListProps = {
-  users: ManagedUserListItem[]
+  users: ManagedUserListItemDto[]
   t: TranslationFn
   seerrConfigured?: boolean
-  onEditUser: (user: ManagedUserListItem) => void
-  onEditEmail: (user: ManagedUserListItem) => void
-  onToggleUserDisabled: (user: ManagedUserListItem) => void
-  onDeleteUser: (user: ManagedUserListItem) => void
-  onSyncUserToSeerr?: (user: ManagedUserListItem) => void
+  onEditUser: (user: ManagedUserListItemDto) => void
+  onEditEmail: (user: ManagedUserListItemDto) => void
+  onToggleUserDisabled: (user: ManagedUserListItemDto) => void
+  onDeleteUser: (user: ManagedUserListItemDto) => void
+  onSyncUserToSeerr?: (user: ManagedUserListItemDto) => void
 }
 
 export function UsersMobileList({
@@ -184,7 +184,7 @@ export function UsersMobileList({
             {/* Extra info row */}
             {!user.missingInJellyfin && (
               <div className="text-muted-foreground mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                {/* Profile */}
+                {/* ProfileDto */}
                 <span className="flex items-center gap-1">
                   <Tv className="size-3 shrink-0" />
                   {user.isAdmin

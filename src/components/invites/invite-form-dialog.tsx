@@ -31,10 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type {
-  InviteDto as Invite,
-  ProfileDto as Profile,
-} from "@/lib/api/contracts/admin"
+import type { InviteDto, ProfileDto } from "@/lib/api/contracts/admin"
 import { reportClientError } from "@/lib/client-error"
 import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
@@ -43,9 +40,9 @@ import { inviteFormSchema, type InviteFormValues } from "@/lib/schemas"
 interface InviteFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  invite?: Invite | null
-  availableProfiles: Profile[]
-  onSaveComplete?: (invite: Invite) => void
+  invite?: InviteDto | null
+  availableProfiles: ProfileDto[]
+  onSaveComplete?: (invite: InviteDto) => void
 }
 
 const defaultFormValues: InviteFormValues = {

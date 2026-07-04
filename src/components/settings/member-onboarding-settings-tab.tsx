@@ -42,7 +42,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { createAppStore, type StateUpdater } from "@/hooks/store-utils"
 import { useDashboardSettingsTabDirty } from "@/hooks/use-dashboard-settings-dirty"
 import { useScopedStore } from "@/hooks/use-scoped-store"
-import type { MemberOnboardingConfigDto as MemberOnboardingConfig } from "@/lib/api/contracts/admin"
+import type { MemberOnboardingConfigDto } from "@/lib/api/contracts/admin"
 import { translateMaybeMessageKey, useTranslations } from "@/lib/i18n"
 import { renderMarkdown } from "@/lib/markdown"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
@@ -87,12 +87,12 @@ function applyLinePrefix(
 }
 
 function mapConfigToFormValues(
-  config: MemberOnboardingConfig,
+  config: MemberOnboardingConfigDto,
 ): MemberOnboardingSettingsFormValues {
   return {
     enabled: config.enabled,
     pages: config.pages.map(
-      (page: MemberOnboardingConfig["pages"][number]) => ({
+      (page: MemberOnboardingConfigDto["pages"][number]) => ({
         id: page.id,
         title: page.title,
         markdown: page.markdown,
@@ -103,7 +103,7 @@ function mapConfigToFormValues(
 
 function mapFormValuesToConfig(
   values: MemberOnboardingSettingsFormValues,
-): MemberOnboardingConfig {
+): MemberOnboardingConfigDto {
   return {
     enabled: values.enabled,
     pages: values.pages.map((page: MemberOnboardingPageFormValues) => ({
@@ -581,7 +581,7 @@ function PageEditor({
 /* -------------------------------------------------------------------------- */
 
 interface MemberOnboardingSettingsTabProps {
-  initialConfig: MemberOnboardingConfig
+  initialConfig: MemberOnboardingConfigDto
 }
 
 interface MemberOnboardingSettingsStoreState {
