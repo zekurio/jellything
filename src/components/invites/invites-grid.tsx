@@ -1,6 +1,6 @@
 "use client"
 
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
 import { Ban, Clock, Copy, Edit, Plus, Trash, Tv, Users } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo } from "react"
@@ -251,6 +251,7 @@ export function InvitesGrid({
   initialError = null,
 }: InvitesGridProps) {
   const navigate = useNavigate()
+  const router = useRouter()
   const locale = useLocale()
   const t = useTranslations()
   const scopedStore = useScopedStore(() =>
@@ -293,6 +294,11 @@ export function InvitesGrid({
     errorMessage: t("invites.inviteDisableFailed"),
   })
 
+  // The loader owns the invites list. Pagination/search navigate the URL and
+  // post-mutation revalidation calls router.invalidate(); both re-run the
+  // loader, and this effect mirrors the fresh server data into the scoped
+  // store. Optimistic mutations update the store directly and are reconciled
+  // here on the next load.
   useEffect(() => {
     scopedStore.getState().setInvites(initialInvites)
     scopedStore.getState().setAvailableProfiles(availableProfiles)
@@ -313,37 +319,21 @@ export function InvitesGrid({
     [editInviteId, invites],
   )
 
+  // Revalidate through the route loader instead of a bespoke page fetch, so
+  // the loader stays the single source of truth (no duplicated query logic).
   const refetch = useCallback(async () => {
     scopedStore.getState().setIsLoading(true)
     scopedStore.getState().setError(null)
 
     try {
-      const client = getBrowserORPCClient()
-      const currentInvites = scopedStore.getState().invites
-      const currentQuery = scopedStore.getState().query
-      const pageResult = await runApiEffect(
-        client.admin.invites.page({
-          page: currentInvites.page,
-          pageSize: currentInvites.pageSize,
-          query: currentQuery || undefined,
-          sort: "createdAt",
-          direction: "desc",
-        }),
-      )
-
-      if (pageResult.error !== null || !pageResult.data) {
-        scopedStore.getState().setError(t("invites.inviteLoadFailed"))
-        return
-      }
-
-      scopedStore.getState().setInvites(pageResult.data.invites)
-      scopedStore
-        .getState()
-        .setAvailableProfiles(Array.from(pageResult.data.profileOptions))
+      await router.invalidate()
+    } catch (err) {
+      reportClientError(err)
+      scopedStore.getState().setError(t("invites.inviteLoadFailed"))
     } finally {
       scopedStore.getState().setIsLoading(false)
     }
-  }, [scopedStore, t])
+  }, [router, scopedStore, t])
 
   const setInvitesState = useCallback(
     (updater: (current: InviteDto[]) => InviteDto[]): InviteDto[] => {

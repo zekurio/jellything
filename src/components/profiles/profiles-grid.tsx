@@ -151,6 +151,11 @@ export function ProfilesGrid({
   initialError = null,
 }: ProfilesGridProps) {
   const t = useTranslations()
+  // This route has no server-side pagination or search (filtering is
+  // client-side), so loader props seed the store once at creation and the
+  // store is the single client-side owner thereafter. Post-mutation reconcile
+  // goes through refetch(); there is deliberately no prop->store re-sync
+  // effect.
   const scopedStore = useScopedStore(() =>
     createAppStore<ProfilesGridState>((set) => ({
       profiles: initialProfiles,
