@@ -268,52 +268,46 @@ export async function listUsersWithProfilesService(
 async function listAllUsersWithProfiles(): Promise<
   ActionResult<UnpagedUsersWithProfilesResult>
 > {
-  try {
-    await ensureDefaultProfileService()
-    await ensureMigrated()
+  await ensureDefaultProfileService()
+  await ensureMigrated()
 
-    const [profileRows, syncResult] = await Promise.all([
-      db
-        .select({
-          id: profiles.id,
-          name: profiles.name,
-          isDefault: profiles.isDefault,
-        })
-        .from(profiles)
-        .orderBy(asc(profiles.name)),
-      syncUsersWithJellyfin(),
-    ])
+  const [profileRows, syncResult] = await Promise.all([
+    db
+      .select({
+        id: profiles.id,
+        name: profiles.name,
+        isDefault: profiles.isDefault,
+      })
+      .from(profiles)
+      .orderBy(asc(profiles.name)),
+    syncUsersWithJellyfin(),
+  ])
 
-    const profilesById = new Map(
-      profileRows.map((profile) => [profile.id, profile]),
-    )
-    const matchedUsersById = new Map(
-      syncResult.matchedUsers.map((user) => [user.userId, user]),
-    )
-    const liveUserItems = syncResult.jellyfinUsers.map((jellyfinUser) =>
-      mapLiveUserItem(jellyfinUser, matchedUsersById, profilesById),
-    )
+  const profilesById = new Map(
+    profileRows.map((profile) => [profile.id, profile]),
+  )
+  const matchedUsersById = new Map(
+    syncResult.matchedUsers.map((user) => [user.userId, user]),
+  )
+  const liveUserItems = syncResult.jellyfinUsers.map((jellyfinUser) =>
+    mapLiveUserItem(jellyfinUser, matchedUsersById, profilesById),
+  )
 
-    const orphanedUserItems = syncResult.orphanedUsers
-      .map((dbUser) => mapOrphanedUserItem(dbUser, profilesById))
-      .toSorted((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-      )
-
-    const userItems = [...liveUserItems, ...orphanedUserItems].toSorted(
-      (a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  const orphanedUserItems = syncResult.orphanedUsers
+    .map((dbUser) => mapOrphanedUserItem(dbUser, profilesById))
+    .toSorted((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
     )
 
-    return success({
-      users: userItems,
-      profiles: profileRows,
-      seerrConfigured: !!configManager.seerr,
-    })
-  } catch (err) {
-    logger.error({ err }, "Failed to list users")
-    return error(ErrorCode.OPERATION_FAILED, "Failed to list users")
-  }
+  const userItems = [...liveUserItems, ...orphanedUserItems].toSorted((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  )
+
+  return success({
+    users: userItems,
+    profiles: profileRows,
+    seerrConfigured: !!configManager.seerr,
+  })
 }
 
 function filterUserItems(
@@ -495,42 +489,34 @@ export async function bulkManageUsersService(
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
 
-  try {
-    if (parsed.data.operation === "assignProfile") {
-      await ensureDefaultProfileService()
-    }
-    await ensureMigrated()
-
-    const sharedState = await loadManagedUserSharedState()
-    const dbUsers = await loadDbUsersByIds(parsed.data.userIds)
-    const context = buildPreparedUserMaps({ ...sharedState, dbUsers })
-    const lastAdminGuard = {
-      activeAdminCount: context.jellyfinUsers.filter(
-        (user) => user.isAdmin && !user.isDisabled,
-      ).length,
-    }
-
-    const results = await runWithConcurrency(
-      parsed.data.userIds,
-      3,
-      async (userId) =>
-        applyBulkManagedUserOperation(
-          userId,
-          parsed.data.operation,
-          parsed.data.updates,
-          context,
-          lastAdminGuard,
-        ),
-    )
-
-    return success({ results })
-  } catch (err) {
-    logger.error({ err }, "Failed to run bulk user operation")
-    return error(
-      ErrorCode.OPERATION_FAILED,
-      "Failed to run bulk user operation",
-    )
+  if (parsed.data.operation === "assignProfile") {
+    await ensureDefaultProfileService()
   }
+  await ensureMigrated()
+
+  const sharedState = await loadManagedUserSharedState()
+  const dbUsers = await loadDbUsersByIds(parsed.data.userIds)
+  const context = buildPreparedUserMaps({ ...sharedState, dbUsers })
+  const lastAdminGuard = {
+    activeAdminCount: context.jellyfinUsers.filter(
+      (user) => user.isAdmin && !user.isDisabled,
+    ).length,
+  }
+
+  const results = await runWithConcurrency(
+    parsed.data.userIds,
+    3,
+    async (userId) =>
+      applyBulkManagedUserOperation(
+        userId,
+        parsed.data.operation,
+        parsed.data.updates,
+        context,
+        lastAdminGuard,
+      ),
+  )
+
+  return success({ results })
 }
 
 async function applyBulkManagedUserOperation(
@@ -1065,446 +1051,427 @@ export async function updateManagedUserService(
   userId: string,
   input: z.infer<typeof updateManagedUserSchema>,
 ): Promise<ActionResult<UpdateManagedUserResult>> {
-  try {
-    const parsedUserId = userIdSchema.safeParse(userId)
-    if (!parsedUserId.success) {
+  const parsedUserId = userIdSchema.safeParse(userId)
+  if (!parsedUserId.success) {
+    return error(
+      ErrorCode.VALIDATION_FAILED,
+      parsedUserId.error.issues[0]?.message,
+    )
+  }
+
+  const parsed = updateManagedUserSchema.safeParse(input)
+  if (!parsed.success) {
+    return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
+  }
+
+  await ensureDefaultProfileService()
+  await ensureMigrated()
+
+  const [dbUser, profileRows, jellyfinUsers] = await Promise.all([
+    db.query.users.findFirst({
+      where: (table, { eq: isEqual }) =>
+        isEqual(table.userId, parsedUserId.data),
+    }),
+    db
+      .select({
+        id: profiles.id,
+        name: profiles.name,
+        isDefault: profiles.isDefault,
+        policy: profiles.policy,
+      })
+      .from(profiles),
+    getAllUsers(),
+  ])
+
+  const jellyfinUser =
+    jellyfinUsers.find((user) => user.id === parsedUserId.data) ?? null
+  if (!dbUser && !jellyfinUser) {
+    return error(ErrorCode.NOT_FOUND, "User not found")
+  }
+
+  const profilesById = new Map(
+    profileRows.map((profile) => [profile.id, profile]),
+  )
+  const currentEmail = dbUser?.email ?? null
+  const normalizedEmail =
+    parsed.data.email !== undefined
+      ? parsed.data.email
+        ? normalizeEmail(parsed.data.email)
+        : null
+      : currentEmail
+  const hasEmailUpdate =
+    parsed.data.email !== undefined || parsed.data.emailVerified !== undefined
+  const currentExpiresAt = dbUser?.expiresAt ?? null
+  const now = new Date()
+
+  if (hasEmailUpdate && normalizedEmail) {
+    const [existingUser] = await db
+      .select({ userId: users.userId })
+      .from(users)
+      .where(
+        and(
+          eq(users.email, normalizedEmail),
+          ne(users.userId, parsedUserId.data),
+        ),
+      )
+
+    if (existingUser) {
       return error(
-        ErrorCode.VALIDATION_FAILED,
-        parsedUserId.error.issues[0]?.message,
+        ErrorCode.EMAIL_TAKEN,
+        "Email is already registered to another user",
       )
     }
+  }
 
-    const parsed = updateManagedUserSchema.safeParse(input)
-    if (!parsed.success) {
-      return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
+  const effectiveState = deriveEffectiveUserState({
+    dbUser,
+    jellyfinUser,
+    profilesById,
+    profileIdUpdate: parsed.data.profileId,
+    expiresAtUpdate: parsed.data.expiresAt,
+    isDisabledUpdate: parsed.data.isDisabled,
+    currentExpiresAt,
+  })
+
+  if (jellyfinUser?.isAdmin) {
+    if (parsed.data.expiresAt !== undefined && parsed.data.expiresAt !== null) {
+      return error(ErrorCode.CONFLICT, "Admin users are exempt from expiry")
+    }
+  }
+
+  if (parsed.data.profileId !== undefined) {
+    if (jellyfinUser?.isAdmin) {
+      return error(ErrorCode.CONFLICT, "Admin users are exempt from profiles")
+    }
+    if (!effectiveState.updatedProfile) {
+      return error(ErrorCode.NOT_FOUND, "Profile not found")
+    }
+    if (!jellyfinUser) {
+      return error(ErrorCode.NOT_FOUND, "User no longer exists in Jellyfin")
     }
 
-    await ensureDefaultProfileService()
-    await ensureMigrated()
-
-    const [dbUser, profileRows, jellyfinUsers] = await Promise.all([
-      db.query.users.findFirst({
-        where: (table, { eq: isEqual }) =>
-          isEqual(table.userId, parsedUserId.data),
-      }),
-      db
-        .select({
-          id: profiles.id,
-          name: profiles.name,
-          isDefault: profiles.isDefault,
-          policy: profiles.policy,
-        })
-        .from(profiles),
-      getAllUsers(),
-    ])
-
-    const jellyfinUser =
-      jellyfinUsers.find((user) => user.id === parsedUserId.data) ?? null
-    if (!dbUser && !jellyfinUser) {
-      return error(ErrorCode.NOT_FOUND, "User not found")
-    }
-
-    const profilesById = new Map(
-      profileRows.map((profile) => [profile.id, profile]),
-    )
-    const currentEmail = dbUser?.email ?? null
-    const normalizedEmail =
-      parsed.data.email !== undefined
-        ? parsed.data.email
-          ? normalizeEmail(parsed.data.email)
-          : null
-        : currentEmail
-    const hasEmailUpdate =
-      parsed.data.email !== undefined || parsed.data.emailVerified !== undefined
-    const currentExpiresAt = dbUser?.expiresAt ?? null
-    const now = new Date()
-
-    if (hasEmailUpdate && normalizedEmail) {
-      const [existingUser] = await db
-        .select({ userId: users.userId })
-        .from(users)
-        .where(
-          and(
-            eq(users.email, normalizedEmail),
-            ne(users.userId, parsedUserId.data),
-          ),
+    let seerrSynced = false
+    try {
+      await applyProfileToUser({
+        userId: jellyfinUser.id,
+        userName: jellyfinUser.name,
+        email: normalizedEmail,
+        policy: effectiveState.updatedProfile.policy,
+        isAdmin: jellyfinUser.isAdmin,
+      })
+      seerrSynced = !!configManager.seerr
+    } catch (err) {
+      if (err instanceof JellyfinLastAdminError) {
+        return error(ErrorCode.LAST_ADMIN_REQUIRED, err.message)
+      }
+      if (err instanceof SeerrProfileSyncError) {
+        logger.warn(
+          {
+            err,
+            userId: jellyfinUser.id,
+            profileId: effectiveState.updatedProfile.id,
+          },
+          "Seerr sync failed; continuing",
         )
-
-      if (existingUser) {
-        return error(
-          ErrorCode.EMAIL_TAKEN,
-          "Email is already registered to another user",
-        )
+      } else {
+        throw err
       }
     }
 
-    const effectiveState = deriveEffectiveUserState({
-      dbUser,
-      jellyfinUser,
-      profilesById,
-      profileIdUpdate: parsed.data.profileId,
-      expiresAtUpdate: parsed.data.expiresAt,
-      isDisabledUpdate: parsed.data.isDisabled,
-      currentExpiresAt,
+    if (seerrSynced) {
+      await db
+        .update(users)
+        .set({ seerrSyncedAt: new Date() })
+        .where(eq(users.userId, jellyfinUser.id))
+    }
+  }
+
+  if (parsed.data.isDisabled !== undefined) {
+    if (!jellyfinUser) {
+      return error(ErrorCode.NOT_FOUND, "User no longer exists in Jellyfin")
+    }
+
+    if (jellyfinUser.isAdmin && parsed.data.isDisabled) {
+      const activeAdminCount = jellyfinUsers.filter(
+        (user) => user.isAdmin && !user.isDisabled,
+      ).length
+      if (activeAdminCount <= 1) {
+        return error(ErrorCode.LAST_ADMIN_REQUIRED)
+      }
+    }
+
+    try {
+      await updateUserPolicy(jellyfinUser.id, {
+        isDisabled: parsed.data.isDisabled,
+      })
+      if (parsed.data.isDisabled) {
+        await revokeAllUserSessions(jellyfinUser.id)
+      }
+    } catch (err) {
+      if (
+        err instanceof JellyfinLastAdminError ||
+        isJellyfinLastAdminError(err)
+      ) {
+        return error(ErrorCode.LAST_ADMIN_REQUIRED)
+      }
+      throw err
+    }
+  }
+
+  const emailVerified = normalizedEmail
+    ? (parsed.data.emailVerified ?? dbUser?.emailVerified ?? false)
+    : false
+  const nextExpiresAt = effectiveState.nextExpiresAt
+  const expiresAtChanged =
+    currentExpiresAt?.getTime() !== nextExpiresAt?.getTime()
+  const emailChanged = normalizedEmail !== currentEmail
+  const shouldResetExpiryWarning = expiresAtChanged || emailChanged
+
+  await ensureUserRecord(parsedUserId.data)
+  await db
+    .update(users)
+    .set({
+      profileId: jellyfinUser?.isAdmin
+        ? null
+        : effectiveState.assignedProfileId,
+      email: normalizedEmail,
+      emailVerified,
+      expiresAt: nextExpiresAt,
+      ...(shouldResetExpiryWarning
+        ? {
+            expiryWarningSentAt: null,
+            expiryWarningSentFor: null,
+          }
+        : {}),
+    })
+    .where(eq(users.userId, parsedUserId.data))
+
+  if (
+    configManager.seerr &&
+    normalizedEmail &&
+    normalizedEmail !== currentEmail
+  ) {
+    try {
+      const syncedSeerrUser = await resolveSeerrUser({
+        jellyfinUserId: parsedUserId.data,
+        userName: jellyfinUser?.name ?? parsedUserId.data,
+        email: normalizedEmail,
+      })
+
+      if (syncedSeerrUser) {
+        await db
+          .update(users)
+          .set({ seerrSyncedAt: new Date() })
+          .where(eq(users.userId, parsedUserId.data))
+      }
+    } catch (err) {
+      logger.warn(
+        { err, userId: parsedUserId.data },
+        "Failed to resolve Seerr user after managed user update",
+      )
+    }
+  }
+
+  const shouldEnforceExpiredAccess =
+    nextExpiresAt !== null &&
+    isUserExpired({ expiresAt: nextExpiresAt }, false, now)
+
+  if (shouldEnforceExpiredAccess) {
+    await enforceExpiredUserAccess(
+      {
+        userId: parsedUserId.data,
+        userName: jellyfinUser?.name ?? dbUser?.email ?? null,
+        expiresAt: nextExpiresAt,
+        isAdmin: false,
+        isDisabled: effectiveState.isDisabled,
+      },
+      now,
+    )
+  }
+  const isDisabled = shouldEnforceExpiredAccess
+    ? true
+    : effectiveState.isDisabled
+
+  return success({
+    userId: parsedUserId.data,
+    profileId: jellyfinUser?.isAdmin ? null : effectiveState.assignedProfileId,
+    profileName: effectiveState.effectiveProfileName,
+    email: normalizedEmail,
+    emailVerified,
+    isDisabled,
+    expiresAt: nextExpiresAt?.toISOString() ?? null,
+  })
+}
+
+export async function syncUserToSeerrService(
+  userId: string,
+): Promise<ActionResult<{ synced: boolean }>> {
+  const parsedUserId = userIdSchema.safeParse(userId)
+  if (!parsedUserId.success) {
+    return error(
+      ErrorCode.VALIDATION_FAILED,
+      parsedUserId.error.issues[0]?.message,
+    )
+  }
+
+  if (!configManager.seerr) {
+    return error(ErrorCode.CONFLICT, "Seerr integration is not configured")
+  }
+
+  await ensureMigrated()
+
+  const [dbUser, jellyfinUsers] = await Promise.all([
+    db.query.users.findFirst({
+      where: (table, { eq: isEqual }) =>
+        isEqual(table.userId, parsedUserId.data),
+    }),
+    getAllUsers(),
+  ])
+
+  const jellyfinUser =
+    jellyfinUsers.find((u) => u.id === parsedUserId.data) ?? null
+
+  logger.info(
+    {
+      userId: parsedUserId.data,
+      hasDbRecord: !!dbUser,
+      foundInJellyfin: !!jellyfinUser,
+    },
+    "Syncing user to Seerr",
+  )
+
+  if (!dbUser && !jellyfinUser) {
+    return error(ErrorCode.NOT_FOUND, "User not found")
+  }
+
+  if (!jellyfinUser) {
+    return error(ErrorCode.NOT_FOUND, "User no longer exists in Jellyfin")
+  }
+
+  const seerrUser = await resolveSeerrUser({
+    jellyfinUserId: parsedUserId.data,
+    userName: jellyfinUser.name,
+    email: dbUser?.email ?? null,
+  })
+  logger.info(
+    { userId: parsedUserId.data, seerrUserId: seerrUser?.id ?? null },
+    seerrUser ? "Resolved Seerr user" : "User not found in Seerr",
+  )
+
+  if (!seerrUser) {
+    return error(
+      ErrorCode.OPERATION_FAILED,
+      "User could not be found or imported in Seerr",
+    )
+  }
+
+  if (dbUser?.profileId && !jellyfinUser.isAdmin) {
+    const profile = await db.query.profiles.findFirst({
+      where: (table, { eq: isEqual }) => isEqual(table.id, dbUser.profileId!),
     })
 
-    if (jellyfinUser?.isAdmin) {
-      if (
-        parsed.data.expiresAt !== undefined &&
-        parsed.data.expiresAt !== null
-      ) {
-        return error(ErrorCode.CONFLICT, "Admin users are exempt from expiry")
-      }
-    }
-
-    if (parsed.data.profileId !== undefined) {
-      if (jellyfinUser?.isAdmin) {
-        return error(ErrorCode.CONFLICT, "Admin users are exempt from profiles")
-      }
-      if (!effectiveState.updatedProfile) {
-        return error(ErrorCode.NOT_FOUND, "Profile not found")
-      }
-      if (!jellyfinUser) {
-        return error(ErrorCode.NOT_FOUND, "User no longer exists in Jellyfin")
-      }
-
-      let seerrSynced = false
+    if (profile?.policy) {
       try {
         await applyProfileToUser({
-          userId: jellyfinUser.id,
+          userId: parsedUserId.data,
           userName: jellyfinUser.name,
-          email: normalizedEmail,
-          policy: effectiveState.updatedProfile.policy,
+          email: dbUser.email,
+          policy: profile.policy,
           isAdmin: jellyfinUser.isAdmin,
         })
-        seerrSynced = !!configManager.seerr
       } catch (err) {
         if (err instanceof JellyfinLastAdminError) {
           return error(ErrorCode.LAST_ADMIN_REQUIRED, err.message)
         }
         if (err instanceof SeerrProfileSyncError) {
           logger.warn(
-            {
-              err,
-              userId: jellyfinUser.id,
-              profileId: effectiveState.updatedProfile.id,
-            },
-            "Seerr sync failed; continuing",
+            { err, userId: parsedUserId.data, profileId: profile.id },
+            "Seerr profile re-sync failed during manual Seerr sync",
           )
         } else {
           throw err
         }
       }
-
-      if (seerrSynced) {
-        await db
-          .update(users)
-          .set({ seerrSyncedAt: new Date() })
-          .where(eq(users.userId, jellyfinUser.id))
-      }
     }
-
-    if (parsed.data.isDisabled !== undefined) {
-      if (!jellyfinUser) {
-        return error(ErrorCode.NOT_FOUND, "User no longer exists in Jellyfin")
-      }
-
-      if (jellyfinUser.isAdmin && parsed.data.isDisabled) {
-        const activeAdminCount = jellyfinUsers.filter(
-          (user) => user.isAdmin && !user.isDisabled,
-        ).length
-        if (activeAdminCount <= 1) {
-          return error(ErrorCode.LAST_ADMIN_REQUIRED)
-        }
-      }
-
-      try {
-        await updateUserPolicy(jellyfinUser.id, {
-          isDisabled: parsed.data.isDisabled,
-        })
-        if (parsed.data.isDisabled) {
-          await revokeAllUserSessions(jellyfinUser.id)
-        }
-      } catch (err) {
-        if (
-          err instanceof JellyfinLastAdminError ||
-          isJellyfinLastAdminError(err)
-        ) {
-          return error(ErrorCode.LAST_ADMIN_REQUIRED)
-        }
-        throw err
-      }
-    }
-
-    const emailVerified = normalizedEmail
-      ? (parsed.data.emailVerified ?? dbUser?.emailVerified ?? false)
-      : false
-    const nextExpiresAt = effectiveState.nextExpiresAt
-    const expiresAtChanged =
-      currentExpiresAt?.getTime() !== nextExpiresAt?.getTime()
-    const emailChanged = normalizedEmail !== currentEmail
-    const shouldResetExpiryWarning = expiresAtChanged || emailChanged
-
-    await ensureUserRecord(parsedUserId.data)
-    await db
-      .update(users)
-      .set({
-        profileId: jellyfinUser?.isAdmin
-          ? null
-          : effectiveState.assignedProfileId,
-        email: normalizedEmail,
-        emailVerified,
-        expiresAt: nextExpiresAt,
-        ...(shouldResetExpiryWarning
-          ? {
-              expiryWarningSentAt: null,
-              expiryWarningSentFor: null,
-            }
-          : {}),
-      })
-      .where(eq(users.userId, parsedUserId.data))
-
-    if (
-      configManager.seerr &&
-      normalizedEmail &&
-      normalizedEmail !== currentEmail
-    ) {
-      try {
-        const syncedSeerrUser = await resolveSeerrUser({
-          jellyfinUserId: parsedUserId.data,
-          userName: jellyfinUser?.name ?? parsedUserId.data,
-          email: normalizedEmail,
-        })
-
-        if (syncedSeerrUser) {
-          await db
-            .update(users)
-            .set({ seerrSyncedAt: new Date() })
-            .where(eq(users.userId, parsedUserId.data))
-        }
-      } catch (err) {
-        logger.warn(
-          { err, userId: parsedUserId.data },
-          "Failed to resolve Seerr user after managed user update",
-        )
-      }
-    }
-
-    const shouldEnforceExpiredAccess =
-      nextExpiresAt !== null &&
-      isUserExpired({ expiresAt: nextExpiresAt }, false, now)
-
-    if (shouldEnforceExpiredAccess) {
-      await enforceExpiredUserAccess(
-        {
-          userId: parsedUserId.data,
-          userName: jellyfinUser?.name ?? dbUser?.email ?? null,
-          expiresAt: nextExpiresAt,
-          isAdmin: false,
-          isDisabled: effectiveState.isDisabled,
-        },
-        now,
-      )
-    }
-    const isDisabled = shouldEnforceExpiredAccess
-      ? true
-      : effectiveState.isDisabled
-
-    return success({
-      userId: parsedUserId.data,
-      profileId: jellyfinUser?.isAdmin
-        ? null
-        : effectiveState.assignedProfileId,
-      profileName: effectiveState.effectiveProfileName,
-      email: normalizedEmail,
-      emailVerified,
-      isDisabled,
-      expiresAt: nextExpiresAt?.toISOString() ?? null,
-    })
-  } catch (err) {
-    logger.error({ err }, "Failed to update user")
-    return error(ErrorCode.OPERATION_FAILED, "Failed to update user")
   }
-}
 
-export async function syncUserToSeerrService(
-  userId: string,
-): Promise<ActionResult<{ synced: boolean }>> {
-  try {
-    const parsedUserId = userIdSchema.safeParse(userId)
-    if (!parsedUserId.success) {
-      return error(
-        ErrorCode.VALIDATION_FAILED,
-        parsedUserId.error.issues[0]?.message,
-      )
-    }
+  await ensureUserRecord(parsedUserId.data)
+  await db
+    .update(users)
+    .set({ seerrSyncedAt: new Date() })
+    .where(eq(users.userId, parsedUserId.data))
 
-    if (!configManager.seerr) {
-      return error(ErrorCode.CONFLICT, "Seerr integration is not configured")
-    }
-
-    await ensureMigrated()
-
-    const [dbUser, jellyfinUsers] = await Promise.all([
-      db.query.users.findFirst({
-        where: (table, { eq: isEqual }) =>
-          isEqual(table.userId, parsedUserId.data),
-      }),
-      getAllUsers(),
-    ])
-
-    const jellyfinUser =
-      jellyfinUsers.find((u) => u.id === parsedUserId.data) ?? null
-
-    logger.info(
-      {
-        userId: parsedUserId.data,
-        hasDbRecord: !!dbUser,
-        foundInJellyfin: !!jellyfinUser,
-      },
-      "Syncing user to Seerr",
-    )
-
-    if (!dbUser && !jellyfinUser) {
-      return error(ErrorCode.NOT_FOUND, "User not found")
-    }
-
-    if (!jellyfinUser) {
-      return error(ErrorCode.NOT_FOUND, "User no longer exists in Jellyfin")
-    }
-
-    const seerrUser = await resolveSeerrUser({
-      jellyfinUserId: parsedUserId.data,
-      userName: jellyfinUser.name,
-      email: dbUser?.email ?? null,
-    })
-    logger.info(
-      { userId: parsedUserId.data, seerrUserId: seerrUser?.id ?? null },
-      seerrUser ? "Resolved Seerr user" : "User not found in Seerr",
-    )
-
-    if (!seerrUser) {
-      return error(
-        ErrorCode.OPERATION_FAILED,
-        "User could not be found or imported in Seerr",
-      )
-    }
-
-    if (dbUser?.profileId && !jellyfinUser.isAdmin) {
-      const profile = await db.query.profiles.findFirst({
-        where: (table, { eq: isEqual }) => isEqual(table.id, dbUser.profileId!),
-      })
-
-      if (profile?.policy) {
-        try {
-          await applyProfileToUser({
-            userId: parsedUserId.data,
-            userName: jellyfinUser.name,
-            email: dbUser.email,
-            policy: profile.policy,
-            isAdmin: jellyfinUser.isAdmin,
-          })
-        } catch (err) {
-          if (err instanceof JellyfinLastAdminError) {
-            return error(ErrorCode.LAST_ADMIN_REQUIRED, err.message)
-          }
-          if (err instanceof SeerrProfileSyncError) {
-            logger.warn(
-              { err, userId: parsedUserId.data, profileId: profile.id },
-              "Seerr profile re-sync failed during manual Seerr sync",
-            )
-          } else {
-            throw err
-          }
-        }
-      }
-    }
-
-    await ensureUserRecord(parsedUserId.data)
-    await db
-      .update(users)
-      .set({ seerrSyncedAt: new Date() })
-      .where(eq(users.userId, parsedUserId.data))
-
-    return success({ synced: true })
-  } catch (err) {
-    logger.error({ err, userId }, "Failed to sync user to Seerr")
-    return error(ErrorCode.OPERATION_FAILED, "Failed to sync user to Seerr")
-  }
+  return success({ synced: true })
 }
 
 export async function deleteManagedUserService(
   userId: string,
 ): Promise<ActionResult<DeleteManagedUserResult>> {
-  try {
-    const parsedUserId = userIdSchema.safeParse(userId)
-    if (!parsedUserId.success) {
-      return error(
-        ErrorCode.VALIDATION_FAILED,
-        parsedUserId.error.issues[0]?.message,
-      )
-    }
-
-    await ensureMigrated()
-
-    const [dbUser, jellyfinUsers] = await Promise.all([
-      db.query.users.findFirst({
-        where: (table, { eq: isEqual }) =>
-          isEqual(table.userId, parsedUserId.data),
-      }),
-      getAllUsers(),
-    ])
-
-    const jellyfinUser =
-      jellyfinUsers.find((user) => user.id === parsedUserId.data) ?? null
-
-    if (!dbUser && !jellyfinUser) {
-      return error(ErrorCode.NOT_FOUND, "User not found")
-    }
-
-    if (jellyfinUser?.isAdmin && !jellyfinUser.isDisabled) {
-      const enabledAdminCount = jellyfinUsers.filter(
-        (user) => user.isAdmin && !user.isDisabled,
-      ).length
-      if (enabledAdminCount <= 1) {
-        return error(ErrorCode.LAST_ADMIN_REQUIRED)
-      }
-    }
-
-    let deletedFromSeerr = false
-
-    try {
-      deletedFromSeerr = await deleteLinkedSeerrUser(parsedUserId.data, {
-        userName: jellyfinUser?.name ?? dbUser?.email ?? parsedUserId.data,
-        email: dbUser?.email ?? null,
-      })
-    } catch (err) {
-      logger.warn(
-        {
-          err,
-          userId: parsedUserId.data,
-          jellyfinUserMissing: jellyfinUser === null,
-        },
-        "Failed to delete linked Seerr user; continuing with app user deletion",
-      )
-    }
-
-    if (jellyfinUser) {
-      await deleteUser(jellyfinUser.id)
-    }
-
-    await revokeAllUserSessions(parsedUserId.data)
-
-    if (dbUser) {
-      await deleteAppUserData(dbUser.userId)
-    }
-
-    return success({
-      userId: parsedUserId.data,
-      deletedFromJellyfin: jellyfinUser !== null,
-      deletedFromSeerr,
-    })
-  } catch {
-    return error(ErrorCode.OPERATION_FAILED, "Failed to delete user")
+  const parsedUserId = userIdSchema.safeParse(userId)
+  if (!parsedUserId.success) {
+    return error(
+      ErrorCode.VALIDATION_FAILED,
+      parsedUserId.error.issues[0]?.message,
+    )
   }
+
+  await ensureMigrated()
+
+  const [dbUser, jellyfinUsers] = await Promise.all([
+    db.query.users.findFirst({
+      where: (table, { eq: isEqual }) =>
+        isEqual(table.userId, parsedUserId.data),
+    }),
+    getAllUsers(),
+  ])
+
+  const jellyfinUser =
+    jellyfinUsers.find((user) => user.id === parsedUserId.data) ?? null
+
+  if (!dbUser && !jellyfinUser) {
+    return error(ErrorCode.NOT_FOUND, "User not found")
+  }
+
+  if (jellyfinUser?.isAdmin && !jellyfinUser.isDisabled) {
+    const enabledAdminCount = jellyfinUsers.filter(
+      (user) => user.isAdmin && !user.isDisabled,
+    ).length
+    if (enabledAdminCount <= 1) {
+      return error(ErrorCode.LAST_ADMIN_REQUIRED)
+    }
+  }
+
+  let deletedFromSeerr = false
+
+  try {
+    deletedFromSeerr = await deleteLinkedSeerrUser(parsedUserId.data, {
+      userName: jellyfinUser?.name ?? dbUser?.email ?? parsedUserId.data,
+      email: dbUser?.email ?? null,
+    })
+  } catch (err) {
+    logger.warn(
+      {
+        err,
+        userId: parsedUserId.data,
+        jellyfinUserMissing: jellyfinUser === null,
+      },
+      "Failed to delete linked Seerr user; continuing with app user deletion",
+    )
+  }
+
+  if (jellyfinUser) {
+    await deleteUser(jellyfinUser.id)
+  }
+
+  await revokeAllUserSessions(parsedUserId.data)
+
+  if (dbUser) {
+    await deleteAppUserData(dbUser.userId)
+  }
+
+  return success({
+    userId: parsedUserId.data,
+    deletedFromJellyfin: jellyfinUser !== null,
+    deletedFromSeerr,
+  })
 }

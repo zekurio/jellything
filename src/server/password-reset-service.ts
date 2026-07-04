@@ -184,47 +184,42 @@ export async function findPasswordResetPinForCode(
 export async function resetPassword(
   input: z.infer<typeof resetPasswordSchema>,
 ): Promise<ActionResult<null>> {
-  try {
-    const parsed = resetPasswordSchema.safeParse(input)
-    if (!parsed.success) {
-      return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
-    }
-
-    if (!configManager.jellyfinConfigPath) {
-      return error(ErrorCode.PASSWORD_RESET_NOT_CONFIGURED)
-    }
-
-    const { pin, newPassword } = parsed.data
-    const pinInfo = await findPasswordResetPinByCode(pin)
-    if (!pinInfo) {
-      return error(ErrorCode.PASSWORD_RESET_PIN_INVALID)
-    }
-
-    try {
-      await forgotPasswordPin(pin)
-    } catch (err) {
-      logger.warn({ error: err }, "Invalid password reset PIN")
-      return error(ErrorCode.PASSWORD_RESET_PIN_INVALID)
-    }
-
-    let authResult: Awaited<ReturnType<typeof authenticateUser>>
-    try {
-      authResult = await authenticateUser(pinInfo.userName, pin)
-    } catch (err) {
-      logger.warn({ error: err }, "Failed to authenticate with PIN")
-      return error(ErrorCode.PASSWORD_RESET_PIN_INVALID)
-    }
-
-    const userApi = createApiWithToken(authResult.accessToken)
-    await changePassword(userApi, authResult.id, pin, newPassword)
-
-    logger.info(
-      { username: pinInfo.userName },
-      "Password reset completed successfully",
-    )
-    return success(null)
-  } catch (err) {
-    logger.error({ error: err }, "Password reset failed")
-    return error(ErrorCode.OPERATION_FAILED, "Failed to reset password")
+  const parsed = resetPasswordSchema.safeParse(input)
+  if (!parsed.success) {
+    return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
+
+  if (!configManager.jellyfinConfigPath) {
+    return error(ErrorCode.PASSWORD_RESET_NOT_CONFIGURED)
+  }
+
+  const { pin, newPassword } = parsed.data
+  const pinInfo = await findPasswordResetPinByCode(pin)
+  if (!pinInfo) {
+    return error(ErrorCode.PASSWORD_RESET_PIN_INVALID)
+  }
+
+  try {
+    await forgotPasswordPin(pin)
+  } catch (err) {
+    logger.warn({ error: err }, "Invalid password reset PIN")
+    return error(ErrorCode.PASSWORD_RESET_PIN_INVALID)
+  }
+
+  let authResult: Awaited<ReturnType<typeof authenticateUser>>
+  try {
+    authResult = await authenticateUser(pinInfo.userName, pin)
+  } catch (err) {
+    logger.warn({ error: err }, "Failed to authenticate with PIN")
+    return error(ErrorCode.PASSWORD_RESET_PIN_INVALID)
+  }
+
+  const userApi = createApiWithToken(authResult.accessToken)
+  await changePassword(userApi, authResult.id, pin, newPassword)
+
+  logger.info(
+    { username: pinInfo.userName },
+    "Password reset completed successfully",
+  )
+  return success(null)
 }
