@@ -23,14 +23,17 @@ export const orpc = os.$context<ORPCContext>()
 // unexpected: log it with context here and translate it into the stable
 // OPERATION_FAILED envelope the client already understands, so per-procedure
 // generic catch-alls are redundant.
-const errorBoundaryMiddleware = orpc.middleware(async ({ next }) => {
+const errorBoundaryMiddleware = orpc.middleware(async ({ next, path }) => {
   try {
     return await next()
   } catch (err) {
     if (err instanceof ORPCError) {
       throw err
     }
-    errorBoundaryLog.error({ err }, "Unhandled error in ORPC procedure")
+    errorBoundaryLog.error(
+      { err, procedure: path.join(".") },
+      "Unhandled error in ORPC procedure",
+    )
     throwAppError(ErrorCode.OPERATION_FAILED)
   }
 })
