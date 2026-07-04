@@ -5,7 +5,7 @@ import {
   getRequestId,
   getRequestUserAgent,
   REQUEST_ID_HEADER,
-} from "@/server/request-context.server"
+} from "@/server/request-context"
 import { SESSION_COOKIE_NAME } from "@/server/session"
 import {
   resolveSession,

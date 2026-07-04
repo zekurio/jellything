@@ -11,7 +11,7 @@ import { emailVerificationSchema } from "@/lib/schemas"
 import { getSession } from "@/lib/server/auth"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
-import { db, ensureMigrated } from "@/server/db.server"
+import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
 import { EmailApiError, sendEmail, isEmailConfigured } from "@/server/email"
 import {

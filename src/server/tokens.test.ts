@@ -16,7 +16,7 @@ async function loadTokenModules() {
   vi.resetModules()
 
   const tokens = await import("@/server/tokens")
-  const database = await import("@/server/db.server")
+  const database = await import("@/server/db")
   const schema = await import("@/server/db/schema")
 
   await database.ensureMigrated()

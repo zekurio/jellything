@@ -23,8 +23,8 @@ import type { SessionData } from "@/lib/session"
 import {
   clearAuthenticatedSession,
   updateCurrentSessionIdentity,
-} from "@/server/auth-service"
-import { db, ensureMigrated } from "@/server/db.server"
+} from "@/server/auth"
+import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
 import { EmailApiError, sendEmail, isEmailConfigured } from "@/server/email"
 import {
@@ -49,9 +49,12 @@ import {
   createEmailVerificationToken,
   deleteEmailVerificationToken,
 } from "@/server/tokens"
-import { deleteAppUserData, deleteLinkedSeerrUser } from "@/server/users"
+import {
+  deleteAppUserData,
+  deleteLinkedSeerrUser,
+} from "@/server/user-lifecycle"
 
-const log = createChildLogger({ module: "me-service" })
+const log = createChildLogger({ module: "me" })
 
 function resolveWorkflowSession(
   session: SessionData | undefined,

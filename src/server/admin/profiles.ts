@@ -7,7 +7,7 @@ import {
   type ActionResult,
 } from "@/lib/api/contracts/errors"
 import { createProfileSchema, updateProfileSchema } from "@/lib/schemas"
-import { db, ensureMigrated } from "@/server/db.server"
+import { db, ensureMigrated } from "@/server/db"
 import {
   DEFAULT_PROFILE_POLICY,
   profiles,
@@ -24,7 +24,7 @@ import {
 } from "@/server/profile-sync"
 import { createSeerrUserLookupCache } from "@/server/seerr/users"
 
-const log = createChildLogger({ module: "admin-profiles-service" })
+const log = createChildLogger({ module: "admin-profiles" })
 const PROFILE_SYNC_CONCURRENCY = 3
 
 type ProfileListItem = Omit<Profile, "createdAt" | "updatedAt"> & {

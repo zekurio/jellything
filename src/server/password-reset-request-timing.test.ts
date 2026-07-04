@@ -24,7 +24,7 @@ let pinDir: string | null = null
 
 async function loadService() {
   vi.resetModules()
-  return import("@/server/password-reset-service")
+  return import("@/server/password-reset")
 }
 
 beforeAll(async () => {

@@ -8,7 +8,7 @@ import type { MyExpiryInfo } from "@/lib/renewal-types"
 // server-only handler so it never reaches the browser bundle.
 export const getMyExpiryFn = createServerFn({ method: "GET" }).handler(
   async (): Promise<MyExpiryInfo | null> => {
-    const { getMyExpiry } = await import("@/server/me-service")
+    const { getMyExpiry } = await import("@/server/me")
     const result = await getMyExpiry()
     return result.success ? result.data : null
   },

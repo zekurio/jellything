@@ -29,7 +29,7 @@ import { resetEmailClient } from "@/server/email"
 import { createChildLogger } from "@/server/logger"
 import { getSeerrStatus } from "@/server/seerr"
 
-const log = createChildLogger({ module: "admin-config-service" })
+const log = createChildLogger({ module: "admin-config" })
 const CONNECTION_TEST_TIMEOUT_MS = 8000
 
 export async function updateJellyfinConfigService(

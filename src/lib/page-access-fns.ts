@@ -7,7 +7,7 @@ type PageAccessMode =
   | "protected"
   | "admin"
   | "config-error"
-type PageAccessServerModule = typeof import("@/server/page-access.server")
+type PageAccessServerModule = typeof import("@/server/page-access")
 
 let pageAccessModulePromise: Promise<PageAccessServerModule> | null = null
 
@@ -16,7 +16,7 @@ async function getPageAccessModule() {
     throw new Error("Page access helpers are unavailable in the browser build.")
   }
 
-  pageAccessModulePromise ??= import("@/server/page-access.server")
+  pageAccessModulePromise ??= import("@/server/page-access")
 
   return pageAccessModulePromise
 }

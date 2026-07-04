@@ -41,8 +41,8 @@ async function loadUsersServiceModules() {
   configureTestEnvironment(testDatabase)
   vi.resetModules()
 
-  const usersService = await import("@/server/admin/users-service")
-  const database = await import("@/server/db.server")
+  const usersService = await import("@/server/admin/users")
+  const database = await import("@/server/db")
   const schema = await import("@/server/db/schema")
   const errors = await import("@/lib/api/contracts/errors")
   const jellyfin = await import("@/server/jellyfin")

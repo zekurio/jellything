@@ -34,7 +34,7 @@ async function writePinFile(pin: string, userName: string) {
 
 async function loadModules() {
   vi.resetModules()
-  const service = await import("@/server/password-reset-service")
+  const service = await import("@/server/password-reset")
   const rateLimit = await import("@/server/rate-limit")
   return { service, rateLimit }
 }

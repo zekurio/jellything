@@ -15,8 +15,8 @@ async function loadOverviewModules() {
   configureTestEnvironment(testDatabase)
   vi.resetModules()
 
-  const overview = await import("@/server/admin/overview-service")
-  const database = await import("@/server/db.server")
+  const overview = await import("@/server/admin/overview")
+  const database = await import("@/server/db")
   const schema = await import("@/server/db/schema")
 
   await database.ensureMigrated()

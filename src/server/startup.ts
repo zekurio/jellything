@@ -3,7 +3,7 @@ import { createChildLogger } from "@/server/logger"
 import {
   runUserStartupMaintenance,
   startUserExpiryMaintenanceScheduler,
-} from "@/server/users"
+} from "@/server/user-lifecycle"
 
 const log = createChildLogger({ module: "startup" })
 

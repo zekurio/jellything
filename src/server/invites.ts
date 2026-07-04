@@ -16,8 +16,8 @@ import {
 } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
-import { establishAuthenticatedSession } from "@/server/auth-service"
-import { db, ensureMigrated, getUserByEmail } from "@/server/db.server"
+import { establishAuthenticatedSession } from "@/server/auth"
+import { db, ensureMigrated, getUserByEmail } from "@/server/db"
 import {
   inviteUsages,
   invites,
@@ -45,6 +45,14 @@ import {
 import { deleteSeerrUser, resolveSeerrUser } from "@/server/seerr"
 import { getSessionDataForUser } from "@/server/session-resolver"
 import { createEmailVerificationToken } from "@/server/tokens"
+
+const ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+const CODE_LENGTH = 8
+
+export function generateInviteCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH))
+  return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join("")
+}
 
 async function resolveInviteProfile(input: { profileId: string }): Promise<
   ActionResult<{

@@ -3,11 +3,11 @@ import { and, eq, gt, isNotNull } from "drizzle-orm"
 
 import { isValidLocale } from "@/lib/i18n"
 import type { SessionData } from "@/lib/session"
-import { db } from "@/server/db.server"
+import { db } from "@/server/db"
 import { emailVerificationTokens, users } from "@/server/db/schema"
 import { getUserAvatarUrl, validateUserAccessToken } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
-import { getRequestCookie } from "@/server/request-context.server"
+import { getRequestCookie } from "@/server/request-context"
 import {
   getSessionRecordFromCookie,
   isSessionValidationBackedOff,
@@ -22,7 +22,7 @@ import {
 } from "@/server/session"
 import { enforceExpiredUserAccess } from "@/server/user-access"
 import { isUserExpired } from "@/server/user-expiry"
-import { ensureUserRecord } from "@/server/users"
+import { ensureUserRecord } from "@/server/user-lifecycle"
 
 const log = createChildLogger({ module: "session-resolver" })
 

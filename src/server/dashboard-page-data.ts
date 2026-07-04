@@ -5,24 +5,24 @@ import {
   type DashboardTab,
 } from "@/lib/dashboard-tabs"
 import { createTranslator } from "@/lib/i18n"
-import { getSeerrConfigService } from "@/server/admin/config-service"
+import { getSeerrConfigService } from "@/server/admin/config"
 import {
   getInviteHistoryPageService,
   listInvitesPageService,
-} from "@/server/admin/invites-service"
-import { getLibrariesService } from "@/server/admin/libraries-service"
+} from "@/server/admin/invites"
+import { getLibrariesService } from "@/server/admin/libraries"
 import {
   EMPTY_OVERVIEW_SUMMARY,
   getOverviewService,
   type OverviewSummary,
-} from "@/server/admin/overview-service"
+} from "@/server/admin/overview"
 import {
   ensureDefaultProfileService,
   listProfilesService,
-} from "@/server/admin/profiles-service"
-import { listUsersWithProfilesService } from "@/server/admin/users-service"
+} from "@/server/admin/profiles"
+import { listUsersWithProfilesService } from "@/server/admin/users"
 import { getDashboardSettingsBootstrap } from "@/server/bootstrap-data"
-import { enforcePageAccess } from "@/server/page-access.server"
+import { enforcePageAccess } from "@/server/page-access"
 
 export interface DashboardPageLoaderInput {
   activeTab: DashboardTab
