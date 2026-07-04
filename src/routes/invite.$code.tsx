@@ -700,7 +700,7 @@ function InviteRedeemPage() {
                       {...register("username")}
                     />
                     {errors.username && (
-                      <FieldError>{usernameErrorMessage}</FieldError>
+                      <FieldError errors={[usernameErrorMessage]} />
                     )}
                   </Field>
                 </FieldGroup>
@@ -783,7 +783,7 @@ function InviteRedeemPage() {
                       {...register("email")}
                     />
                     {emailShouldShowInvalidState && (
-                      <FieldError>{emailErrorMessage}</FieldError>
+                      <FieldError errors={[emailErrorMessage]} />
                     )}
                   </Field>
                 </FieldGroup>

@@ -19,7 +19,7 @@ import {
   renderVerifyEmail,
 } from "@/server/email/templates/verify-email"
 import { createChildLogger } from "@/server/logger"
-import { syncSeerrUserEmail } from "@/server/seerr"
+import { resolveSeerrUser } from "@/server/seerr"
 import { getSessionDataForUser } from "@/server/session-data"
 import {
   createEmailVerificationToken,
@@ -70,7 +70,7 @@ export async function verifyEmail(
     const verifiedEmail = verified.pendingEmail ?? verified.user.email
     if (configManager.seerr && verifiedEmail) {
       try {
-        const syncedSeerrUser = await syncSeerrUserEmail({
+        const syncedSeerrUser = await resolveSeerrUser({
           jellyfinUserId: verified.user.userId,
           userName: verified.user.userId,
           email: verifiedEmail,
@@ -85,7 +85,7 @@ export async function verifyEmail(
       } catch (err) {
         log.warn(
           { err, userId: verified.user.userId },
-          "Failed to sync verified email to Seerr",
+          "Failed to resolve Seerr user after email verification",
         )
       }
     }

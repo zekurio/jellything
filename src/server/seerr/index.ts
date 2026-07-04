@@ -17,8 +17,6 @@ export {
   resolveSeerrUser,
   setSeerrUserPermissions,
   setSeerrUserQuotas,
-  syncSeerrUserEmail,
   type SeerrQuotaSettings,
-  updateSeerrUserEmail,
 } from "@/server/seerr/users"
 export type { SeerrUser } from "@/server/seerr/schemas"

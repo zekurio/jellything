@@ -32,7 +32,7 @@ import {
   JellyfinLastAdminError,
   SeerrProfileSyncError,
 } from "@/server/profile-sync"
-import { resolveSeerrUser, syncSeerrUserEmail } from "@/server/seerr"
+import { resolveSeerrUser } from "@/server/seerr"
 import { revokeAllUserSessions } from "@/server/session"
 import { enforceExpiredUserAccess } from "@/server/user-access"
 import { getEffectiveUserExpiry, isUserExpired } from "@/server/user-expiry"
@@ -114,6 +114,7 @@ type UpdateManagedUserResult = {
 }
 
 type ManagedUserUpdateInput = z.input<typeof updateManagedUserSchema>
+type ManagedUserUpdate = z.output<typeof updateManagedUserSchema>
 
 type BulkManagedUserOperation = z.output<
   typeof bulkManagedUsersSchema
@@ -124,6 +125,16 @@ type ProfileRow = Pick<
   typeof profiles.$inferSelect,
   "id" | "name" | "isDefault" | "policy"
 >
+
+type EffectiveUserStateInput = {
+  dbUser: DbUserRow | undefined
+  jellyfinUser: JellyfinUserListItem | null
+  profilesById: Map<string, ProfileRow>
+  profileIdUpdate: ManagedUserUpdate["profileId"]
+  expiresAtUpdate: ManagedUserUpdate["expiresAt"]
+  isDisabledUpdate: ManagedUserUpdate["isDisabled"]
+  currentExpiresAt: Date | null
+}
 
 type PreparedUserContext = {
   profileRows: ProfileRow[]
@@ -662,36 +673,27 @@ async function updatePreparedManagedUser(
     }
   }
 
-  const currentProfileId = dbUser?.profileId ?? null
-  const currentProfileName = jellyfinUser?.isAdmin
-    ? null
-    : currentProfileId !== null
-      ? (context.profilesById.get(currentProfileId)?.name ?? null)
-      : null
-  const currentIsDisabled = jellyfinUser?.isDisabled ?? true
-  const updatedProfile =
-    updates.profileId !== undefined
-      ? context.profilesById.get(updates.profileId)
-      : null
-  let nextExpiresAt =
-    updates.expiresAt === undefined
-      ? currentExpiresAt
-      : updates.expiresAt
-        ? new Date(updates.expiresAt)
-        : null
+  const effectiveState = deriveEffectiveUserState({
+    dbUser,
+    jellyfinUser,
+    profilesById: context.profilesById,
+    profileIdUpdate: updates.profileId,
+    expiresAtUpdate: updates.expiresAt,
+    isDisabledUpdate: updates.isDisabled,
+    currentExpiresAt,
+  })
 
   if (jellyfinUser?.isAdmin) {
     if (updates.expiresAt !== undefined && updates.expiresAt !== null) {
       return error(ErrorCode.CONFLICT, "Admin users are exempt from expiry")
     }
-    nextExpiresAt = null
   }
 
   if (updates.profileId !== undefined) {
     if (jellyfinUser?.isAdmin) {
       return error(ErrorCode.CONFLICT, "Admin users are exempt from profiles")
     }
-    if (!updatedProfile) {
+    if (!effectiveState.updatedProfile) {
       return error(ErrorCode.NOT_FOUND, "Profile not found")
     }
     if (!jellyfinUser) {
@@ -704,7 +706,7 @@ async function updatePreparedManagedUser(
         userId: jellyfinUser.id,
         userName: jellyfinUser.name,
         email: normalizedEmail,
-        policy: updatedProfile.policy,
+        policy: effectiveState.updatedProfile.policy,
         isAdmin: jellyfinUser.isAdmin,
       })
       seerrSynced = !!configManager.seerr
@@ -714,7 +716,11 @@ async function updatePreparedManagedUser(
       }
       if (err instanceof SeerrProfileSyncError) {
         logger.warn(
-          { err, userId: jellyfinUser.id, profileId: updatedProfile.id },
+          {
+            err,
+            userId: jellyfinUser.id,
+            profileId: effectiveState.updatedProfile.id,
+          },
           "Seerr sync failed; continuing",
         )
       } else {
@@ -772,19 +778,19 @@ async function updatePreparedManagedUser(
   const emailVerified = normalizedEmail
     ? (updates.emailVerified ?? dbUser?.emailVerified ?? false)
     : false
+  const nextExpiresAt = effectiveState.nextExpiresAt
   const expiresAtChanged =
     currentExpiresAt?.getTime() !== nextExpiresAt?.getTime()
   const emailChanged = normalizedEmail !== currentEmail
   const shouldResetExpiryWarning = expiresAtChanged || emailChanged
-  const assignedProfileId = updatedProfile?.id ?? currentProfileId
-  const effectiveProfileName = updatedProfile?.name ?? currentProfileName
-  const disabledAfterPolicyUpdate = updates.isDisabled ?? currentIsDisabled
 
   await ensureUserRecord(userId)
   await db
     .update(users)
     .set({
-      profileId: jellyfinUser?.isAdmin ? null : assignedProfileId,
+      profileId: jellyfinUser?.isAdmin
+        ? null
+        : effectiveState.assignedProfileId,
       email: normalizedEmail,
       emailVerified,
       expiresAt: nextExpiresAt,
@@ -803,7 +809,7 @@ async function updatePreparedManagedUser(
     normalizedEmail !== currentEmail
   ) {
     try {
-      const syncedSeerrUser = await syncSeerrUserEmail({
+      const syncedSeerrUser = await resolveSeerrUser({
         jellyfinUserId: userId,
         userName: jellyfinUser?.name ?? userId,
         email: normalizedEmail,
@@ -818,7 +824,7 @@ async function updatePreparedManagedUser(
     } catch (err) {
       logger.warn(
         { err, userId },
-        "Failed to sync Seerr email after managed user update",
+        "Failed to resolve Seerr user after managed user update",
       )
     }
   }
@@ -834,24 +840,58 @@ async function updatePreparedManagedUser(
         userName: jellyfinUser?.name ?? dbUser?.email ?? null,
         expiresAt: nextExpiresAt,
         isAdmin: false,
-        isDisabled: disabledAfterPolicyUpdate,
+        isDisabled: effectiveState.isDisabled,
       },
       now,
     )
   }
   const isDisabled = shouldEnforceExpiredAccess
     ? true
-    : disabledAfterPolicyUpdate
+    : effectiveState.isDisabled
 
   return success({
     userId,
-    profileId: jellyfinUser?.isAdmin ? null : assignedProfileId,
-    profileName: effectiveProfileName,
+    profileId: jellyfinUser?.isAdmin ? null : effectiveState.assignedProfileId,
+    profileName: effectiveState.effectiveProfileName,
     email: normalizedEmail,
     emailVerified,
     isDisabled,
     expiresAt: nextExpiresAt?.toISOString() ?? null,
   })
+}
+
+function deriveEffectiveUserState({
+  dbUser,
+  jellyfinUser,
+  profilesById,
+  profileIdUpdate,
+  expiresAtUpdate,
+  isDisabledUpdate,
+  currentExpiresAt,
+}: EffectiveUserStateInput) {
+  const currentProfileId = dbUser?.profileId ?? null
+  const currentProfileName = jellyfinUser?.isAdmin
+    ? null
+    : currentProfileId !== null
+      ? (profilesById.get(currentProfileId)?.name ?? null)
+      : null
+  const updatedProfile =
+    profileIdUpdate !== undefined ? profilesById.get(profileIdUpdate) : null
+  const nextExpiresAt = jellyfinUser?.isAdmin
+    ? null
+    : expiresAtUpdate === undefined
+      ? currentExpiresAt
+      : expiresAtUpdate
+        ? new Date(expiresAtUpdate)
+        : null
+
+  return {
+    assignedProfileId: updatedProfile?.id ?? currentProfileId,
+    effectiveProfileName: updatedProfile?.name ?? currentProfileName,
+    isDisabled: isDisabledUpdate ?? jellyfinUser?.isDisabled ?? true,
+    nextExpiresAt,
+    updatedProfile,
+  }
 }
 
 async function applyBulkManagedUserDelete(
@@ -1008,22 +1048,6 @@ async function syncPreparedUserToSeerr(
       }
     }
 
-    if (dbUser?.email) {
-      try {
-        await syncSeerrUserEmail({
-          jellyfinUserId: userId,
-          userName: jellyfinUser.name,
-          email: dbUser.email,
-          attemptImport: false,
-        })
-      } catch (err) {
-        logger.warn(
-          { err, userId },
-          "Failed to sync Seerr email after manual Seerr sync",
-        )
-      }
-    }
-
     await ensureUserRecord(userId)
     await db
       .update(users)
@@ -1114,23 +1138,15 @@ export async function updateManagedUserService(
       }
     }
 
-    const currentProfileId = dbUser?.profileId ?? null
-    const currentProfileName = jellyfinUser?.isAdmin
-      ? null
-      : currentProfileId !== null
-        ? (profilesById.get(currentProfileId)?.name ?? null)
-        : null
-    const currentIsDisabled = jellyfinUser?.isDisabled ?? true
-    const updatedProfile =
-      parsed.data.profileId !== undefined
-        ? profilesById.get(parsed.data.profileId)
-        : null
-    let nextExpiresAt =
-      parsed.data.expiresAt === undefined
-        ? currentExpiresAt
-        : parsed.data.expiresAt
-          ? new Date(parsed.data.expiresAt)
-          : null
+    const effectiveState = deriveEffectiveUserState({
+      dbUser,
+      jellyfinUser,
+      profilesById,
+      profileIdUpdate: parsed.data.profileId,
+      expiresAtUpdate: parsed.data.expiresAt,
+      isDisabledUpdate: parsed.data.isDisabled,
+      currentExpiresAt,
+    })
 
     if (jellyfinUser?.isAdmin) {
       if (
@@ -1139,14 +1155,13 @@ export async function updateManagedUserService(
       ) {
         return error(ErrorCode.CONFLICT, "Admin users are exempt from expiry")
       }
-      nextExpiresAt = null
     }
 
     if (parsed.data.profileId !== undefined) {
       if (jellyfinUser?.isAdmin) {
         return error(ErrorCode.CONFLICT, "Admin users are exempt from profiles")
       }
-      if (!updatedProfile) {
+      if (!effectiveState.updatedProfile) {
         return error(ErrorCode.NOT_FOUND, "Profile not found")
       }
       if (!jellyfinUser) {
@@ -1159,7 +1174,7 @@ export async function updateManagedUserService(
           userId: jellyfinUser.id,
           userName: jellyfinUser.name,
           email: normalizedEmail,
-          policy: updatedProfile.policy,
+          policy: effectiveState.updatedProfile.policy,
           isAdmin: jellyfinUser.isAdmin,
         })
         seerrSynced = !!configManager.seerr
@@ -1169,7 +1184,11 @@ export async function updateManagedUserService(
         }
         if (err instanceof SeerrProfileSyncError) {
           logger.warn(
-            { err, userId: jellyfinUser.id, profileId: updatedProfile.id },
+            {
+              err,
+              userId: jellyfinUser.id,
+              profileId: effectiveState.updatedProfile.id,
+            },
             "Seerr sync failed; continuing",
           )
         } else {
@@ -1220,20 +1239,19 @@ export async function updateManagedUserService(
     const emailVerified = normalizedEmail
       ? (parsed.data.emailVerified ?? dbUser?.emailVerified ?? false)
       : false
+    const nextExpiresAt = effectiveState.nextExpiresAt
     const expiresAtChanged =
       currentExpiresAt?.getTime() !== nextExpiresAt?.getTime()
     const emailChanged = normalizedEmail !== currentEmail
     const shouldResetExpiryWarning = expiresAtChanged || emailChanged
-    const assignedProfileId = updatedProfile?.id ?? currentProfileId
-    const effectiveProfileName = updatedProfile?.name ?? currentProfileName
-    const disabledAfterPolicyUpdate =
-      parsed.data.isDisabled ?? currentIsDisabled
 
     await ensureUserRecord(parsedUserId.data)
     await db
       .update(users)
       .set({
-        profileId: jellyfinUser?.isAdmin ? null : assignedProfileId,
+        profileId: jellyfinUser?.isAdmin
+          ? null
+          : effectiveState.assignedProfileId,
         email: normalizedEmail,
         emailVerified,
         expiresAt: nextExpiresAt,
@@ -1252,7 +1270,7 @@ export async function updateManagedUserService(
       normalizedEmail !== currentEmail
     ) {
       try {
-        const syncedSeerrUser = await syncSeerrUserEmail({
+        const syncedSeerrUser = await resolveSeerrUser({
           jellyfinUserId: parsedUserId.data,
           userName: jellyfinUser?.name ?? parsedUserId.data,
           email: normalizedEmail,
@@ -1267,7 +1285,7 @@ export async function updateManagedUserService(
       } catch (err) {
         logger.warn(
           { err, userId: parsedUserId.data },
-          "Failed to sync Seerr email after managed user update",
+          "Failed to resolve Seerr user after managed user update",
         )
       }
     }
@@ -1283,19 +1301,21 @@ export async function updateManagedUserService(
           userName: jellyfinUser?.name ?? dbUser?.email ?? null,
           expiresAt: nextExpiresAt,
           isAdmin: false,
-          isDisabled: disabledAfterPolicyUpdate,
+          isDisabled: effectiveState.isDisabled,
         },
         now,
       )
     }
     const isDisabled = shouldEnforceExpiredAccess
       ? true
-      : disabledAfterPolicyUpdate
+      : effectiveState.isDisabled
 
     return success({
       userId: parsedUserId.data,
-      profileId: jellyfinUser?.isAdmin ? null : assignedProfileId,
-      profileName: effectiveProfileName,
+      profileId: jellyfinUser?.isAdmin
+        ? null
+        : effectiveState.assignedProfileId,
+      profileName: effectiveState.effectiveProfileName,
       email: normalizedEmail,
       emailVerified,
       isDisabled,
@@ -1397,22 +1417,6 @@ export async function syncUserToSeerrService(
             throw err
           }
         }
-      }
-    }
-
-    if (dbUser?.email) {
-      try {
-        await syncSeerrUserEmail({
-          jellyfinUserId: parsedUserId.data,
-          userName: jellyfinUser.name,
-          email: dbUser.email,
-          attemptImport: false,
-        })
-      } catch (err) {
-        logger.warn(
-          { err, userId: parsedUserId.data },
-          "Failed to sync Seerr email after manual Seerr sync",
-        )
       }
     }
 

@@ -8,6 +8,7 @@ import {
   type ActionResult,
 } from "@/lib/api/contracts/errors"
 import { normalizeInviteCode } from "@/lib/invite-codes"
+import { isInviteExpired } from "@/lib/invite-status"
 import {
   MAX_AVATAR_BYTES,
   normalizeEmail,
@@ -41,7 +42,7 @@ import {
   applyProfileToUser,
   SeerrProfileSyncError,
 } from "@/server/profile-sync"
-import { deleteSeerrUser, syncSeerrUserEmail } from "@/server/seerr"
+import { deleteSeerrUser, resolveSeerrUser } from "@/server/seerr"
 import { getSessionDataForUser } from "@/server/session-data"
 import { createEmailVerificationToken } from "@/server/tokens"
 
@@ -112,7 +113,7 @@ export async function validateInvite(code: string): Promise<
       })
     }
 
-    if (invite.expiresAt && invite.expiresAt <= new Date()) {
+    if (isInviteExpired(invite.expiresAt)) {
       return success({
         valid: false,
         profileName: "",
@@ -196,7 +197,7 @@ export async function redeemInvite(
       return error(ErrorCode.INVITE_DISABLED)
     }
 
-    if (invite.expiresAt && invite.expiresAt <= new Date()) {
+    if (isInviteExpired(invite.expiresAt)) {
       return error(ErrorCode.INVITE_EXPIRED)
     }
 
@@ -246,7 +247,7 @@ export async function redeemInvite(
         return error(ErrorCode.INVITE_DISABLED)
       }
 
-      if (latestInvite?.expiresAt && latestInvite.expiresAt <= now) {
+      if (isInviteExpired(latestInvite?.expiresAt ?? null, now)) {
         return error(ErrorCode.INVITE_EXPIRED)
       }
 
@@ -403,7 +404,7 @@ export async function redeemInvite(
           if (resolvedProfile.data.policy && policyApplied) {
             seerrSynced = true
           } else if (!resolvedProfile.data.policy) {
-            const syncedSeerrUser = await syncSeerrUserEmail({
+            const syncedSeerrUser = await resolveSeerrUser({
               jellyfinUserId: jellyfinUser.id,
               userName: jellyfinUser.name,
               email: normalizedEmail,
