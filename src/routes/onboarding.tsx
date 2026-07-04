@@ -330,9 +330,7 @@ function OnboardingPage() {
                     {...keyForm.register("setupKey")}
                   />
                   {keyForm.formState.errors.setupKey && (
-                    <FieldError>
-                      {keyForm.formState.errors.setupKey.message}
-                    </FieldError>
+                    <FieldError errors={[keyForm.formState.errors.setupKey]} />
                   )}
                 </Field>
 
@@ -365,9 +363,9 @@ function OnboardingPage() {
                     {t("settings.appUrlDescription")}
                   </FieldDescription>
                   {jellyfinForm.formState.errors.appUrl && (
-                    <FieldError>
-                      {jellyfinForm.formState.errors.appUrl.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[jellyfinForm.formState.errors.appUrl]}
+                    />
                   )}
                 </Field>
 
@@ -388,9 +386,9 @@ function OnboardingPage() {
                     {t("settings.internalUrlDescriptionJellyfin")}
                   </FieldDescription>
                   {jellyfinForm.formState.errors.internalUrl && (
-                    <FieldError>
-                      {jellyfinForm.formState.errors.internalUrl.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[jellyfinForm.formState.errors.internalUrl]}
+                    />
                   )}
                 </Field>
 
@@ -411,9 +409,9 @@ function OnboardingPage() {
                     {t("settings.externalUrlDescriptionJellyfin")}
                   </FieldDescription>
                   {jellyfinForm.formState.errors.externalUrl && (
-                    <FieldError>
-                      {jellyfinForm.formState.errors.externalUrl.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[jellyfinForm.formState.errors.externalUrl]}
+                    />
                   )}
                 </Field>
 
@@ -432,9 +430,9 @@ function OnboardingPage() {
                     {t("settings.apiKeyGenerateJellyfin")}
                   </FieldDescription>
                   {jellyfinForm.formState.errors.apiKey && (
-                    <FieldError>
-                      {jellyfinForm.formState.errors.apiKey.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[jellyfinForm.formState.errors.apiKey]}
+                    />
                   )}
                 </Field>
 
@@ -455,9 +453,9 @@ function OnboardingPage() {
                     {t("settings.configPathDescription")}
                   </FieldDescription>
                   {jellyfinForm.formState.errors.configPath && (
-                    <FieldError>
-                      {jellyfinForm.formState.errors.configPath.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[jellyfinForm.formState.errors.configPath]}
+                    />
                   )}
                 </Field>
 
@@ -499,9 +497,9 @@ function OnboardingPage() {
                     {t("settings.internalUrlDescriptionSeerr")}
                   </FieldDescription>
                   {seerrForm.formState.errors.internalUrl && (
-                    <FieldError>
-                      {seerrForm.formState.errors.internalUrl.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[seerrForm.formState.errors.internalUrl]}
+                    />
                   )}
                 </Field>
 
@@ -520,9 +518,9 @@ function OnboardingPage() {
                     {t("settings.externalUrlDescriptionSeerr")}
                   </FieldDescription>
                   {seerrForm.formState.errors.externalUrl && (
-                    <FieldError>
-                      {seerrForm.formState.errors.externalUrl.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[seerrForm.formState.errors.externalUrl]}
+                    />
                   )}
                 </Field>
 
@@ -541,9 +539,7 @@ function OnboardingPage() {
                     {t("settings.apiKeyGenerateSeerr")}
                   </FieldDescription>
                   {seerrForm.formState.errors.apiKey && (
-                    <FieldError>
-                      {seerrForm.formState.errors.apiKey.message}
-                    </FieldError>
+                    <FieldError errors={[seerrForm.formState.errors.apiKey]} />
                   )}
                 </Field>
 
@@ -582,9 +578,7 @@ function OnboardingPage() {
                     {t("settings.emailFromDescription")}
                   </FieldDescription>
                   {emailForm.formState.errors.from && (
-                    <FieldError>
-                      {emailForm.formState.errors.from.message}
-                    </FieldError>
+                    <FieldError errors={[emailForm.formState.errors.from]} />
                   )}
                 </Field>
 
@@ -603,9 +597,9 @@ function OnboardingPage() {
                     {t("settings.smtpHostDescription")}
                   </FieldDescription>
                   {emailForm.formState.errors.smtpHost && (
-                    <FieldError>
-                      {emailForm.formState.errors.smtpHost.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[emailForm.formState.errors.smtpHost]}
+                    />
                   )}
                 </Field>
 
@@ -626,9 +620,9 @@ function OnboardingPage() {
                     {t("settings.smtpPortDescription")}
                   </FieldDescription>
                   {emailForm.formState.errors.smtpPort && (
-                    <FieldError>
-                      {emailForm.formState.errors.smtpPort.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[emailForm.formState.errors.smtpPort]}
+                    />
                   )}
                 </Field>
 
@@ -672,9 +666,9 @@ function OnboardingPage() {
                     {t("settings.smtpUsernameDescription")}
                   </FieldDescription>
                   {emailForm.formState.errors.smtpUsername && (
-                    <FieldError>
-                      {emailForm.formState.errors.smtpUsername.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[emailForm.formState.errors.smtpUsername]}
+                    />
                   )}
                 </Field>
 
@@ -693,9 +687,9 @@ function OnboardingPage() {
                     {t("settings.smtpPasswordDescription")}
                   </FieldDescription>
                   {emailForm.formState.errors.smtpPassword && (
-                    <FieldError>
-                      {emailForm.formState.errors.smtpPassword.message}
-                    </FieldError>
+                    <FieldError
+                      errors={[emailForm.formState.errors.smtpPassword]}
+                    />
                   )}
                 </Field>
 

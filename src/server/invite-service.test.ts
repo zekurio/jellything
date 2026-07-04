@@ -72,7 +72,7 @@ vi.mock("@/server/jellyfin", () => ({
 
 vi.mock("@/server/seerr", () => ({
   deleteSeerrUser: vi.fn<() => Promise<void>>(),
-  syncSeerrUserEmail: vi.fn<() => Promise<unknown>>(),
+  resolveSeerrUser: vi.fn<() => Promise<unknown>>(),
 }))
 
 vi.mock("@/server/session-data", () => ({

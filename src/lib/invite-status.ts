@@ -23,7 +23,7 @@ export function deriveInviteStatus(invite: InviteStatusInput): InviteStatus {
   if (invite.isDisabled) {
     return "disabled"
   }
-  if (expiresAtDate && expiresAtDate <= new Date()) {
+  if (isInviteExpired(expiresAtDate)) {
     return "expired"
   }
   if (invite.useLimit !== null && invite.useCount >= invite.useLimit) {
@@ -50,6 +50,14 @@ export function deriveInviteStatus(invite: InviteStatusInput): InviteStatus {
   }
 
   return "active"
+}
+
+export function isInviteExpired(
+  expiresAt: Date | string | null,
+  now = new Date(),
+): boolean {
+  const expiresAtDate = getExpiresAtDate(expiresAt)
+  return expiresAtDate !== null && expiresAtDate <= now
 }
 
 export function classifyInviteStatus(status: InviteStatus): InviteGroup {

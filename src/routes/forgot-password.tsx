@@ -165,12 +165,10 @@ function ForgotPasswordPage() {
                   aria-invalid={!!errors.username}
                   {...register("username")}
                 />
-                {errors.username && (
-                  <FieldError>{errors.username.message}</FieldError>
-                )}
+                {errors.username && <FieldError errors={[errors.username]} />}
               </Field>
 
-              {errors.root && <FieldError>{errors.root.message}</FieldError>}
+              {errors.root && <FieldError errors={[errors.root]} />}
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting

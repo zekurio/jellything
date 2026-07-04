@@ -196,7 +196,7 @@ function ResetPasswordForm() {
                 <FieldDescription>
                   {t("auth.resetCodeDescription")}
                 </FieldDescription>
-                {errors.pin && <FieldError>{errors.pin.message}</FieldError>}
+                {errors.pin && <FieldError errors={[errors.pin]} />}
               </Field>
 
               <Field data-invalid={!!errors.newPassword}>
@@ -215,7 +215,7 @@ function ResetPasswordForm() {
                   autoComplete="new-password"
                 />
                 {errors.newPassword && (
-                  <FieldError>{errors.newPassword.message}</FieldError>
+                  <FieldError errors={[errors.newPassword]} />
                 )}
               </Field>
 
@@ -233,11 +233,11 @@ function ResetPasswordForm() {
                   autoComplete="new-password"
                 />
                 {errors.confirmPassword && (
-                  <FieldError>{errors.confirmPassword.message}</FieldError>
+                  <FieldError errors={[errors.confirmPassword]} />
                 )}
               </Field>
 
-              {errors.root && <FieldError>{errors.root.message}</FieldError>}
+              {errors.root && <FieldError errors={[errors.root]} />}
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? t("auth.resetting") : t("auth.resetPassword")}
