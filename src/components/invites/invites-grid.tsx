@@ -2,18 +2,7 @@
 
 import { useNavigate } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
-import {
-  Ban,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Copy,
-  Edit,
-  Plus,
-  Trash,
-  Tv,
-  Users,
-} from "lucide-react"
+import { Ban, Clock, Copy, Edit, Plus, Trash, Tv, Users } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo } from "react"
 import { toast } from "sonner"
 
@@ -23,6 +12,7 @@ import { InviteFormDialog } from "@/components/invites/invite-form-dialog"
 import { ConfirmAlertShell } from "@/components/shared/confirm-alert-shell"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { DataTablePagination } from "@/components/ui/data-table-pagination"
 import { RelativeTime } from "@/components/ui/relative-time"
 import { Spinner } from "@/components/ui/spinner"
 import { createAppStore } from "@/hooks/store-utils"
@@ -560,31 +550,14 @@ export function InvitesGrid({
             ? t("invites.inviteCountSingle", { count: totalVisible })
             : t("invites.inviteCountPlural", { count: totalVisible })}
         </p>
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={handlePreviousPage}
-            disabled={!canGoPrevious}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-muted-foreground min-w-16 text-center text-xs tabular-nums">
-            {invitePage.page} / {pageCount}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={handleNextPage}
-            disabled={!canGoNext}
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <DataTablePagination
+          page={invitePage.page}
+          pageCount={pageCount}
+          canPrevious={canGoPrevious}
+          canNext={canGoNext}
+          onPrevious={handlePreviousPage}
+          onNext={handleNextPage}
+        />
       </div>
 
       <InviteFormDialog

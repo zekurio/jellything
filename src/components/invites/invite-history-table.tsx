@@ -7,7 +7,6 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import { useCallback, useEffect, useMemo } from "react"
 import { toast } from "sonner"
 
@@ -16,6 +15,7 @@ import { DashboardTabToolbar } from "@/components/dashboard/dashboard-tab-toolba
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/ui/data-table"
+import { DataTablePagination } from "@/components/ui/data-table-pagination"
 import { RelativeTime } from "@/components/ui/relative-time"
 import { Spinner } from "@/components/ui/spinner"
 import { createAppStore } from "@/hooks/store-utils"
@@ -284,31 +284,14 @@ export function InviteHistoryTable({
             ? t("invites.usageCountSingle", { count: page.total })
             : t("invites.usageCountPlural", { count: page.total })}
         </p>
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={handlePreviousPage}
-            disabled={!canGoPrevious}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-muted-foreground min-w-16 text-center text-xs tabular-nums">
-            {page.page} / {pageCount}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={handleNextPage}
-            disabled={!canGoNext}
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        <DataTablePagination
+          page={page.page}
+          pageCount={pageCount}
+          canPrevious={canGoPrevious}
+          canNext={canGoNext}
+          onPrevious={handlePreviousPage}
+          onNext={handleNextPage}
+        />
       </div>
     </div>
   )

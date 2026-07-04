@@ -20,6 +20,8 @@ export interface Messages {
     period: string
     clearDate: string
     actions: string
+    previousPage: string
+    nextPage: string
   }
   auth: {
     login: string
@@ -453,6 +455,8 @@ export interface Messages {
     searchPlaceholder: string
     usersLoadFailed: string
     noUsersFound: string
+    selectAll: string
+    selectRow: string
     userCountSingle: string
     userCountPlural: string
     selectProfile: string
