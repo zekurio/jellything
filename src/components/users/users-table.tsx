@@ -1,6 +1,6 @@
 "use client"
 
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
 import {
   getCoreRowModel,
@@ -143,6 +143,7 @@ export function UsersTable({
   initialError = null,
 }: UsersTableProps) {
   const navigate = useNavigate()
+  const router = useRouter()
   const t = useTranslations()
   const locale = useLocale()
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
@@ -197,40 +198,27 @@ export function UsersTable({
   const editExpiresAt = useStore(scopedStore, (state) => state.editExpiresAt)
   const isSaving = useStore(scopedStore, (state) => state.isSaving)
 
+  // Revalidate through the route loader instead of a bespoke page fetch, so
+  // the loader stays the single source of truth (no duplicated query logic).
   const refetch = useCallback(async () => {
     scopedStore.getState().setIsLoading(true)
     scopedStore.getState().setError(null)
 
     try {
-      const client = getBrowserORPCClient()
-      const currentUsers = scopedStore.getState().users
-      const currentQuery = scopedStore.getState().query
-      const result = await runApiEffect(
-        client.admin.users.page({
-          page: currentUsers.page,
-          pageSize: currentUsers.pageSize,
-          query: currentQuery || undefined,
-          sort: "name",
-          direction: "asc",
-        }),
-      )
-      if (result.error !== null || !result.data) {
-        scopedStore.getState().setError(t("users.usersLoadFailed"))
-        return
-      }
-
-      const data = result.data
-      scopedStore.getState().setUsers(data.users)
-      scopedStore.getState().setProfiles(Array.from(data.profiles))
-      scopedStore.setState((s) => ({
-        ...s,
-        seerrConfigured: data.seerrConfigured,
-      }))
+      await router.invalidate()
+    } catch (err) {
+      reportClientError(err)
+      scopedStore.getState().setError(t("users.usersLoadFailed"))
     } finally {
       scopedStore.getState().setIsLoading(false)
     }
-  }, [scopedStore, t])
+  }, [router, scopedStore, t])
 
+  // The loader owns the users list. Pagination/search navigate the URL and
+  // post-mutation revalidation calls router.invalidate(); both re-run the
+  // loader, and this effect mirrors the fresh server data into the scoped
+  // store. Optimistic mutations update the store directly and are reconciled
+  // here on the next load.
   useEffect(() => {
     scopedStore.getState().setUsers(initialData.users)
     scopedStore.getState().setProfiles(initialData.profiles)
