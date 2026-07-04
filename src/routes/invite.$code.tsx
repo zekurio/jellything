@@ -36,7 +36,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { useSession } from "@/hooks/use-session"
-import type { ErrorCode } from "@/lib/api/contracts/errors"
+import { ErrorCode, isErrorCode } from "@/lib/api/contracts/errors"
 import { toErrorCode } from "@/lib/api/error-code"
 import { getApiErrorMessage } from "@/lib/api/error-message"
 import { useTranslations, resolveErrorKey } from "@/lib/i18n"
@@ -362,9 +362,12 @@ function InviteRedeemPage() {
         return
       }
 
-      const errorKey = data.error
-        ? resolveErrorKey(data.error as ErrorCode)
-        : "invites.invalidInviteDescription"
+      const errorKey =
+        data.error && isErrorCode(data.error)
+          ? resolveErrorKey(data.error)
+          : data.error
+            ? resolveErrorKey(ErrorCode.INTERNAL_ERROR)
+            : "invites.invalidInviteDescription"
       dispatch({ type: "setErrorMessage", errorMessage: t(errorKey) })
       dispatch({ type: "setValidating", validating: false })
     },

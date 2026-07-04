@@ -29,6 +29,14 @@ export const AVATAR_CONFIG = {
 
 export type AcceptedMimeType = (typeof AVATAR_CONFIG.acceptedTypes)[number]
 
+const ACCEPTED_MIME_TYPES: ReadonlySet<string> = new Set(
+  AVATAR_CONFIG.acceptedTypes,
+)
+
+export function isAcceptedMimeType(value: string): value is AcceptedMimeType {
+  return ACCEPTED_MIME_TYPES.has(value)
+}
+
 export interface AvatarFile {
   base64: string // Base64 data URL (data:image/...;base64,...)
   mimeType: AcceptedMimeType
@@ -190,14 +198,13 @@ export function AvatarUploadButton({
       const file = e.target.files?.[0]
       if (!file) return
 
-      if (
-        !AVATAR_CONFIG.acceptedTypes.includes(file.type as AcceptedMimeType)
-      ) {
+      if (!isAcceptedMimeType(file.type)) {
         toast.error(t("profile.avatarTypeError"))
         e.target.value = ""
         return
       }
 
+      const mimeType = file.type
       const reader = new FileReader()
       reader.addEventListener(
         "load",
@@ -205,7 +212,7 @@ export function AvatarUploadButton({
           const base64 = event.target?.result as string
           setPendingImage({
             src: base64,
-            mimeType: file.type as AcceptedMimeType,
+            mimeType,
           })
           setImageSize(null)
           setCropPosition({ x: 0, y: 0 })

@@ -213,12 +213,8 @@ export function ProfilesGrid({
         return
       }
 
-      scopedStore
-        .getState()
-        .setProfiles(Array.from(result.data.profiles as ProfileDto[]))
-      scopedStore
-        .getState()
-        .setLibraries(Array.from(result.data.libraries as MediaLibraryDto[]))
+      scopedStore.getState().setProfiles(Array.from(result.data.profiles))
+      scopedStore.getState().setLibraries(Array.from(result.data.libraries))
       scopedStore
         .getState()
         .setIsSeerrConfigured(Boolean(result.data.isSeerrConfigured))

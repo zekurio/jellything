@@ -20,6 +20,7 @@ import { useDashboardSettingsActiveTabDirty } from "@/hooks/use-dashboard-settin
 import type { DashboardSettingsBootstrap } from "@/lib/bootstrap-data"
 import {
   getDashboardTabPath,
+  isDashboardSettingsTab,
   type DashboardSettingsTab,
 } from "@/lib/dashboard-tabs"
 import { useTranslations } from "@/lib/i18n"
@@ -134,8 +135,11 @@ export function DashboardSettingsTabs({
   }
 
   function handleTabChange(value: string): void {
-    const nextTab = value as DashboardSettingsTab
-    if (nextTab === activeTab) {
+    if (!isDashboardSettingsTab(value)) {
+      return
+    }
+
+    if (value === activeTab) {
       return
     }
 
@@ -147,7 +151,7 @@ export function DashboardSettingsTabs({
     }
 
     void navigate({
-      to: getDashboardTabPath("settings", nextTab),
+      to: getDashboardTabPath("settings", value),
       replace: true,
     })
   }

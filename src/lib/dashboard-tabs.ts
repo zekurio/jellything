@@ -19,14 +19,19 @@ export type DashboardSettingsTab = (typeof DASHBOARD_SETTINGS_TABS)[number]
 export const DEFAULT_DASHBOARD_TAB: DashboardTab = "invites"
 export const DEFAULT_DASHBOARD_SETTINGS_TAB: DashboardSettingsTab = "jellyfin"
 
+const DASHBOARD_TAB_VALUES: ReadonlySet<string> = new Set(DASHBOARD_TABS)
+const DASHBOARD_SETTINGS_TAB_VALUES: ReadonlySet<string> = new Set(
+  DASHBOARD_SETTINGS_TABS,
+)
+
 export function isDashboardTab(value: string): value is DashboardTab {
-  return DASHBOARD_TABS.includes(value as DashboardTab)
+  return DASHBOARD_TAB_VALUES.has(value)
 }
 
 export function isDashboardSettingsTab(
   value: string,
 ): value is DashboardSettingsTab {
-  return DASHBOARD_SETTINGS_TABS.includes(value as DashboardSettingsTab)
+  return DASHBOARD_SETTINGS_TAB_VALUES.has(value)
 }
 
 export function getDashboardTabPath(

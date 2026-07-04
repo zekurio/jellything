@@ -36,6 +36,12 @@ export enum ErrorCode {
   OPERATION_FAILED = "OPERATION_FAILED",
 }
 
+const ERROR_CODE_VALUES: ReadonlySet<string> = new Set(Object.values(ErrorCode))
+
+export function isErrorCode(value: string): value is ErrorCode {
+  return ERROR_CODE_VALUES.has(value)
+}
+
 const DEFAULT_ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.UNAUTHORIZED]: "Authentication required",
   [ErrorCode.FORBIDDEN]: "Access denied",

@@ -31,6 +31,7 @@ import type {
 import type { DashboardSettingsBootstrap } from "@/lib/bootstrap-data"
 import {
   getDashboardTabPath,
+  isDashboardTab,
   type DashboardSettingsTab,
   type DashboardTab,
 } from "@/lib/dashboard-tabs"
@@ -108,9 +109,11 @@ function DashboardTabsViewInner({
     useDashboardSettingsActiveTabDirty(activeSettingsTab)
 
   function handleTabChange(value: string): void {
-    const nextTab = value as DashboardTab
+    if (!isDashboardTab(value)) {
+      return
+    }
 
-    if (nextTab === activeTab) {
+    if (value === activeTab) {
       return
     }
 
@@ -122,7 +125,7 @@ function DashboardTabsViewInner({
     }
 
     void navigate({
-      to: getDashboardTabPath(nextTab, activeSettingsTab),
+      to: getDashboardTabPath(value, activeSettingsTab),
       replace: true,
     })
   }
