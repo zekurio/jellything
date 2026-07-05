@@ -1,252 +1,158 @@
-# AGENTS.md
+# Repository Guidelines
 
-This file gives AI agents the repo-specific context they need when working in Jellything.
+## Project Overview
 
-- The default branch in this repo is `dev`.
-- Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
-- Use `pnpm` for package management and scripts.
-- Do not run `pnpm run build` during normal app work unless explicitly needed; it can disrupt the running dev server.
+Jellything is a self-hosted user management and invitation app for Jellyfin, with optional Seerr integration. It handles onboarding, admin settings, invite creation/redemption, profile policy application, Jellyfin user lifecycle, email verification, password resets, and user expiry/renewal.
 
-## Branch Names
+Hobby project tailored to a self-hosted workflow. Priorities in order: performance (no waterfalls, optimistic updates), security (tight public endpoints, careful auth/admin checks), convenience, customizability, reliability under Jellyfin/Seerr/email/DB failure. When forced to trade off, choose correctness, robustness, and security.
 
-Use a short branch name of at most three words, separated by hyphens. Do not use slashes or type prefixes such as `feat/` or `fix/`.
+## Architecture & Data Flow
 
-Examples: `invite-expiry`, `fix-session-sync`, `email-templates`.
+TanStack Start + React 19 SSR app served by Vite, SQLite via Drizzle ORM.
 
-## Commits and PR Titles
+Layering: **routes/loaders → server-fn bridges or ORPC client → ORPC router/middleware → domain services → integrations/DB**.
 
-Use conventional commit-style messages and PR titles: `type(scope): summary`.
+- Router lives in `src/router.tsx`; the root shell and global bootstrap loader in `src/routes/__root.tsx`.
+- Route loaders call thin `createServerFn` bridges (`src/lib/page-access-fns.ts`, `src/lib/dashboard-page-fns.ts`, `src/lib/profile-page-fns.ts`) that lazily import server modules only under SSR — keep data work in loaders/server functions, not client-side waterfalls.
+- Browser mutations/queries go through ORPC at `/rpc` (`src/routes/rpc.$.ts` mounts `RPCHandler(orpcRouter)`). Procedures are grouped by domain (`app`, `auth`, `onboarding`, `invites`, `email`, `passwordReset`, `me`, `admin`) in `src/server/orpc/procedures.ts`. Middleware (`src/server/orpc/middleware.ts`) enforces session, admin status, config gating, same-origin mutation checks, and rate limits.
+- Service functions return a stable `ActionResult`/`ErrorCode` envelope (`src/lib/api/contracts/errors.ts`); procedures unwrap it via `unwrapActionResultOrThrow` (`src/server/orpc/errors.ts`):
 
-Valid types are `feat`, `fix`, `docs`, `chore`, `refactor`, and `test`. Scopes are optional; use the affected area when helpful, e.g. `auth`, `invites`, `users`, `profiles`, `settings`, `db`, `jellyfin`, `seerr`, `email`, `ui`, or `nix`.
+  ```ts
+  login: mutationProcedure
+    .use(rateLimitMiddleware(loginLimiter))
+    .input(loginSchema)
+    .handler(async ({ input }) => unwrapActionResultOrThrow(await login(input))),
+  ```
 
-Examples: `fix(auth): refresh session state`, `feat(invites): add expiry warning`, `docs: update install guide`.
+- Sessions are AES-GCM-encrypted, cookie-backed DB records (`src/server/session.ts`), revalidated against Jellyfin when stale (`src/server/session-resolver.ts`). Client session state lives in `src/hooks/use-session.tsx`.
+- Each external integration (`src/server/jellyfin`, `src/server/seerr`, `src/server/email`) follows the same shape: a `client.ts` transport that throws a stable API error class, `schemas.ts` zod decoding, and domain operation modules on top.
+- Startup maintenance (user seeding, invite reconciliation, expiry sweeps) runs from `src/server/startup.ts` and `src/server/user-lifecycle.ts`.
 
-## Style Guide
+## Key Directories
 
-### General Principles
+- `src/routes` — file-based TanStack routes, loaders, public page boundaries. `rpc.$.ts` is the ORPC HTTP entry.
+- `src/components` — feature UI (`dashboard/`, `invites/`, `profiles/`, `users/`, `settings/`, `profile/`, `shared/`); `src/components/ui` holds reusable primitives — use these before adding new local ones.
+- `src/hooks` — client hooks and TanStack Store helpers (`store-utils.ts`, `use-session.tsx`, table stores, `use-dialog-action.ts`).
+- `src/lib` — client/server-safe utilities: shared zod form schemas (`schemas.ts`), ORPC client (`orpc/client.ts`, `orpc/query.ts`), server-fn bridges, error contracts (`api/contracts/errors.ts`). `src/lib/server/config.server.ts` is the server-only runtime config manager.
+- `src/server` — domain services, ORPC layer (`orpc/`), admin services (`admin/`), auth/session, rate limits, logging, startup.
+- `src/server/db` — Drizzle schema (`schema.ts`) and relations; DB singleton in `src/server/db.ts`.
+- `src/server/api/schemas` — ORPC request/response DTO schemas and zod helpers.
+- `src/server/jellyfin`, `src/server/seerr`, `src/server/email` — integration adapters (email templates under `email/templates/`).
+- `src/test` — test helpers (temp-SQLite in `db.ts`).
+- `drizzle` — generated migrations (`0000_baseline.sql`, `meta/`).
+- `scripts` — `check-migration-drift.mjs`, backing `pnpm run db:check`.
+- `flake.nix` — Nix package, dev shell, and NixOS module (`services.jellything`).
 
-- Keep related logic in one function unless extracting it makes the behavior easier to reuse, test, or reason about.
-- Do not extract single-use helpers preemptively. Inline the logic at the call site unless the helper is reused, hides a genuinely complex boundary, or has a clear independent name that improves the caller.
-- Avoid `try`/`catch` where possible. Use it at external integration and cleanup boundaries where failures need to be translated, logged, retried, or intentionally swallowed.
-- Avoid using the `any` type. If a third-party package exposes loose data, narrow with `unknown`, schemas, or explicit local types before using it.
-- Rely on type inference when possible; avoid explicit type annotations or interfaces unless necessary for exports or clarity.
-- Reduce total variable count by inlining when a value is only used once.
+## Development Commands
 
-```ts
-// Good
-const invite = await db.query.invites.findFirst({
-  where: eq(invites.id, inviteId),
-})
+Use `pnpm` for everything.
 
-// Bad
-const inviteIdFilter = eq(invites.id, inviteId)
-const invite = await db.query.invites.findFirst({ where: inviteIdFilter })
-```
+- `pnpm run dev` — Vite dev server.
+- `pnpm run format` / `format:check` — Oxfmt apply / verify.
+- `pnpm run lint` / `lint:fix` — Oxlint.
+- `pnpm run typecheck` — `tsgo --noEmit`.
+- `pnpm run check` — lint + typecheck shortcut.
+- `pnpm run test` — `vitest run`.
+- `pnpm run db:generate` / `db:migrate` / `db:push` (dev only) / `db:studio` — Drizzle workflows.
+- `pnpm run db:check` — fail on schema/migration drift (CI-safe).
 
-### Destructuring
+Do **not** run `pnpm run build` during normal app work unless explicitly needed; it can disrupt the running dev server.
 
-Avoid unnecessary destructuring. Use dot notation to preserve context.
+**Coding-task completion checklist** (all must pass): `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, `pnpm run test`. When changing persisted data shape, include the schema change plus generated migration and run `pnpm run db:check`.
 
-```ts
-// Good
-session.userId
-session.isAdmin
+## Code Conventions & Common Patterns
 
-// Bad
-const { userId, isAdmin } = session
-```
+Formatting is Oxfmt (`.oxfmtrc.json`: 80 cols, 2-space indent, no semicolons, double quotes, sorted imports/Tailwind classes). Linting is Oxlint (`.oxlintrc.json`: type-aware, zero warnings, `no-console`, `no-explicit-any`, `prefer-const`, `no-else-return` enforced).
 
-### Imports
+### General style
 
-- Never alias imports. Do not use `import { foo as bar } from "..."` or renamed imports like `resolve as pathResolve`.
-- Never use star imports. Do not use `import * as Foo from "..."` or `import type * as Foo from "..."`.
-- If a namespace-style value is needed, import the module's own exported namespace by name, then reference `Namespace.Value`.
-- Prefer dynamic imports for heavy modules that are only needed in selected code paths, especially in startup-sensitive entrypoints and client routes. Destructure dynamic import bindings near the top of the narrowest scope that needs them so they read like normal imports. Avoid inline chains such as `await import("./module").then((mod) => mod.value())` or `(await import("./module")).value()`. Keep branch-specific imports inside the branch that needs them to preserve lazy loading.
+- Prefer `const` over `let`; use ternaries, local helpers, or early returns instead of reassignment.
+- Avoid `else`; prefer early returns.
+- Avoid unnecessary destructuring — use dot notation (`session.userId`, not `const { userId } = session`).
+- Never alias imports (`import { foo as bar }`) and never use star imports (`import * as Foo`).
+- Prefer dynamic imports for heavy modules used only in selected code paths (startup-sensitive entrypoints, client routes). Destructure the dynamic import binding near the top of the narrowest scope; no inline `(await import("./m")).value()` chains.
+- Avoid `any`; narrow third-party data with `unknown`, zod schemas, or explicit local types.
+- Rely on type inference; avoid explicit annotations unless needed for exports or clarity. Inline single-use values.
+- Avoid `try`/`catch` except at external-integration and cleanup boundaries where failures must be translated, logged, retried, or intentionally swallowed.
+- Keep the main function reading as the happy path; move validation branches into small named helpers below it (`requireProfile`, `parseInviteCode`). Do not extract single-use helpers preemptively.
+- Keep synchronous parsing/validation synchronous; no gratuitous async.
+- Comment non-obvious constraints and surprising behavior only.
+- Extract shared logic into modules; duplicated logic across files is a code smell.
 
-### Variables
+### Server & security
 
-Prefer `const` over `let`. Use ternaries, local helpers, or early returns instead of reassignment.
+- Server modules are named for their domain, no `-service` or `.server.ts` suffix. Modules that must never be client-imported start with `import "@tanstack/react-start/server-only"` (see `src/server/db.ts`, `src/server/request-context.ts`).
+- Endpoints and server functions are security boundaries: check session, admin status, and user status before mutating protected data. Be extra careful with unauthenticated routes (onboarding, login, password reset, email verification, invites, RPC).
+- Translate external errors into stable application errors (`JellyfinApiError`, `EmailApiError`, `ActionResult` + `ErrorCode`); never expose secrets, tokens, or raw upstream payloads to the browser.
+- Validation is zod throughout: `safeParse` in services → `ErrorCode.VALIDATION_FAILED`; shared DTOs in `src/server/api/schemas/*`; prefer existing schema helpers over one-off parsing.
+- Rate limiting: named limiters in `src/server/rate-limit.ts`, applied with `rateLimitMiddleware` in ORPC.
+- Logging: pino via `createChildLogger({ module: "..." })` from `src/server/logger.ts`.
+- Forwarded request metadata (`x-forwarded-for`/`x-real-ip`/`x-forwarded-host`) is trusted only when `TRUST_PROXY=true`; by default client IP is `null` and IP rate limiters share one fail-closed bucket. Keep this in mind for rate limiting, request-origin, and onboarding app-URL code (`src/server/request-context.ts`, `src/server/request-origin.ts`).
 
-```ts
-// Good
-const nextStatus = invite.isDisabled ? "disabled" : "active"
+### React & TanStack
 
-// Bad
-let nextStatus
-if (invite.isDisabled) nextStatus = "disabled"
-else nextStatus = "active"
-```
+- Route loaders and server functions do the data work; preserve TanStack Router intent preloading — no manual click-time fetching.
+- Prefer optimistic updates when rollback is clear and safe.
+- State is component-scoped TanStack Store (`src/hooks/store-utils.ts`, `use-scoped-store.ts`, table stores) — not a global store. Query defaults live in `src/lib/orpc/query.ts` (`staleTime: 30_000`, no refetch-on-focus).
+- Route shape:
 
-### Control Flow
+  ```ts
+  export const Route = createFileRoute("/login")({
+    loader: async () => enforcePageAccessFn({ data: "login" }),
+    component: LoginPage,
+  })
+  ```
 
-Avoid `else` statements. Prefer early returns.
+### Drizzle schema
 
-```ts
-// Good
-function requireAdmin(session: SessionData | null) {
-  if (!session?.isAdmin) return false
-  return true
-}
-
-// Bad
-function requireAdmin(session: SessionData | null) {
-  if (!session?.isAdmin) return false
-  else return true
-}
-```
-
-### Complex Logic
-
-When a function has several validation branches or supporting details, make the main function read as the happy path and move supporting details into small helpers below it.
-
-```ts
-// Good
-export async function createInvite(input: unknown) {
-  const data = requireInviteInput(input)
-  const profile = await requireProfile(data.profileId)
-  return insertInvite({ data, profile })
-}
-
-function requireInviteInput(input: unknown) {
-  // ...
-}
-```
-
-- Keep helpers close to the code they support, below the main export when that improves readability.
-- Do not over-abstract simple expressions into many single-use helpers; extract only when it names a real concept like `requireProfile`, `parseInviteCode`, or `resolveJellyfinUser`.
-- Keep synchronous parsing, validation, and option building synchronous. Do not introduce async control flow unless the operation is actually asynchronous.
-- Prefer the repo's existing validation and parsing utilities over one-off parsing logic. When parsing untrusted JSON strings, validate the resulting shape before using it.
-- Add comments for non-obvious constraints and surprising behavior, not for obvious assignments or control flow.
-
-### React and TanStack
-
-- Keep route loaders and server functions doing the data work so pages avoid client-side waterfalls.
-- Preserve TanStack Router's intent preloading and prewarm behavior; do not replace it with manual click-time fetching.
-- Prefer optimistic updates for mutations when rollback behavior is clear and safe.
-- Keep user-facing UI responsive: avoid expensive render-time work, memoize only when it addresses a real cost, and prefer small data transformations near the data boundary.
-- Use shared components from `src/components/ui` and feature components from `src/components/*` before introducing new local primitives.
-
-### Server, API, and Security
-
-- Treat endpoints and server functions as security boundaries. Check session, admin status, and user status before changing protected data.
-- Be especially careful with routes exposed to unauthenticated users: onboarding, login, password reset, email verification, invites, and RPC entrypoints.
-- Keep Jellyfin, Seerr, email, and database integration failures predictable. Translate external errors into stable application errors instead of leaking internals.
-- Never expose secrets, API keys, tokens, or full upstream error payloads to the browser.
-- Prefer shared ORPC contracts, schemas, and error helpers over ad-hoc request/response shapes.
-- Forwarded request metadata (`x-forwarded-for`/`x-real-ip`/`x-forwarded-host`) is only trusted when `TRUST_PROXY=true`; by default the client IP is `null` and IP rate limiters share one fail-closed bucket. Deployments behind a trusted, header-overwriting proxy set `TRUST_PROXY=true` for per-client buckets. Keep this in mind when touching rate limiting, request-origin, or onboarding app-URL code.
-
-### Server Module Names
-
-- Name `src/server` modules for their domain without a `-service` suffix.
-- Do not use a `.server.ts` suffix for server modules.
-- Modules that must never be client-imported carry `import "@tanstack/react-start/server-only"` as their first import.
-
-### Schema Definitions (Drizzle)
-
-For new schema work, use snake_case field names so column names do not need to be redefined as strings.
+New schema work uses snake_case field names so column names need no string redefinition:
 
 ```ts
-// Good
 const table = sqliteTable("session", {
   id: text().primaryKey(),
   user_id: text().notNull(),
   created_at: integer().notNull(),
 })
-
-// Bad
-const table = sqliteTable("session", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").notNull(),
-  createdAt: integer("created_at").notNull(),
-})
 ```
 
-Existing schema uses some camelCase TypeScript fields. Do not churn the entire schema just for style unless the migration and all consumers are part of the task.
+Existing schema has some camelCase TS fields; do not churn it for style unless the migration and all consumers are part of the task.
 
-## Testing
+### Git & PRs
 
-- Avoid mocks as much as possible.
-- Test actual implementation; do not duplicate implementation logic into tests.
-- Prefer integration-style coverage for auth, invites, profile policy application, and external-service adapters when practical.
-- Tests run on Vitest via `pnpm run test`. A baseline lives under `src/**/*.test.ts`; use the temp-SQLite helper in `src/test/db.ts` for DB-backed tests and follow the existing suites (e.g. `src/server/tokens.test.ts`) as the pattern.
-- Run targeted checks while iterating, then run the completion checks below before calling a coding task done.
+- Default branch is `dev`; local `main` may not exist — diff against `dev`/`origin/dev`.
+- Branch names: at most three hyphen-separated words, no slashes or type prefixes (`invite-expiry`, `fix-session-sync`).
+- Commits/PR titles: conventional style `type(scope): summary`; types `feat|fix|docs|chore|refactor|test`; scopes like `auth`, `invites`, `users`, `profiles`, `settings`, `db`, `jellyfin`, `seerr`, `email`, `ui`, `nix`.
+- PR descriptions follow `.github/pull-request-template.md`: What Changed, Why, How to Test, Additional Notes.
 
-## Task Completion Requirements
+## Important Files
 
-### Coding Tasks
+- `src/router.tsx` — router creation + SSR query integration.
+- `src/routes/__root.tsx` — app shell, bootstrap loader, providers.
+- `src/routes/rpc.$.ts` — ORPC HTTP entry.
+- `src/server/orpc/procedures.ts`, `middleware.ts`, `errors.ts` — API surface, guards, error translation.
+- `src/server/db.ts`, `src/server/db/schema.ts`, `drizzle.config.ts` — DB singleton, schema, Drizzle config (sqlite dialect, migrations in `./drizzle`).
+- `src/env.ts` — env schema: `DB_PATH`, `CONFIG_PATH`, `LOG_LEVEL`, `TRUST_PROXY`, `APP_VERSION`, `SKIP_ENV_VALIDATION`.
+- `src/lib/server/config.server.ts` — runtime config manager (app/auth/Jellyfin/Seerr/email settings from `CONFIG_PATH`).
+- `vite.config.ts`, `vitest.config.ts`, `tsconfig.json` (path alias `@/*` → `./src/*`).
+- `.oxfmtrc.json`, `.oxlintrc.json` — format/lint rules.
+- `flake.nix` — package, dev shell (`nodejs_24`, `pnpm_10`), NixOS module.
+- `.github/workflows/checks.yml` — CI pipeline.
+- `src/routeTree.gen.ts` is generated — never edit.
 
-All of these must pass before considering a coding task completed:
+## Runtime/Tooling Preferences
 
-- `pnpm run format:check`
-- `pnpm run lint`
-- `pnpm run typecheck`
-- `pnpm run test`
+- Node 24 (pinned in CI and Nix); package manager pinned to `pnpm@10.28.0` via `packageManager` — always use `pnpm`.
+- Vite 7 + TanStack Start; SQLite through `@libsql/client` with `drizzle-orm/libsql/node`. `DB_PATH` accepts plain paths, `sqlite://`, `file://`, and `:memory:`.
+- Lint/format are Oxlint/Oxfmt only — no ESLint or Prettier configs exist; do not add them.
+- Nix: `nix develop` provides the toolchain (direnv via `.envrc`). Run Nix checks only when touching packaging, the flake, the NixOS module, or service behavior.
+- No Dockerfile; deployment story is Nix (recommended) or bare-metal Node + pnpm.
 
-Use `pnpm run format` to apply formatting when needed. `pnpm run check` is a shortcut for lint + typecheck only.
+## Testing & QA
 
-Do not run `pnpm run build` unless the task specifically requires a production build or packaging verification.
-
-### Database Tasks
-
-Jellything uses Drizzle ORM for database interactions.
-
-Relevant scripts:
-
-- `pnpm run db:generate` — generate a new migration from schema changes
-- `pnpm run db:migrate` — run pending migrations
-- `pnpm run db:push` — push schema directly (dev only)
-- `pnpm run db:studio` — open Drizzle Studio
-- `pnpm run db:check` — fail if the schema has drifted from the committed migrations (CI-safe; also runs in CI)
-
-When changing persisted data shape, include the schema change and generated migration unless the user explicitly asks for a dev-only push. Run `pnpm run db:check` to confirm there is no drift.
-
-### Nix Tasks
-
-If updating Nix packaging, the flake, NixOS module, or service behavior, run appropriate Nix checks. Builds should only be issued when actually warranted.
-
-### Other Tasks
-
-If your task does not fit coding, database, or Nix work, propose verification steps and let the user decide how much validation is needed.
-
-## Project Areas
-
-- `src/routes` - TanStack Router routes, route loaders, and public page boundaries.
-- `src/components` - Feature UI and shared UI primitives. `src/components/ui` contains reusable primitives.
-- `src/hooks` - Client hooks and store helpers.
-- `src/lib` - Shared client/server-safe utilities, schemas, i18n, ORPC client helpers, page-access functions, and route data helpers.
-- `src/server` - Server services, ORPC router/procedures, auth/session handling, external integrations, logging, rate limits, and startup behavior.
-- `src/server/db` - Drizzle schema and database exports.
-- `src/server/jellyfin` - Jellyfin API client, schemas, admin/user operations, and password reset integration.
-- `src/server/seerr` - Seerr API client, schemas, users, and permissions integration.
-- `src/server/email` - Email delivery and templates.
-- `drizzle` - Generated database migrations.
-- `flake.nix` - Nix package, app, dev shell, and NixOS module wiring.
-
-## Project Snapshot
-
-Jellything is a self-hosted user management and invitation app for Jellyfin, with optional Seerr integration. It handles onboarding, admin settings, invite creation, profile policy application, Jellyfin user lifecycle, email verification, password resets, and user expiry.
-
-This is a hobby project tailored to a specific self-hosted workflow. Sweeping changes are acceptable when they improve long-term maintainability, security, or user experience, but avoid broad churn that is unrelated to the task.
-
-## Core Priorities
-
-1. Performance first: avoid waterfalls, keep navigation fast, and use optimistic updates where safe.
-2. Security first: check auth/admin status carefully and keep public endpoints tight.
-3. Convenience: make common admin and invite flows low-friction.
-4. Good defaults, high customizability: self-hosters should be able to tailor behavior without patching code.
-5. Reliability: keep behavior predictable during Jellyfin, Seerr, email, database, and network failures.
-
-If a tradeoff is required, choose correctness, robustness, and security over short-term convenience.
-
-## Maintainability
-
-Long-term maintainability is a core priority. If you add new functionality, first check if there is shared logic that can be extracted to a separate module. Duplicate logic across multiple files is a code smell and should be avoided. Do not be afraid to change existing code when it makes the result cleaner, but do not take shortcuts by adding isolated local logic that will become hard to maintain.
-
-## Pull Requests
-
-When opening pull requests, follow the user's instructions. If they are unclear, act on the user's behalf. When writing summaries, check `.github/pull-request-template.md` and follow its sections:
-
-- What Changed
-- Why
-- How to Test
-- Additional Notes
+- Vitest (`vitest.config.ts`): Node environment, discovers `src/**/*.test.ts(x)`. Run with `pnpm run test`; no coverage gate configured.
+- Avoid mocks as much as possible. Pure-logic suites (`src/lib/invite-codes.test.ts`, `src/server/renewal.test.ts`, `src/server/rate-limit.test.ts`) use none; mock only external boundaries (Jellyfin admin API, email, config) where needed, e.g. `src/server/admin/users.test.ts`.
+- Test actual implementation; never duplicate implementation logic into tests. Prefer integration-style coverage for auth, invites, profile policy application, and external-service adapters.
+- DB-backed suites use `src/test/db.ts` (`createTestDatabase()`, `configureTestEnvironment()`): set temp env paths, `vi.resetModules()`, dynamically import target modules so they read the temp env, run migrations, clean up in `afterEach`/`afterAll`. Follow `src/server/tokens.test.ts`, `session.test.ts`, or `invites.test.ts` as the pattern.
+- Run targeted tests while iterating; run the full completion checklist (format:check, lint, typecheck, test) before calling a coding task done.
+- CI (`.github/workflows/checks.yml`, on push): install → `format:check` → `lint:github` → `typecheck` → `test` → `db:check` → `build` → `nix flake check`.
+- For non-coding tasks (docs, Nix, ops), propose verification steps and let the user decide validation depth.
