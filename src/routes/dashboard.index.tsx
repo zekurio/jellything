@@ -1,13 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { DashboardOverview } from "@/components/dashboard/dashboard-overview"
-import { getDashboardOverviewFn } from "@/lib/dashboard-page-fns"
+import {
+  DEFAULT_DASHBOARD_TAB,
+  getDashboardTabPath,
+} from "@/lib/dashboard-tabs"
 
 export const Route = createFileRoute("/dashboard/")({
-  loader: () => getDashboardOverviewFn(),
-  component: DashboardOverviewPage,
+  loader: () => {
+    throw redirect({ to: getDashboardTabPath(DEFAULT_DASHBOARD_TAB) })
+  },
+  component: () => null,
 })
-
-function DashboardOverviewPage() {
-  return <DashboardOverview {...Route.useLoaderData()} />
-}

@@ -16,12 +16,18 @@ import { Spinner } from "@/components/ui/spinner"
 import { createAppStore } from "@/hooks/store-utils"
 import { useScopedStore } from "@/hooks/use-scoped-store"
 import { useSession } from "@/hooks/use-session"
+import {
+  DEFAULT_DASHBOARD_TAB,
+  getDashboardTabPath,
+} from "@/lib/dashboard-tabs"
 import { useLocale, useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 import type { ProfileTab } from "@/lib/profile-tabs"
 import type { MyExpiryInfo } from "@/lib/renewal-types"
 import type { SessionData } from "@/lib/session"
 import { formatMemberSince } from "@/lib/utils"
+
+const ADMIN_DASHBOARD_PATH = getDashboardTabPath(DEFAULT_DASHBOARD_TAB)
 
 interface ProfileData {
   id: string
@@ -119,7 +125,7 @@ function ProfileHeader({
     <>
       {isAdmin && (
         <Link
-          to="/dashboard"
+          to={ADMIN_DASHBOARD_PATH}
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors"
         >
           <ArrowLeft className="size-4" />

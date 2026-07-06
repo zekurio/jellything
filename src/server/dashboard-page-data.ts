@@ -12,11 +12,6 @@ import {
 } from "@/server/admin/invites"
 import { getLibrariesService } from "@/server/admin/libraries"
 import {
-  EMPTY_OVERVIEW_SUMMARY,
-  getOverviewService,
-  type OverviewSummary,
-} from "@/server/admin/overview"
-import {
   ensureDefaultProfileService,
   listProfilesService,
 } from "@/server/admin/profiles"
@@ -30,17 +25,6 @@ export interface DashboardPageLoaderInput {
   invites?: Parameters<typeof listInvitesPageService>[0]
   history?: Parameters<typeof getInviteHistoryPageService>[0]
   users?: Parameters<typeof listUsersWithProfilesService>[0]
-}
-
-export interface DashboardOverviewData {
-  appTitle: string
-  session: {
-    name: string
-    avatarUrl: string
-    isAdmin: boolean
-  }
-  summary: OverviewSummary
-  error: string | null
 }
 
 export interface DashboardPageData {
@@ -156,34 +140,6 @@ export async function loadAdminProfilesPageServices() {
     profiles,
     libraries,
     seerrConfig,
-  }
-}
-
-export async function loadDashboardOverview(): Promise<DashboardOverviewData> {
-  const { bootstrap, locale } = await enforcePageAccess("admin")
-  const session = bootstrap.session
-
-  if (!session || !session.isAdmin) {
-    throw new Error("Dashboard data requires an admin session")
-  }
-
-  if (!bootstrap.configured || bootstrap.needsOnboarding) {
-    throw new Error("Dashboard data requires completed onboarding")
-  }
-
-  const result = await getOverviewService()
-
-  return {
-    appTitle: bootstrap.app?.title ?? "Jellything",
-    session: {
-      name: session.name,
-      avatarUrl: session.avatarUrl,
-      isAdmin: session.isAdmin,
-    },
-    summary: result.success ? result.data : EMPTY_OVERVIEW_SUMMARY,
-    error: result.success
-      ? null
-      : createTranslator(locale)("overview.loadFailed"),
   }
 }
 

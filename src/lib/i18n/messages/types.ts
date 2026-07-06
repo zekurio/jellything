@@ -634,26 +634,6 @@ export interface Messages {
     errorPathLabel: string
     errorRestart: string
   }
-  overview: {
-    title: string
-    subtitle: string
-    activeUsers: string
-    activeUsersDescription: string
-    usersUnavailable: string
-    expiringSoon: string
-    expiringSoonDescription: string
-    redemptions: string
-    redemptionsDescription: string
-    noRedemptions: string
-    lastRedemption: string
-    totalInvites: string
-    totalInvitesDescription: string
-    inactiveInvites: string
-    inactiveInvitesDescription: string
-    manageInvites: string
-    viewUsers: string
-    loadFailed: string
-  }
   nav: {
     backToDashboard: string
     users: string

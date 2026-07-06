@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start"
 
 import type { DashboardPageLoaderInput } from "@/server/dashboard-page-data"
 export type {
-  DashboardOverviewData,
   DashboardPageData,
   DashboardPageLoaderInput,
 } from "@/server/dashboard-page-data"
@@ -30,10 +29,3 @@ export const getDashboardPageDataFn = createServerFn({ method: "GET" })
     const { loadDashboardPageData } = await getDashboardPageDataModule()
     return loadDashboardPageData(data)
   })
-
-export const getDashboardOverviewFn = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const { loadDashboardOverview } = await getDashboardPageDataModule()
-    return loadDashboardOverview()
-  },
-)
