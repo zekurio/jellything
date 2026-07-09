@@ -319,10 +319,10 @@ the route can emit a 500. On success:
 - **CSV**: `body = toCsv(items, columns)` using the column lists in step 4,
   `contentType = "text/csv; charset=utf-8"`.
 - `filename = `jellything-${dataset}-${timestamp}.${ext}``, where `timestamp`is
-a UTC compact stamp`YYYYMMDD-HHmmss`derived from`new Date()`
-(`new Date().toISOString()`→ strip`-`, `:`, drop milliseconds/`Z`, replace
-the `T`with`-`). `ext`is`csv`or`json`. Example:
-`jellything-users-20260704-153000.csv`.
+  a UTC compact stamp`YYYYMMDD-HHmmss`derived from`new Date()`
+  (`new Date().toISOString()`→ strip`-`, `:`, drop milliseconds/`Z`, replace
+  the `T`with`-`). `ext`is`csv`or`json`. Example:
+  `jellything-users-20260704-153000.csv`.
 
 Return the payload wrapped in the repo's `ActionResult` (`success(payload)` /
 propagate `error`). The route unwraps it.
