@@ -1,15 +1,27 @@
 name: Release
 
+run-name: Release ${{ inputs.version || inputs.bump }}
+
 on:
   workflow_dispatch:
     inputs:
+      bump:
+        description: Bump major, minor, or patch
+        required: false
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
       version:
-        description: Release version (for example 1.6.0 or v1.6.0)
-        required: true
+        description: Exact version override (optional, for example 1.6.0)
+        required: false
         type: string
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: release-${{ github.workflow }}
@@ -21,96 +33,153 @@ jobs:
       contents: read
     uses: ./.github/workflows/checks.yml
 
-  release:
+  preflight:
+    name: Resolve release
+    if: github.ref == 'refs/heads/dev'
     needs: gate
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      ref: ${{ steps.release.outputs.ref }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - id: release
+        name: Resolve version, commit, and tag
+        shell: bash
+        env:
+          INPUT_BUMP: ${{ inputs.bump }}
+          INPUT_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current="$(node -p "require('./package.json').version")"
+          if [[ ! "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid package.json version: $current" >&2
+            exit 1
+          fi
+
+          release_published() {
+            gh release view "$1" --json isDraft \
+              --jq 'if .isDraft then "draft" else "published" end' \
+              2>/dev/null | grep -qx "published"
+          }
+
+          if [[ -n "$INPUT_VERSION" ]]; then
+            if [[ ! "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Version override must be plain semver: $INPUT_VERSION" >&2
+              exit 1
+            fi
+            version="$INPUT_VERSION"
+          elif ! git rev-parse -q --verify "refs/tags/v$current" >/dev/null; then
+            echo "Recovering untagged version $current."
+            version="$current"
+          elif ! release_published "v$current"; then
+            echo "Recovering unpublished release v$current."
+            version="$current"
+          else
+            # JavaScript template expressions must remain literal for node -e.
+            # shellcheck disable=SC2016
+            version="$(CURRENT="$current" BUMP="$INPUT_BUMP" node -e '
+              const [major, minor, patch] = process.env.CURRENT.split(".").map(Number)
+              const bump = process.env.BUMP || "patch"
+              if (bump === "major") console.log(`${major + 1}.0.0`)
+              else if (bump === "minor") console.log(`${major}.${minor + 1}.0`)
+              else console.log(`${major}.${minor}.${patch + 1}`)
+            ')"
+          fi
+
+          tag="v$version"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            if release_published "$tag"; then
+              echo "Release $tag is already published." >&2
+              exit 1
+            fi
+            ref="$(git rev-list -n 1 "$tag")"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email \
+              "41898282+github-actions[bot]@users.noreply.github.com"
+
+            if [[ "$version" != "$current" ]]; then
+              # JavaScript template expressions must remain literal for node -e.
+              # shellcheck disable=SC2016
+              RELEASE_VERSION="$version" node -e '
+                const fs = require("node:fs")
+                const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"))
+                packageJson.version = process.env.RELEASE_VERSION
+                fs.writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`)
+              '
+              git add package.json
+              git commit -m "chore: release $tag"
+            fi
+
+            git tag "$tag"
+            git push --atomic origin HEAD:dev "refs/tags/$tag"
+            ref="$(git rev-parse HEAD)"
+          fi
+
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "ref=$ref"
+          } >> "$GITHUB_OUTPUT"
+
+  image:
+    name: Publish container image
+    needs: preflight
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout release source
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          ref: ${{ needs.preflight.outputs.ref }}
 
-      - name: Resolve and verify release version
-        id: meta
-        shell: bash
+      - name: Set up Nix
+        uses: DeterminateSystems/nix-installer-action@v20
+
+      - name: Build and load container image
+        run: |
+          nix build .#dockerImage --out-link docker-image
+          docker load --input docker-image
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Tag and push container image
         env:
-          INPUT_VERSION: ${{ inputs.version }}
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
         run: |
-          if [[ "$GITHUB_REF" != "refs/heads/dev" ]]; then
-            echo "Dispatch releases from dev, not $GITHUB_REF." >&2
-            exit 1
-          fi
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          docker tag "jellything:$RELEASE_VERSION" "$image:$RELEASE_VERSION"
+          docker tag "jellything:$RELEASE_VERSION" "$image:latest"
+          docker push "$image:$RELEASE_VERSION"
+          docker push "$image:latest"
 
-          raw="$INPUT_VERSION"
-          version="${raw#v}"
+  publish:
+    name: Publish GitHub release
+    needs:
+      - preflight
+      - image
+    runs-on: ubuntu-latest
 
-          semver_pattern='^[0-9]+\.[0-9]+\.[0-9]+'
-          semver_pattern+='(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'
-          if [[ ! "$version" =~ $semver_pattern ]]; then
-            echo "Invalid release version: $raw" >&2
-            exit 1
-          fi
-
-          package_version="$(node -p "require('./package.json').version")"
-          if [[ "$package_version" != "$version" ]]; then
-            echo "package.json is version $package_version, not $version." >&2
-            echo "Update it in a reviewed change before release." >&2
-            exit 1
-          fi
-
-          if [[ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]]; then
-            echo "Checkout does not match the gated commit." >&2
-            exit 1
-          fi
-
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
-
-          if [[ "$version" == *-* ]]; then
-            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
-            echo "make_latest=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
-            echo "make_latest=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Ensure release tag does not already exist
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
-        run: |
-          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
-            echo "Tag $RELEASE_TAG already exists locally." >&2
-            exit 1
-          fi
-
-          if git ls-remote --exit-code --tags origin \
-            "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Tag $RELEASE_TAG already exists on origin." >&2
-            exit 1
-          fi
-
-      - name: Configure git author
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email \
-            "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Create and push release tag
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
-        run: |
-          git tag -a "$RELEASE_TAG" "$GITHUB_SHA" -m "Release $RELEASE_TAG"
-          git push origin "refs/tags/$RELEASE_TAG"
-
+    steps:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          name: Jellything ${{ steps.meta.outputs.tag }}
+          tag_name: ${{ needs.preflight.outputs.tag }}
+          target_commitish: ${{ needs.preflight.outputs.ref }}
+          name: ${{ needs.preflight.outputs.tag }}
           generate_release_notes: true
-          prerelease: ${{ steps.meta.outputs.is_prerelease }}
-          make_latest: ${{ steps.meta.outputs.make_latest }}
+          prerelease: false
+          make_latest: true

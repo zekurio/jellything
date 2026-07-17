@@ -145,7 +145,9 @@ Existing schema has some camelCase TS fields; do not churn it for style unless t
 - Vite 7 + TanStack Start; SQLite through `@libsql/client` with `drizzle-orm/libsql/node`. `DB_PATH` accepts plain paths, `sqlite://`, `file://`, and `:memory:`.
 - Lint/format are Oxlint/Oxfmt only — no ESLint or Prettier configs exist; do not add them.
 - Nix: `nix develop` provides the toolchain (direnv via `.envrc`). Run Nix checks only when touching packaging, the flake, the NixOS module, or service behavior.
-- No Dockerfile; deployment story is Nix (recommended) or bare-metal Node + pnpm.
+- No Dockerfile; the container image is built from `packages.dockerImage` in
+  `flake.nix`. Deployment supports the published GHCR image, Nix (recommended),
+  or bare-metal Node + pnpm.
 
 ## Testing & QA
 
