@@ -273,12 +273,32 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         jellything = mkJellythingPackage pkgs { };
+        dockerImage = pkgs.dockerTools.buildLayeredImage {
+          name = "jellything";
+          tag = jellything.version;
+          contents = [ jellything ];
+          config = {
+            Cmd = [ (lib.getExe jellything) ];
+            Env = [
+              "CONFIG_PATH=/data/config.json"
+              "DB_PATH=/data/jellything.db"
+              "HOST=0.0.0.0"
+              "PORT=4173"
+            ];
+            ExposedPorts."4173/tcp" = { };
+            Volumes."/data" = { };
+          };
+        };
       in
       {
-        packages = {
-          default = jellything;
-          jellything = jellything;
-        };
+        packages =
+          {
+            default = jellything;
+            jellything = jellything;
+          }
+          // lib.optionalAttrs pkgs.stdenv.isLinux {
+            dockerImage = dockerImage;
+          };
 
         apps.default = flake-utils.lib.mkApp {
           drv = jellything;

@@ -1,0 +1,51 @@
+name: Dev image
+
+run-name: Dev image ${{ github.sha }}
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: dev-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish unstable image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Nix
+        uses: DeterminateSystems/nix-installer-action@v20
+
+      - name: Build image
+        run: nix build .#dockerImage --print-build-logs --out-link result
+
+      - name: Load image
+        run: docker load --input result
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Push unstable image
+        shell: bash
+        run: |
+          source_tag="$(nix eval --raw .#dockerImage.imageTag)"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:unstable"
+          docker tag "jellything:$source_tag" "$image"
+          docker push "$image"

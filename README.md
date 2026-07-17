@@ -61,6 +61,22 @@ The module runs as a dedicated user and creates its state directory with mode
 `dataDir`, `configFile`, `logLevel`, `appVersion`, `openFirewall`, and
 `environment`.
 
+### Container
+
+Stable releases are published to GHCR with both versioned and `latest` tags.
+Persist `/data`, which contains the SQLite database and runtime configuration:
+
+```bash
+docker run --name jellything \
+  --publish 127.0.0.1:4173:4173 \
+  --volume jellything-data:/data \
+  ghcr.io/zekurio/jellything:X.Y.Z
+```
+
+The image listens on port `4173`. Set `LOG_LEVEL` or `TRUST_PROXY` with
+`--env` when needed. Development commits on `dev` publish only the
+`unstable` tag; use a versioned tag in production.
+
 ### Bare metal
 
 Check out a release tag, install exactly its locked dependencies, and create
@@ -189,8 +205,11 @@ database and config backup rather than only checking out an older tag.
 
 ## Maintainer releases
 
-Change `package.json` to the intended semver through a reviewed commit on
-`dev`, then dispatch the `Release` workflow from `dev` with that version. The
-workflow runs the complete format, lint, typecheck, test, migration-drift,
-production-build, and Nix gate, then tags that exact commit and publishes the
-release. It does not create a version-bump commit.
+Dispatch the `Release` workflow from `dev`. Choose a patch, minor, or major
+bump, or provide an exact plain-semver override. The workflow runs the complete
+format, lint, typecheck, test, migration-drift, production-build, and Nix gate;
+commits the version bump; atomically pushes `dev` and the tag; publishes the
+versioned and `latest` container images; and creates the GitHub release.
+Interrupted runs recover the pending version or tag rather than bumping again.
+Only stable `vX.Y.Z` releases are supported; release candidates and other
+prereleases are not published.
