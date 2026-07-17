@@ -16,7 +16,7 @@ import {
 } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
-import { establishAuthenticatedSession } from "@/server/auth"
+import { clearAuthCookies, establishAuthenticatedSession } from "@/server/auth"
 import { db, ensureMigrated, getUserByEmail } from "@/server/db"
 import {
   inviteUsages,
@@ -43,6 +43,8 @@ import {
   SeerrProfileSyncError,
 } from "@/server/profile-sync"
 import { deleteSeerrUser, resolveSeerrUser } from "@/server/seerr"
+import { createSeerrUserLookupCache } from "@/server/seerr/users"
+import { revokeAllUserSessions } from "@/server/session"
 import { getSessionDataForUser } from "@/server/session-resolver"
 import { createEmailVerificationToken } from "@/server/tokens"
 
@@ -161,6 +163,114 @@ export async function validateInvite(code: string): Promise<
   })
 }
 
+async function releaseInviteReservation(inviteId: string): Promise<void> {
+  try {
+    const released = await db
+      .update(invites)
+      .set({ useCount: sql`${invites.useCount} - 1` })
+      .where(and(eq(invites.id, inviteId), gt(invites.useCount, 0)))
+      .returning({ id: invites.id })
+
+    if (released.length === 0) {
+      logger.warn(
+        { inviteId },
+        "Invite reservation was already released or reconciled",
+      )
+      return
+    }
+
+    logger.info({ inviteId }, "Released invite slot after failed redemption")
+  } catch (err) {
+    logger.error(
+      { err, inviteId },
+      "Failed to release invite slot; startup reconciliation will restore capacity",
+    )
+  }
+}
+
+async function compensateInviteRedemption(input: {
+  inviteId: string
+  jellyfinUserId: string
+  seerrUserId: number | null
+  localStateRecorded: boolean
+  preserveJellyfinUser?: boolean
+}): Promise<void> {
+  if (input.localStateRecorded) {
+    try {
+      await db.transaction(async (tx) => {
+        await tx
+          .delete(inviteUsages)
+          .where(
+            and(
+              eq(inviteUsages.inviteId, input.inviteId),
+              eq(inviteUsages.userId, input.jellyfinUserId),
+            ),
+          )
+        await tx.delete(users).where(eq(users.userId, input.jellyfinUserId))
+      })
+      logger.info(
+        { inviteId: input.inviteId, userId: input.jellyfinUserId },
+        "Removed local redemption state during compensation",
+      )
+    } catch (err) {
+      logger.error(
+        {
+          err,
+          inviteId: input.inviteId,
+          userId: input.jellyfinUserId,
+        },
+        "Failed to remove local redemption state; preserving external users and invite usage for reconciliation",
+      )
+      return
+    }
+  }
+
+  await releaseInviteReservation(input.inviteId)
+  if (input.preserveJellyfinUser) {
+    logger.warn(
+      { userId: input.jellyfinUserId },
+      "Preserving Jellyfin user because Seerr outcome is unknown; startup reconciliation will restore its local record",
+    )
+    return
+  }
+
+  if (input.seerrUserId !== null) {
+    try {
+      await deleteSeerrUser(input.seerrUserId)
+      logger.info(
+        {
+          userId: input.jellyfinUserId,
+          seerrUserId: input.seerrUserId,
+        },
+        "Deleted Seerr user during invite compensation",
+      )
+    } catch (err) {
+      logger.error(
+        {
+          err,
+          userId: input.jellyfinUserId,
+          seerrUserId: input.seerrUserId,
+        },
+        "Failed to delete Seerr user during invite compensation; preserving Jellyfin user for startup reconciliation",
+      )
+      return
+    }
+  }
+
+  try {
+    await deleteUser(input.jellyfinUserId)
+    logger.info(
+      { userId: input.jellyfinUserId },
+      "Deleted Jellyfin user during invite compensation",
+    )
+  } catch (err) {
+    logger.error(
+      { err, userId: input.jellyfinUserId },
+      "Failed to delete Jellyfin user during invite compensation; startup reconciliation will restore its local record",
+    )
+  }
+}
+
 export async function redeemInvite(
   input: z.infer<typeof redeemInviteSchema>,
 ): Promise<
@@ -269,32 +379,34 @@ export async function redeemInvite(
       return error(ErrorCode.INVITE_EXHAUSTED, "This invite is no longer valid")
     }
 
-    const [inviteAfterReservation] = await db
-      .select({ isDisabled: invites.isDisabled })
-      .from(invites)
-      .where(eq(invites.id, inviteId))
-
-    if (inviteAfterReservation?.isDisabled) {
-      await releaseInviteSlot()
-      return error(ErrorCode.INVITE_DISABLED)
+    let inviteAfterReservation: { isDisabled: boolean } | undefined
+    try {
+      const reservationRows = await db
+        .select({ isDisabled: invites.isDisabled })
+        .from(invites)
+        .where(eq(invites.id, inviteId))
+      inviteAfterReservation = reservationRows[0]
+    } catch (err) {
+      logger.error(
+        { err, inviteId },
+        "Failed to verify invite after reserving a slot",
+      )
+      await releaseInviteReservation(inviteId)
+      return error(
+        ErrorCode.INTERNAL_ERROR,
+        "Failed to complete registration. Please try again.",
+      )
     }
 
-    async function releaseInviteSlot(): Promise<void> {
-      try {
-        await db
-          .update(invites)
-          .set({ useCount: sql`${invites.useCount} - 1` })
-          .where(eq(invites.id, inviteId))
-        logger.info({ inviteId }, "Released invite slot after failure")
-      } catch (err) {
-        logger.error({ err, inviteId }, "Failed to release invite slot")
-      }
+    if (inviteAfterReservation?.isDisabled) {
+      await releaseInviteReservation(inviteId)
+      return error(ErrorCode.INVITE_DISABLED)
     }
 
     let jellyfinUser: { id: string; name: string; isAdmin: boolean }
     try {
       if (await isUsernameTaken(parsed.data.username)) {
-        await releaseInviteSlot()
+        await releaseInviteReservation(inviteId)
         return error(ErrorCode.USERNAME_TAKEN)
       }
 
@@ -311,12 +423,63 @@ export async function redeemInvite(
         { err, username: parsed.data.username },
         "Failed to create Jellyfin user",
       )
-      await releaseInviteSlot()
+      await releaseInviteReservation(inviteId)
       return error(ErrorCode.JELLYFIN_ERROR, "Failed to create user account")
     }
 
-    let policyApplied = false
+    let seerrConfigured: boolean
+    try {
+      seerrConfigured = configManager.seerr !== undefined
+    } catch (err) {
+      logger.error(
+        { err, userId: jellyfinUser.id },
+        "Failed to read Seerr configuration during invite redemption",
+      )
+      await compensateInviteRedemption({
+        inviteId,
+        jellyfinUserId: jellyfinUser.id,
+        seerrUserId: null,
+        localStateRecorded: false,
+      })
+      return error(
+        ErrorCode.INTERNAL_ERROR,
+        "Failed to complete registration. Please try again.",
+      )
+    }
+    const seerrLookupCache = createSeerrUserLookupCache()
     let rollbackSeerrUserId: number | null = null
+
+    if (seerrConfigured) {
+      try {
+        const seerrUser = await resolveSeerrUser({
+          jellyfinUserId: jellyfinUser.id,
+          userName: jellyfinUser.name,
+          email: normalizedEmail,
+          lookupCache: seerrLookupCache,
+        })
+        if (!seerrUser) {
+          throw new Error("Failed to locate the created user in Seerr")
+        }
+        rollbackSeerrUserId = seerrUser.id
+      } catch (err) {
+        logger.error(
+          { err, userId: jellyfinUser.id },
+          "Failed to create or resolve Seerr user during invite redemption",
+        )
+        await compensateInviteRedemption({
+          inviteId,
+          jellyfinUserId: jellyfinUser.id,
+          seerrUserId: rollbackSeerrUserId,
+          localStateRecorded: false,
+          preserveJellyfinUser: rollbackSeerrUserId === null,
+        })
+        return error(
+          ErrorCode.SEERR_ERROR,
+          "Failed to complete registration with Seerr",
+        )
+      }
+    }
+
     if (resolvedProfile.data.policy) {
       try {
         const profileSyncResult = await applyProfileToUser({
@@ -325,22 +488,59 @@ export async function redeemInvite(
           email: normalizedEmail,
           policy: resolvedProfile.data.policy,
           isAdmin: jellyfinUser.isAdmin,
+          seerrLookupCache,
         })
-        rollbackSeerrUserId = profileSyncResult.seerrUserId
-        policyApplied = true
+        rollbackSeerrUserId =
+          profileSyncResult.seerrUserId ?? rollbackSeerrUserId
       } catch (err) {
-        if (err instanceof SeerrProfileSyncError) {
-          logger.warn(
-            { err, userId: jellyfinUser.id },
-            "Failed to sync Seerr settings during registration",
-          )
-        } else {
-          logger.warn(
-            { err, userId: jellyfinUser.id },
-            "Failed to apply invite profile settings",
-          )
-        }
+        const profileErrorCode =
+          err instanceof SeerrProfileSyncError
+            ? ErrorCode.SEERR_ERROR
+            : ErrorCode.JELLYFIN_ERROR
+        logger.error(
+          { err, userId: jellyfinUser.id },
+          "Failed to apply invite profile during redemption",
+        )
+        await compensateInviteRedemption({
+          inviteId,
+          jellyfinUserId: jellyfinUser.id,
+          seerrUserId: rollbackSeerrUserId,
+          localStateRecorded: false,
+        })
+        return error(
+          profileErrorCode,
+          "Failed to apply the invite profile to the account",
+        )
       }
+    }
+
+    const jellyfinDeviceId = crypto.randomUUID()
+    let authResult: {
+      accessToken: string
+      isAdmin: boolean
+      name: string
+    }
+    try {
+      authResult = await authenticateUser(
+        parsed.data.username,
+        parsed.data.password,
+        jellyfinDeviceId,
+      )
+    } catch (err) {
+      logger.error(
+        { err, userId: jellyfinUser.id },
+        "Failed to authenticate newly created Jellyfin user",
+      )
+      await compensateInviteRedemption({
+        inviteId,
+        jellyfinUserId: jellyfinUser.id,
+        seerrUserId: rollbackSeerrUserId,
+        localStateRecorded: false,
+      })
+      return error(
+        ErrorCode.JELLYFIN_ERROR,
+        "Failed to authenticate the created account",
+      )
     }
 
     if (parsed.data.avatar) {
@@ -382,7 +582,7 @@ export async function redeemInvite(
           locale: null,
           profileId: resolvedProfile.data.profileId,
           inviteId,
-          seerrSyncedAt: null,
+          seerrSyncedAt: seerrConfigured ? new Date() : null,
           expiresAt: null,
           expiryWarningSentAt: null,
           expiryWarningSentFor: null,
@@ -401,82 +601,105 @@ export async function redeemInvite(
         { userId: jellyfinUser.id, email: normalizedEmail },
         "Recorded user in database",
       )
-
-      if (configManager.seerr) {
-        try {
-          let seerrSynced = false
-          if (resolvedProfile.data.policy && policyApplied) {
-            seerrSynced = true
-          } else if (!resolvedProfile.data.policy) {
-            const syncedSeerrUser = await resolveSeerrUser({
-              jellyfinUserId: jellyfinUser.id,
-              userName: jellyfinUser.name,
-              email: normalizedEmail,
-            })
-            if (syncedSeerrUser) {
-              seerrSynced = true
-            }
-          }
-          if (seerrSynced) {
-            await db
-              .update(users)
-              .set({ seerrSyncedAt: new Date() })
-              .where(eq(users.userId, jellyfinUser.id))
-          }
-        } catch (err) {
-          logger.warn(
-            { err, userId: jellyfinUser.id },
-            "Failed to sync user to Seerr during registration",
-          )
-        }
-      }
     } catch (err) {
       logger.error(
-        { err, userId: jellyfinUser.id },
-        "Failed to record user in database, performing compensation",
+        { err, inviteId, userId: jellyfinUser.id },
+        "Failed to record user in database, checking transaction outcome",
       )
 
+      let localStateRecorded: boolean
       try {
-        if (rollbackSeerrUserId !== null) {
-          await deleteSeerrUser(rollbackSeerrUserId)
-          logger.info(
-            { userId: jellyfinUser.id, seerrUserId: rollbackSeerrUserId },
-            "Deleted Seerr user as compensation",
+        const [recordedUsage] = await db
+          .select({ id: inviteUsages.id })
+          .from(inviteUsages)
+          .where(
+            and(
+              eq(inviteUsages.inviteId, inviteId),
+              eq(inviteUsages.userId, jellyfinUser.id),
+            ),
           )
-        }
-      } catch (deleteSeerrErr) {
+          .limit(1)
+        localStateRecorded = recordedUsage !== undefined
+      } catch (reconcileErr) {
         logger.error(
           {
-            deleteSeerrErr,
+            err: reconcileErr,
+            inviteId,
             userId: jellyfinUser.id,
-            seerrUserId: rollbackSeerrUserId,
           },
-          "Failed to delete Seerr user during compensation",
+          "Could not determine local transaction outcome; preserving reservation and external users for startup reconciliation",
+        )
+        return error(
+          ErrorCode.INTERNAL_ERROR,
+          "Failed to complete registration. Please try again.",
         )
       }
 
-      try {
-        await deleteUser(jellyfinUser.id)
-        logger.info(
-          { userId: jellyfinUser.id },
-          "Deleted Jellyfin user as compensation",
-        )
-      } catch (deleteErr) {
-        logger.error(
-          { deleteErr, userId: jellyfinUser.id },
-          "CRITICAL: Failed to delete Jellyfin user during compensation - orphaned user exists",
-        )
-      }
-
-      await releaseInviteSlot()
+      await compensateInviteRedemption({
+        inviteId,
+        jellyfinUserId: jellyfinUser.id,
+        seerrUserId: rollbackSeerrUserId,
+        localStateRecorded,
+      })
       return error(
         ErrorCode.INTERNAL_ERROR,
         "Failed to complete registration. Please try again.",
       )
     }
 
-    if (isEmailConfigured()) {
+    let session: SessionData
+    try {
+      await establishAuthenticatedSession({
+        userId: jellyfinUser.id,
+        displayName: authResult.name,
+        isAdmin: authResult.isAdmin,
+        jellyfinAccessToken: authResult.accessToken,
+        jellyfinDeviceId,
+      })
+      session = await getSessionDataForUser({
+        userId: jellyfinUser.id,
+        name: authResult.name,
+        isAdmin: authResult.isAdmin,
+      })
+      logger.info(
+        { userId: jellyfinUser.id },
+        "Created session after registration",
+      )
+    } catch (err) {
+      logger.error(
+        { err, userId: jellyfinUser.id },
+        "Failed to create session after registration, performing compensation",
+      )
       try {
+        clearAuthCookies()
+      } catch (clearCookieErr) {
+        logger.error(
+          { err: clearCookieErr, userId: jellyfinUser.id },
+          "Failed to clear authentication cookie after session failure",
+        )
+      }
+      try {
+        await revokeAllUserSessions(jellyfinUser.id)
+      } catch (revokeErr) {
+        logger.error(
+          { err: revokeErr, userId: jellyfinUser.id },
+          "Failed to revoke sessions after invite redemption failure",
+        )
+      }
+      await compensateInviteRedemption({
+        inviteId,
+        jellyfinUserId: jellyfinUser.id,
+        seerrUserId: rollbackSeerrUserId,
+        localStateRecorded: true,
+      })
+      return error(
+        ErrorCode.INTERNAL_ERROR,
+        "Failed to create a session for the new account",
+      )
+    }
+
+    try {
+      if (isEmailConfigured()) {
         const token = await createEmailVerificationToken(jellyfinUser.id)
         const appUrl = configManager.appUrl
         if (!appUrl) {
@@ -503,42 +726,11 @@ export async function redeemInvite(
           { userId: jellyfinUser.id, email: normalizedEmail },
           "Sent verification email",
         )
-      } catch (err) {
-        logger.warn(
-          { err, userId: jellyfinUser.id },
-          "Failed to send verification email",
-        )
       }
-    }
-
-    let session: SessionData | undefined
-    try {
-      const jellyfinDeviceId = crypto.randomUUID()
-      const authResult = await authenticateUser(
-        parsed.data.username,
-        parsed.data.password,
-        jellyfinDeviceId,
-      )
-      await establishAuthenticatedSession({
-        userId: jellyfinUser.id,
-        displayName: authResult.name,
-        isAdmin: authResult.isAdmin,
-        jellyfinAccessToken: authResult.accessToken,
-        jellyfinDeviceId,
-      })
-      session = await getSessionDataForUser({
-        userId: jellyfinUser.id,
-        name: authResult.name,
-        isAdmin: authResult.isAdmin,
-      })
-      logger.info(
-        { userId: jellyfinUser.id },
-        "Created session after registration",
-      )
     } catch (err) {
       logger.warn(
         { err, userId: jellyfinUser.id },
-        "Failed to create session after registration",
+        "Failed to send verification email",
       )
     }
 
@@ -571,7 +763,8 @@ export async function redeemInvite(
       session,
       onboardingPages,
     })
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "Unexpected failure while redeeming invite")
     return error(ErrorCode.OPERATION_FAILED, "Failed to redeem invite")
   }
 }

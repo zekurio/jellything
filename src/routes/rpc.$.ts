@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router"
 import "@tanstack/react-start"
 
+import { ensureApplicationReady } from "@/server/readiness"
+
 type RpcFetchModule = typeof import("@orpc/server/fetch")
 type RpcPluginsModule = typeof import("@orpc/server/plugins")
 type LoggerModule = typeof import("@/server/logger")
@@ -130,6 +132,7 @@ async function handleRpcRouteRequest({ request }: { request: Request }) {
     runWithRequestContext,
     runStartupTasks,
   } = await getRpcServerModules()
+  await ensureApplicationReady()
   runStartupTasks()
   const rpcRouteLogger = createChildLogger({ module: "rpc-route" })
   const rpcHandler = new RPCHandler(orpcRouter, {

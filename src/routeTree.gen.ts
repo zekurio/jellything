@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ReadyzRouteImport } from './routes/readyz'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as HealthzRouteImport } from './routes/healthz'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ConfigErrorRouteImport } from './routes/config-error'
@@ -36,6 +38,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReadyzRoute = ReadyzRouteImport.update({
+  id: '/readyz',
+  path: '/readyz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -49,6 +56,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthzRoute = HealthzRouteImport.update({
+  id: '/healthz',
+  path: '/healthz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -143,9 +155,11 @@ export interface FileRoutesByFullPath {
   '/config-error': typeof ConfigErrorRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
+  '/healthz': typeof HealthzRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRouteWithChildren
+  '/readyz': typeof ReadyzRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/invites': typeof DashboardInvitesRoute
@@ -165,8 +179,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/config-error': typeof ConfigErrorRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/healthz': typeof HealthzRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
+  '/readyz': typeof ReadyzRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/invites': typeof DashboardInvitesRoute
@@ -187,9 +203,11 @@ export interface FileRoutesById {
   '/config-error': typeof ConfigErrorRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
+  '/healthz': typeof HealthzRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/profile': typeof ProfileRouteWithChildren
+  '/readyz': typeof ReadyzRoute
   '/reset-password': typeof ResetPasswordRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/invites': typeof DashboardInvitesRoute
@@ -212,9 +230,11 @@ export interface FileRouteTypes {
     | '/config-error'
     | '/dashboard'
     | '/forgot-password'
+    | '/healthz'
     | '/login'
     | '/onboarding'
     | '/profile'
+    | '/readyz'
     | '/reset-password'
     | '/dashboard/history'
     | '/dashboard/invites'
@@ -234,8 +254,10 @@ export interface FileRouteTypes {
     | '/'
     | '/config-error'
     | '/forgot-password'
+    | '/healthz'
     | '/login'
     | '/onboarding'
+    | '/readyz'
     | '/reset-password'
     | '/dashboard/history'
     | '/dashboard/invites'
@@ -255,9 +277,11 @@ export interface FileRouteTypes {
     | '/config-error'
     | '/dashboard'
     | '/forgot-password'
+    | '/healthz'
     | '/login'
     | '/onboarding'
     | '/profile'
+    | '/readyz'
     | '/reset-password'
     | '/dashboard/history'
     | '/dashboard/invites'
@@ -279,9 +303,11 @@ export interface RootRouteChildren {
   ConfigErrorRoute: typeof ConfigErrorRoute
   DashboardRoute: typeof DashboardRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  HealthzRoute: typeof HealthzRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   ProfileRoute: typeof ProfileRouteWithChildren
+  ReadyzRoute: typeof ReadyzRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   InviteCodeRoute: typeof InviteCodeRoute
   RpcSplatRoute: typeof RpcSplatRoute
@@ -295,6 +321,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/readyz': {
+      id: '/readyz'
+      path: '/readyz'
+      fullPath: '/readyz'
+      preLoaderRoute: typeof ReadyzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -316,6 +349,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/healthz': {
+      id: '/healthz'
+      path: '/healthz'
+      fullPath: '/healthz'
+      preLoaderRoute: typeof HealthzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -493,9 +533,11 @@ const rootRouteChildren: RootRouteChildren = {
   ConfigErrorRoute: ConfigErrorRoute,
   DashboardRoute: DashboardRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  HealthzRoute: HealthzRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   ProfileRoute: ProfileRouteWithChildren,
+  ReadyzRoute: ReadyzRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   InviteCodeRoute: InviteCodeRoute,
   RpcSplatRoute: RpcSplatRoute,

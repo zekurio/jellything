@@ -1,149 +1,196 @@
 # Jellything
 
-Jellything is a user management and invitation app for Jellyfin.
+Jellything is a self-hosted user-management and invitation app for
+Jellyfin.
 
-> **AI Disclaimer**: This is a hobby project of mine, as I needed something for my specific use case. AI agents were heavily involved in building this. Be warned.
+> **AI disclaimer:** This is a hobby project built for a specific use case,
+> with substantial AI-agent involvement.
 
-## Run Jellything
+## Requirements
 
-Pick one installation method:
+- Jellyfin `10.11.x` and a Jellyfin administrator API key
+- Node.js 24 and pnpm 10 for a bare-metal install
+- Optional: Seerr `3.x.x`
+- Optional: an SMTP server for verification and password-reset email
 
-1. Nix package or NixOS module (recommended)
-2. Bare-metal install with Node.js and pnpm
+Use a tagged release (`vX.Y.Z`) rather than a moving branch in production.
 
-You need a Jellyfin server and an admin API key during first-run setup.
+## Install
 
-Minimum supported server versions:
+### Nix package
 
-- Jellyfin `10.11.x`
-- Seerr `3.x.x`
-
-### 1) Nix
-
-Run Jellything directly from the flake:
-
-```bash
-nix run github:zekurio/jellything
-```
-
-Then open `http://localhost:4173`.
-
-Build the package locally:
+Run a tagged package from a stable working directory; the default database and
+configuration paths are relative to that directory:
 
 ```bash
-git clone https://github.com/zekurio/jellything.git
-cd jellything
-nix build
-./result/bin/jellything
+mkdir -p ~/jellything
+cd ~/jellything
+umask 077
+nix run github:zekurio/jellything/vX.Y.Z
 ```
 
-The package supports common runtime defaults through Nix overrides:
+Open `http://127.0.0.1:4173`. Override `HOST`, `PORT`, `DB_PATH`,
+`CONFIG_PATH`, or `LOG_LEVEL` in the environment when needed.
+
+For NixOS, pin the same tag as a flake input:
 
 ```nix
-inputs.jellything.lib.mkJellythingPackage pkgs {
-  port = 8080;
-  dbPath = "/var/lib/jellything/jellything.db";
-  configPath = "/var/lib/jellything/config.json";
-  logLevel = "info";
-}
+inputs.jellything.url = "github:zekurio/jellything/vX.Y.Z";
 ```
 
-For NixOS, import the module and enable the service:
+Import the module and keep the application port private when a reverse proxy
+runs on the same host:
 
 ```nix
 {
-  imports = [
-    inputs.jellything.nixosModules.default
-  ];
+  imports = [ inputs.jellything.nixosModules.default ];
 
   services.jellything = {
     enable = true;
+    host = "127.0.0.1";
     port = 4173;
     dataDir = "/var/lib/jellything";
     logLevel = "info";
-    openFirewall = true;
+    openFirewall = false;
   };
 }
 ```
 
-Available service options include:
+The module runs as a dedicated user and creates its state directory with mode
+`0750`. Its main options are `package`, `user`, `group`, `host`, `port`,
+`dataDir`, `configFile`, `logLevel`, `appVersion`, `openFirewall`, and
+`environment`.
 
-- `package`
-- `user`
-- `group`
-- `host`
-- `port`
-- `dataDir`
-- `configFile`
-- `logLevel`
-- `appVersion`
-- `openFirewall`
-- `environment`
+### Bare metal
 
-Maintainers can cut a release from the GitHub Actions `Release` workflow by entering a semver version. That workflow bumps `package.json`, creates the git tag, and opens a GitHub release with generated notes.
-
-### 2) Bare-metal install (Node.js + pnpm)
-
-Requirements:
-
-- Node.js 24.x
-- pnpm 10.x
-
-Install and configure:
+Check out a release tag, install exactly its locked dependencies, and create
+private state:
 
 ```bash
 git clone https://github.com/zekurio/jellything.git
 cd jellything
-pnpm install
+git checkout vX.Y.Z
+pnpm install --frozen-lockfile
 cp .env.example .env
-```
-
-Set these values in `.env`:
-
-- `DB_PATH=./data/jellything.db`
-- `CONFIG_PATH=./data/config.json`
-
-Jellything stores the public app URL in config during onboarding and lets you update it later in settings.
-
-Build and start:
-
-```bash
+umask 077
+install -d -m 0700 data
+chmod 0600 .env
 pnpm run build
-pnpm start
+node --env-file=.env .output/server/index.mjs
 ```
 
-Jellything handles database migrations automatically.
+The final command is the Nitro production server. `pnpm start` uses the same
+`.output/server/index.mjs` entry point when a service manager already supplies
+the environment. Run it from the repository root so the bundled application
+can find `drizzle/`; database migrations run automatically at startup.
 
-For local development instead:
+The production environment is intentionally small:
 
-```bash
-pnpm run dev
-```
+| Variable        | Purpose                                                    |
+| --------------- | ---------------------------------------------------------- |
+| `NODE_ENV`      | Set to `production`.                                       |
+| `HOST` / `PORT` | Nitro address and port; example: `127.0.0.1:4173`.         |
+| `DB_PATH`       | SQLite database path.                                      |
+| `CONFIG_PATH`   | Config path with integration credentials and auth secrets. |
+| `LOG_LEVEL`     | `trace`, `debug`, `info`, `warn`, `error`, or `fatal`.     |
+| `TRUST_PROXY`   | Keep `false` unless only a trusted proxy can connect.      |
+
+Keep the state directory, database, config, environment file, backups, and
+service logs readable only by the service account or an administrative backup
+account. Start the service with `umask 077` on bare metal so newly created
+state is private.
 
 ## First-run setup
 
-When you first open Jellything:
-
-1. Complete onboarding in the web UI (Jellyfin, Seerr and email setup)
-2. Create some profiles to use for your invites, or customize the default ones
-3. Create invites and invite users
-
-## Common operations
-
-NixOS service logs:
+On first start, Jellything logs `Generated setup key for onboarding` with a
+`setupKey` field. Read it from the foreground log, or on NixOS with:
 
 ```bash
-journalctl -u jellything -f
+journalctl -u jellything -n 100 --no-pager
 ```
 
-Restart the NixOS service:
+Keep that log private. Open Jellything, enter the setup key, then provide the
+public app URL and the required Jellyfin connection and administrator API key.
+The public URL should be the HTTPS URL users will visit. Seerr and email are
+optional: leave either section blank during onboarding and configure it later
+in Settings. After onboarding, create or customize profiles and issue invites.
+
+`GET /healthz` is the process liveness endpoint. `GET /readyz` returns `200`
+only after startup database work succeeds, and `503` on an initialization
+failure.
+
+## Network and TLS
+
+Nitro serves HTTP. For Internet access, terminate TLS at a reverse proxy and
+leave Jellything bound to loopback. A minimal Caddy site is:
+
+```caddyfile
+jellything.example.com {
+  reverse_proxy 127.0.0.1:4173
+}
+```
+
+Set `TRUST_PROXY=true` only when that proxy overwrites forwarded client,
+host, and protocol headers and the backend port cannot be reached around the
+proxy. This enables correct HTTPS-origin handling and per-client rate limits
+without trusting headers supplied directly by users. If the proxy is on
+another machine, bind Jellything to a private interface and firewall the port
+so only that proxy can connect. Do not expose the unencrypted application port
+directly to the Internet.
+
+## Back up and restore
+
+The SQLite database and runtime config are one recoverable unit. The config
+contains secrets, so encrypt or otherwise restrict every backup.
+
+1. Stop Jellything before copying files. This gives a consistent SQLite
+   snapshot and prevents config changes during the copy.
+2. Back up the files at `DB_PATH` and `CONFIG_PATH` together. With the default
+   layout, archive the whole `data/` directory (bare metal) or
+   `/var/lib/jellything/` (NixOS), including any SQLite `-wal` or `-shm` files
+   that remain.
+3. Record the Jellything release tag used with that backup.
+4. Restart Jellything and confirm `/readyz` returns `200`.
+
+To restore, stop Jellything, replace both paths from the same backup, restore
+their service-account ownership and restrictive directory/file modes, then
+start the recorded release. Confirm `/readyz` before upgrading. Restoring only
+the database or only the config can invalidate sessions or integration state.
+
+## Upgrade
+
+For `nix run`, stop the old process, back up its state, and run the new tag
+from the same working directory:
 
 ```bash
-systemctl restart jellything
+nix run github:zekurio/jellything/vX.Y.Z
 ```
 
-Update a flake input:
+Back up first. For NixOS, change the pinned input URL to the new tag, update
+that input, and rebuild:
 
 ```bash
 nix flake update jellything
+sudo nixos-rebuild switch --flake .#your-host
 ```
+
+For bare metal, stop the service, then:
+
+```bash
+git fetch --tags
+git checkout vX.Y.Z
+pnpm install --frozen-lockfile
+pnpm run build
+node --env-file=.env .output/server/index.mjs
+```
+
+Migrations run on startup. A rollback may require restoring the matching
+database and config backup rather than only checking out an older tag.
+
+## Maintainer releases
+
+Change `package.json` to the intended semver through a reviewed commit on
+`dev`, then dispatch the `Release` workflow from `dev` with that version. The
+workflow runs the complete format, lint, typecheck, test, migration-drift,
+production-build, and Nix gate, then tags that exact commit and publishes the
+release. It does not create a version-bump commit.

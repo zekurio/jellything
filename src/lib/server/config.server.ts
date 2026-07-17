@@ -1,7 +1,21 @@
 import "@tanstack/react-start/server-only"
 import { randomBytes, timingSafeEqual } from "node:crypto"
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs"
-import { writeFile } from "node:fs/promises"
+import {
+  chmodSync,
+  closeSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs"
+import type { FileHandle } from "node:fs/promises"
+import { chmod, mkdir, open, rename, unlink } from "node:fs/promises"
+import { dirname } from "node:path"
 
 import { z } from "zod"
 
@@ -114,6 +128,132 @@ export type AppConfig = Config["app"]
 export type AuthConfig = Config["auth"]
 export type EmailConfig = NonNullable<Config["email"]>
 export type MemberOnboardingConfig = Config["memberOnboarding"]
+const CONFIG_DIRECTORY_MODE = 0o700
+const CONFIG_FILE_MODE = 0o600
+
+function getTemporaryConfigPath(configPath: string): string {
+  return `${configPath}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`
+}
+
+function ensureConfigDirectorySync(configPath: string): void {
+  const configDirectory = dirname(configPath)
+  mkdirSync(configDirectory, {
+    recursive: true,
+    mode: CONFIG_DIRECTORY_MODE,
+  })
+  chmodSync(configDirectory, CONFIG_DIRECTORY_MODE)
+}
+
+async function ensureConfigDirectory(configPath: string): Promise<void> {
+  const configDirectory = dirname(configPath)
+  await mkdir(configDirectory, {
+    recursive: true,
+    mode: CONFIG_DIRECTORY_MODE,
+  })
+  await chmod(configDirectory, CONFIG_DIRECTORY_MODE)
+}
+
+function removeTemporaryConfigSync(temporaryPath: string): void {
+  try {
+    unlinkSync(temporaryPath)
+  } catch (cleanupError) {
+    if (
+      cleanupError instanceof Error &&
+      "code" in cleanupError &&
+      cleanupError.code === "ENOENT"
+    ) {
+      return
+    }
+    logger.error(
+      { err: cleanupError },
+      "Failed to clean up temporary Jellything config",
+    )
+  }
+}
+
+async function removeTemporaryConfig(temporaryPath: string): Promise<void> {
+  try {
+    await unlink(temporaryPath)
+  } catch (cleanupError) {
+    if (
+      cleanupError instanceof Error &&
+      "code" in cleanupError &&
+      cleanupError.code === "ENOENT"
+    ) {
+      return
+    }
+    logger.error(
+      { err: cleanupError },
+      "Failed to clean up temporary Jellything config",
+    )
+  }
+}
+
+function writeConfigAtomicallySync(configPath: string, payload: string): void {
+  ensureConfigDirectorySync(configPath)
+  const temporaryPath = getTemporaryConfigPath(configPath)
+  let fileDescriptor: number | null = null
+  let renamed = false
+
+  try {
+    fileDescriptor = openSync(temporaryPath, "wx", CONFIG_FILE_MODE)
+    writeFileSync(fileDescriptor, payload, "utf-8")
+    fsyncSync(fileDescriptor)
+    closeSync(fileDescriptor)
+    fileDescriptor = null
+    renameSync(temporaryPath, configPath)
+    renamed = true
+  } finally {
+    if (fileDescriptor !== null) {
+      try {
+        closeSync(fileDescriptor)
+      } catch (cleanupError) {
+        logger.error(
+          { err: cleanupError },
+          "Failed to close temporary Jellything config",
+        )
+      }
+    }
+    if (!renamed) {
+      removeTemporaryConfigSync(temporaryPath)
+    }
+  }
+}
+
+async function writeConfigAtomically(
+  configPath: string,
+  payload: string,
+): Promise<void> {
+  await ensureConfigDirectory(configPath)
+  const temporaryPath = getTemporaryConfigPath(configPath)
+  let fileHandle: FileHandle | null = null
+  let renamed = false
+
+  try {
+    fileHandle = await open(temporaryPath, "wx", CONFIG_FILE_MODE)
+    await fileHandle.writeFile(payload, "utf-8")
+    await fileHandle.sync()
+    await fileHandle.close()
+    fileHandle = null
+    await rename(temporaryPath, configPath)
+    renamed = true
+  } finally {
+    if (fileHandle !== null) {
+      try {
+        await fileHandle.close()
+      } catch (cleanupError) {
+        logger.error(
+          { err: cleanupError },
+          "Failed to close temporary Jellything config",
+        )
+      }
+    }
+    if (!renamed) {
+      await removeTemporaryConfig(temporaryPath)
+    }
+  }
+}
+
 class ConfigManager {
   private config: Config | null = null
   private configPath: string
@@ -122,14 +262,10 @@ class ConfigManager {
   private loaded = false
   private loadedMtimeMs: number | null = null
 
-  private persistLoadedConfig(logMessage: string): void {
-    if (!this.config) {
-      return
-    }
-
+  private persistLoadedConfig(config: Config, logMessage: string): void {
     try {
-      const payload = JSON.stringify(this.config, null, "\t")
-      writeFileSync(this.configPath, payload, "utf-8")
+      const payload = JSON.stringify(config, null, "\t")
+      writeConfigAtomicallySync(this.configPath, payload)
       this.loadedMtimeMs = this.getConfigMtimeMs()
       logger.info(logMessage)
     } catch (saveError) {
@@ -194,7 +330,7 @@ class ConfigManager {
     try {
       const raw = readFileSync(this.configPath, "utf-8")
       const parsed = JSON.parse(raw)
-      this.config = configSchema.parse(parsed)
+      const parsedConfig = configSchema.parse(parsed)
 
       const parsedAuth = (
         parsed as {
@@ -211,7 +347,7 @@ class ConfigManager {
       const updatedConfig =
         !hasSessionSecret || !hasEncryptionKey
           ? {
-              ...this.config,
+              ...parsedConfig,
               auth: {
                 sessionSecret: hasSessionSecret
                   ? (parsedAuth?.sessionSecret as string)
@@ -221,15 +357,15 @@ class ConfigManager {
                   : generateConfigSecret(),
               },
             }
-          : this.config
-
-      this.config = updatedConfig
+          : parsedConfig
 
       if (!hasSessionSecret || !hasEncryptionKey) {
         this.persistLoadedConfig(
+          updatedConfig,
           "Generated and persisted missing Jellything auth settings in config",
         )
       }
+      this.config = updatedConfig
 
       this.clearSetupKey()
     } catch (e) {
@@ -255,12 +391,9 @@ class ConfigManager {
     )
   }
 
-  private async save(): Promise<void> {
-    if (!this.config) {
-      throw new Error("Cannot save: no config loaded")
-    }
-    const payload = JSON.stringify(this.config, null, "\t")
-    await writeFile(this.configPath, payload, "utf-8")
+  private async save(config: Config): Promise<void> {
+    const payload = JSON.stringify(config, null, "\t")
+    await writeConfigAtomically(this.configPath, payload)
     this.loadedMtimeMs = this.getConfigMtimeMs()
   }
 
@@ -382,8 +515,9 @@ class ConfigManager {
       newConfig.email = options.email
     }
 
-    this.config = configSchema.parse(newConfig)
-    await this.save()
+    const validatedConfig = configSchema.parse(newConfig)
+    await this.save(validatedConfig)
+    this.config = validatedConfig
     this.clearSetupKey()
     this.error = null
     this.loaded = true
@@ -391,47 +525,52 @@ class ConfigManager {
 
   async setJellyfin(values: Partial<JellyfinConfig>): Promise<void> {
     const current = this.get()
-    this.config = {
+    const updatedConfig = {
       ...current,
       jellyfin: { ...current.jellyfin, ...values },
     }
-    await this.save()
+    await this.save(updatedConfig)
+    this.config = updatedConfig
   }
 
   async setApp(values: Partial<AppConfig>): Promise<void> {
     const current = this.get()
-    this.config = {
+    const updatedConfig = {
       ...current,
       app: { ...current.app, ...values },
     }
-    await this.save()
+    await this.save(updatedConfig)
+    this.config = updatedConfig
   }
 
   async setMemberOnboarding(values: MemberOnboardingConfig): Promise<void> {
     const current = this.get()
-    this.config = {
+    const updatedConfig = {
       ...current,
       memberOnboarding: values,
     }
-    await this.save()
+    await this.save(updatedConfig)
+    this.config = updatedConfig
   }
 
   async setEmail(values: EmailConfig | undefined): Promise<void> {
     const current = this.get()
-    this.config = {
+    const updatedConfig = {
       ...current,
       email: values,
     }
-    await this.save()
+    await this.save(updatedConfig)
+    this.config = updatedConfig
   }
 
   async setSeerr(values: SeerrConfig | undefined): Promise<void> {
     const current = this.get()
-    this.config = {
+    const updatedConfig = {
       ...current,
       seerr: values,
     }
-    await this.save()
+    await this.save(updatedConfig)
+    this.config = updatedConfig
   }
 }
 

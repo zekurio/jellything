@@ -21,6 +21,7 @@ export const env = createEnv({
   server: {
     DB_PATH: z.string().min(1).default("./data/jellything.db"),
     CONFIG_PATH: z.string().min(1).default("./data/config.json"),
+    MIGRATIONS_PATH: z.string().min(1).optional(),
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),

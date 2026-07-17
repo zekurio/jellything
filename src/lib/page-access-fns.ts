@@ -29,7 +29,7 @@ export const getPageAccessFn = createServerFn({ method: "GET" }).handler(
 )
 
 export const enforcePageAccessFn = createServerFn({ method: "GET" })
-  .inputValidator((input: PageAccessMode) => input)
+  .validator((input: PageAccessMode) => input)
   .handler(async ({ data }: { data: PageAccessMode }) => {
     const { enforcePageAccess } = await getPageAccessModule()
     return enforcePageAccess(data)

@@ -211,6 +211,33 @@ export function isWithinUnavailableGracePeriod(
   return Date.now() - baseline <= graceWindow
 }
 
+function prepareAuthSession(input: CreateAuthSessionInput) {
+  const secret = randomBytes(32).toString("base64url")
+  const sessionId = crypto.randomUUID()
+  const now = new Date()
+
+  return {
+    sessionId,
+    cookieValue: buildSessionCookieValue(sessionId, secret),
+    values: {
+      id: sessionId,
+      userId: input.userId,
+      secretHash: hashSessionSecret(secret),
+      jellyfinAccessToken: encryptAccessToken(input.jellyfinAccessToken),
+      jellyfinDeviceId: input.jellyfinDeviceId,
+      displayNameSnapshot: input.displayName,
+      isAdminSnapshot: input.isAdmin,
+      lastValidatedAt: now,
+      validationBlockedUntil: null,
+      lastSeenAt: now,
+      revokedAt: null,
+      expiresAt: new Date(now.getTime() + SESSION_DURATION_MS),
+      createdAt: now,
+      updatedAt: now,
+    },
+  }
+}
+
 export async function createAuthSession(
   input: CreateAuthSessionInput,
 ): Promise<{
@@ -219,33 +246,47 @@ export async function createAuthSession(
 }> {
   await ensureMigrated()
 
-  const secret = randomBytes(32).toString("base64url")
-  const sessionId = crypto.randomUUID()
-  const now = new Date()
-  const expiresAt = new Date(now.getTime() + SESSION_DURATION_MS)
+  const session = prepareAuthSession(input)
+  await db.insert(sessions).values(session.values)
 
-  await db.insert(sessions).values({
-    id: sessionId,
-    userId: input.userId,
-    secretHash: hashSessionSecret(secret),
-    jellyfinAccessToken: encryptAccessToken(input.jellyfinAccessToken),
-    jellyfinDeviceId: input.jellyfinDeviceId,
-    displayNameSnapshot: input.displayName,
-    isAdminSnapshot: input.isAdmin,
-    lastValidatedAt: now,
-    validationBlockedUntil: null,
-    lastSeenAt: now,
-    revokedAt: null,
-    expiresAt,
-    createdAt: now,
-    updatedAt: now,
-  })
-
-  log.info({ sessionId, userId: input.userId }, "Created auth session")
+  log.info(
+    { sessionId: session.sessionId, userId: input.userId },
+    "Created auth session",
+  )
 
   return {
-    sessionId,
-    cookieValue: buildSessionCookieValue(sessionId, secret),
+    sessionId: session.sessionId,
+    cookieValue: session.cookieValue,
+  }
+}
+
+export async function replaceAllUserSessions(
+  input: CreateAuthSessionInput,
+): Promise<{
+  sessionId: string
+  cookieValue: string
+}> {
+  await ensureMigrated()
+
+  const session = prepareAuthSession(input)
+  const revokedAt = new Date()
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(sessions)
+      .set({ revokedAt, updatedAt: revokedAt })
+      .where(and(eq(sessions.userId, input.userId), isNull(sessions.revokedAt)))
+    await tx.insert(sessions).values(session.values)
+  })
+
+  log.info(
+    { sessionId: session.sessionId, userId: input.userId },
+    "Replaced all user sessions",
+  )
+
+  return {
+    sessionId: session.sessionId,
+    cookieValue: session.cookieValue,
   }
 }
 

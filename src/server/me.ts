@@ -21,7 +21,9 @@ import { getSession } from "@/lib/server/auth"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
 import {
+  clearAuthCookies,
   clearAuthenticatedSession,
+  replaceAuthenticatedSession,
   updateCurrentSessionIdentity,
 } from "@/server/auth"
 import { db, ensureMigrated } from "@/server/db"
@@ -229,6 +231,42 @@ export async function changeMyPassword(
   }
 
   await adminResetUserPassword(session.userId, parsed.data.newPassword)
+
+  const jellyfinDeviceId = crypto.randomUUID()
+  try {
+    const authResult = await authenticateUser(
+      jellyfinUser.name,
+      parsed.data.newPassword,
+      jellyfinDeviceId,
+    )
+    if (authResult.id !== session.userId) {
+      throw new Error("Replacement session user does not match current user")
+    }
+
+    await replaceAuthenticatedSession({
+      userId: session.userId,
+      displayName: authResult.name,
+      isAdmin: authResult.isAdmin,
+      jellyfinAccessToken: authResult.accessToken,
+      jellyfinDeviceId,
+    })
+  } catch (err) {
+    log.error(
+      { err, userId: session.userId },
+      "Password changed but session replacement failed; revoking all sessions",
+    )
+
+    try {
+      await revokeAllUserSessions(session.userId)
+      clearAuthCookies()
+    } catch (revokeErr) {
+      log.error(
+        { err: revokeErr, userId: session.userId },
+        "Failed to revoke sessions after password change",
+      )
+      throw revokeErr
+    }
+  }
 
   return success(null)
 }
