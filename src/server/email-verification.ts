@@ -22,9 +22,8 @@ import { createChildLogger } from "@/server/logger"
 import { resolveSeerrUser } from "@/server/seerr"
 import { getSessionDataForUser } from "@/server/session-resolver"
 import {
+  consumeEmailVerificationToken,
   createEmailVerificationToken,
-  validateEmailVerificationToken,
-  deleteEmailVerificationToken,
 } from "@/server/tokens"
 
 const log = createChildLogger({ module: "email-service" })
@@ -38,8 +37,19 @@ export async function verifyEmail(
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
 
-  await ensureMigrated()
-  const verified = await validateEmailVerificationToken(parsed.data.token)
+  const verified = await consumeEmailVerificationToken(parsed.data.token).catch(
+    (err: unknown) => {
+      log.error({ err }, "Failed to consume email verification token")
+      return undefined
+    },
+  )
+
+  if (verified === undefined) {
+    return error(
+      ErrorCode.INTERNAL_ERROR,
+      "Failed to verify email. Please try again.",
+    )
+  }
 
   if (!verified) {
     log.warn("Email verification attempted with invalid or expired token")
@@ -50,27 +60,12 @@ export async function verifyEmail(
     )
   }
 
-  await db
-    .update(users)
-    .set({
-      email: verified.pendingEmail ?? verified.user.email,
-      emailVerified: true,
-      ...(verified.pendingEmail && verified.pendingEmail !== verified.user.email
-        ? {
-            expiryWarningSentAt: null,
-            expiryWarningSentFor: null,
-          }
-        : {}),
-    })
-    .where(eq(users.userId, verified.user.userId))
-  await deleteEmailVerificationToken(verified.user.userId)
-
-  const verifiedEmail = verified.pendingEmail ?? verified.user.email
+  const verifiedEmail = verified.pendingEmail ?? verified.email
   if (configManager.seerr && verifiedEmail) {
     try {
       const syncedSeerrUser = await resolveSeerrUser({
-        jellyfinUserId: verified.user.userId,
-        userName: verified.user.userId,
+        jellyfinUserId: verified.userId,
+        userName: verified.userId,
         email: verifiedEmail,
       })
 
@@ -78,18 +73,18 @@ export async function verifyEmail(
         await db
           .update(users)
           .set({ seerrSyncedAt: new Date() })
-          .where(eq(users.userId, verified.user.userId))
+          .where(eq(users.userId, verified.userId))
       }
     } catch (err) {
       log.warn(
-        { err, userId: verified.user.userId },
+        { err, userId: verified.userId },
         "Failed to resolve Seerr user after email verification",
       )
     }
   }
 
-  log.info({ userId: verified.user.userId }, "Email verified successfully")
-  if (sessionOverride?.userId === verified.user.userId) {
+  log.info({ userId: verified.userId }, "Email verified successfully")
+  if (sessionOverride?.userId === verified.userId) {
     return success(
       await getSessionDataForUser({
         userId: sessionOverride.userId,

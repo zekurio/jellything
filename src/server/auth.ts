@@ -16,6 +16,7 @@ import {
 import {
   createAuthSession,
   getSessionRecordFromCookie,
+  replaceAllUserSessions,
   revokeAuthSessionByCookie,
   sessionCookieConfig,
   SESSION_COOKIE_NAME,
@@ -48,6 +49,22 @@ export async function establishAuthenticatedSession(input: {
     jellyfinAccessToken: input.jellyfinAccessToken,
     jellyfinDeviceId: input.jellyfinDeviceId,
   })
+
+  setRequestCookie(
+    SESSION_COOKIE_NAME,
+    session.cookieValue,
+    sessionCookieConfig,
+  )
+}
+
+export async function replaceAuthenticatedSession(input: {
+  userId: string
+  displayName: string
+  isAdmin: boolean
+  jellyfinAccessToken: string
+  jellyfinDeviceId: string
+}): Promise<void> {
+  const session = await replaceAllUserSessions(input)
 
   setRequestCookie(
     SESSION_COOKIE_NAME,

@@ -26,7 +26,7 @@ import {
   type JellyfinUserListItem,
 } from "@/server/jellyfin"
 import { updateUserPolicy } from "@/server/jellyfin/admin"
-import { logger } from "@/server/logger"
+import { logError, logger } from "@/server/logger"
 import {
   applyProfileToUser,
   JellyfinLastAdminError,
@@ -102,6 +102,21 @@ type DeleteManagedUserResult = {
   deletedFromJellyfin: boolean
   deletedFromSeerr: boolean
 }
+
+type ManagedUserDeletionStage = "sessions" | "jellyfin" | "seerr" | "local"
+
+type ManagedUserDeletionAttempt =
+  | {
+      success: true
+      data: DeleteManagedUserResult
+    }
+  | {
+      success: false
+      code: ErrorCode
+      message: string
+      failedStage: ManagedUserDeletionStage
+      deletedFromJellyfin: boolean
+    }
 
 type UpdateManagedUserResult = {
   userId: string
@@ -478,6 +493,71 @@ function releaseActiveAdmin(
 ): void {
   if (jellyfinUser.isAdmin && !jellyfinUser.isDisabled) {
     guard.activeAdminCount += 1
+  }
+}
+
+async function deleteManagedUserAcrossSystems(
+  userId: string,
+  dbUser: DbUserRow | undefined,
+  jellyfinUser: JellyfinUserListItem | null,
+): Promise<ManagedUserDeletionAttempt> {
+  let failedStage: ManagedUserDeletionStage = "sessions"
+  let deletedFromJellyfin = false
+  let deletedFromSeerr = false
+
+  try {
+    await revokeAllUserSessions(userId)
+
+    failedStage = "jellyfin"
+    if (jellyfinUser) {
+      await deleteUser(jellyfinUser.id)
+      deletedFromJellyfin = true
+    }
+
+    failedStage = "seerr"
+    deletedFromSeerr = await deleteLinkedSeerrUser(userId, {
+      userName: jellyfinUser?.name ?? dbUser?.email ?? userId,
+      email: dbUser?.email ?? null,
+    })
+
+    failedStage = "local"
+    if (dbUser) {
+      await deleteAppUserData(dbUser.userId)
+    }
+
+    return {
+      success: true,
+      data: {
+        userId,
+        deletedFromJellyfin,
+        deletedFromSeerr,
+      },
+    }
+  } catch (err) {
+    const code =
+      err instanceof JellyfinLastAdminError || isJellyfinLastAdminError(err)
+        ? ErrorCode.LAST_ADMIN_REQUIRED
+        : ErrorCode.OPERATION_FAILED
+    logError(
+      "Managed user deletion stopped before completion; retry the deletion to resume cleanup",
+      err,
+      {
+        userId,
+        failedStage,
+        deletedFromJellyfin,
+        deletedFromSeerr,
+      },
+    )
+    return {
+      success: false,
+      code,
+      message:
+        code === ErrorCode.LAST_ADMIN_REQUIRED
+          ? getErrorMessage(code)
+          : "Failed to delete user",
+      failedStage,
+      deletedFromJellyfin,
+    }
   }
 }
 
@@ -899,58 +979,23 @@ async function applyBulkManagedUserDelete(
     return bulkFailureResult(userId, "delete", ErrorCode.LAST_ADMIN_REQUIRED)
   }
 
-  try {
-    let deletedFromSeerr = false
-
-    try {
-      deletedFromSeerr = await deleteLinkedSeerrUser(userId, {
-        userName: jellyfinUser?.name ?? dbUser?.email ?? userId,
-        email: dbUser?.email ?? null,
-      })
-    } catch (err) {
-      logger.warn(
-        { err, userId, jellyfinUserMissing: jellyfinUser === null },
-        "Failed to delete linked Seerr user; continuing with app user deletion",
-      )
-    }
-
-    if (jellyfinUser) {
-      await deleteUser(jellyfinUser.id)
-    }
-
-    await revokeAllUserSessions(userId)
-
-    if (dbUser) {
-      await deleteAppUserData(dbUser.userId)
-    }
-
-    return {
-      userId,
-      ok: true,
-      operation: "delete",
-      result: {
-        userId,
-        deletedFromJellyfin: jellyfinUser !== null,
-        deletedFromSeerr,
-      },
-    }
-  } catch (err) {
-    if (jellyfinUser) {
+  const deletion = await deleteManagedUserAcrossSystems(
+    userId,
+    dbUser,
+    jellyfinUser,
+  )
+  if (!deletion.success) {
+    if (jellyfinUser && deletion.failedStage === "sessions") {
       releaseActiveAdmin(jellyfinUser, lastAdminGuard)
     }
-    if (
-      err instanceof JellyfinLastAdminError ||
-      isJellyfinLastAdminError(err)
-    ) {
-      return bulkFailureResult(userId, "delete", ErrorCode.LAST_ADMIN_REQUIRED)
-    }
-    logger.error({ err, userId }, "Failed bulk user delete")
-    return bulkFailureResult(
-      userId,
-      "delete",
-      ErrorCode.OPERATION_FAILED,
-      "Failed to delete user",
-    )
+    return bulkFailureResult(userId, "delete", deletion.code, deletion.message)
+  }
+
+  return {
+    userId,
+    ok: true,
+    operation: "delete",
+    result: deletion.data,
   }
 }
 
@@ -1415,63 +1460,46 @@ export async function deleteManagedUserService(
     )
   }
 
-  await ensureMigrated()
-
-  const [dbUser, jellyfinUsers] = await Promise.all([
-    db.query.users.findFirst({
-      where: (table, { eq: isEqual }) =>
-        isEqual(table.userId, parsedUserId.data),
-    }),
-    getAllUsers(),
-  ])
-
-  const jellyfinUser =
-    jellyfinUsers.find((user) => user.id === parsedUserId.data) ?? null
-
-  if (!dbUser && !jellyfinUser) {
-    return error(ErrorCode.NOT_FOUND, "User not found")
-  }
-
-  if (jellyfinUser?.isAdmin && !jellyfinUser.isDisabled) {
-    const enabledAdminCount = jellyfinUsers.filter(
-      (user) => user.isAdmin && !user.isDisabled,
-    ).length
-    if (enabledAdminCount <= 1) {
-      return error(ErrorCode.LAST_ADMIN_REQUIRED)
-    }
-  }
-
-  let deletedFromSeerr = false
-
   try {
-    deletedFromSeerr = await deleteLinkedSeerrUser(parsedUserId.data, {
-      userName: jellyfinUser?.name ?? dbUser?.email ?? parsedUserId.data,
-      email: dbUser?.email ?? null,
-    })
-  } catch (err) {
-    logger.warn(
-      {
-        err,
-        userId: parsedUserId.data,
-        jellyfinUserMissing: jellyfinUser === null,
-      },
-      "Failed to delete linked Seerr user; continuing with app user deletion",
+    await ensureMigrated()
+
+    const [dbUser, jellyfinUsers] = await Promise.all([
+      db.query.users.findFirst({
+        where: (table, { eq: isEqual }) =>
+          isEqual(table.userId, parsedUserId.data),
+      }),
+      getAllUsers(),
+    ])
+    const jellyfinUser =
+      jellyfinUsers.find((user) => user.id === parsedUserId.data) ?? null
+
+    if (!dbUser && !jellyfinUser) {
+      return error(ErrorCode.NOT_FOUND, "User not found")
+    }
+
+    if (jellyfinUser?.isAdmin && !jellyfinUser.isDisabled) {
+      const enabledAdminCount = jellyfinUsers.filter(
+        (user) => user.isAdmin && !user.isDisabled,
+      ).length
+      if (enabledAdminCount <= 1) {
+        return error(ErrorCode.LAST_ADMIN_REQUIRED)
+      }
+    }
+
+    const deletion = await deleteManagedUserAcrossSystems(
+      parsedUserId.data,
+      dbUser,
+      jellyfinUser,
     )
+    if (!deletion.success) {
+      return error(deletion.code, deletion.message)
+    }
+
+    return success(deletion.data)
+  } catch (err) {
+    logError("Failed to prepare managed user deletion", err, {
+      userId: parsedUserId.data,
+    })
+    return error(ErrorCode.OPERATION_FAILED, "Failed to delete user")
   }
-
-  if (jellyfinUser) {
-    await deleteUser(jellyfinUser.id)
-  }
-
-  await revokeAllUserSessions(parsedUserId.data)
-
-  if (dbUser) {
-    await deleteAppUserData(dbUser.userId)
-  }
-
-  return success({
-    userId: parsedUserId.data,
-    deletedFromJellyfin: jellyfinUser !== null,
-    deletedFromSeerr,
-  })
 }

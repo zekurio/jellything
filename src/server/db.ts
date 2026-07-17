@@ -54,6 +54,9 @@ function resolveDatabaseUrl(databaseUrl: string): string {
 }
 
 const databaseUrl = resolveDatabaseUrl(env.DB_PATH)
+const migrationsFolder = env.MIGRATIONS_PATH
+  ? path.resolve(env.MIGRATIONS_PATH)
+  : path.join(process.cwd(), "drizzle")
 
 const rawDb = drizzle({
   connection: databaseUrl,
@@ -70,11 +73,12 @@ export async function ensureMigrated(): Promise<void> {
     log.info({ path: databaseUrl }, "Initializing database")
     migrationPromise = (async () => {
       log.info("Running database migrations")
-      await migrate(rawDb, {
-        migrationsFolder: path.join(process.cwd(), "drizzle"),
-      })
+      await migrate(rawDb, { migrationsFolder })
       log.info("Database migrations completed")
-    })()
+    })().catch((error: unknown) => {
+      migrationPromise = null
+      throw error
+    })
   }
   await migrationPromise
 }

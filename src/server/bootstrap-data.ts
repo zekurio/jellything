@@ -6,12 +6,14 @@ import type {
 } from "@/lib/bootstrap-data"
 import { configManager } from "@/lib/server/config.server"
 import { isEmailConfigured } from "@/server/email"
+import { ensureApplicationReady } from "@/server/readiness"
 import { resolveSessionFromCookies } from "@/server/session-resolver"
 import { runStartupTasks } from "@/server/startup"
 
 runStartupTasks()
 
 export const getAppBootstrap = cache(async (): Promise<AppBootstrapData> => {
+  await ensureApplicationReady()
   const resolvedSession = await resolveSessionFromCookies({
     validationMode: "if-stale",
     allowStaleOnJellyfinFailure: true,

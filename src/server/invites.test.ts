@@ -1,11 +1,16 @@
 import { eq } from "drizzle-orm"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import type { SessionData } from "@/lib/session"
 import {
   configureTestEnvironment,
   createTestDatabase,
   type TestDatabase,
 } from "@/test/db"
+
+const configMocks = vi.hoisted(() => ({
+  seerr: undefined as { hostname: string } | undefined,
+}))
 
 vi.mock("@/lib/server/config.server", () => ({
   configManager: {
@@ -13,7 +18,7 @@ vi.mock("@/lib/server/config.server", () => ({
       return { enabled: false, pages: [] }
     },
     get seerr() {
-      return undefined
+      return configMocks.seerr
     },
     get appUrl() {
       return "http://localhost:5173"
@@ -25,7 +30,10 @@ vi.mock("@/lib/server/config.server", () => ({
 }))
 
 vi.mock("@/server/auth", () => ({
-  establishAuthenticatedSession: vi.fn<() => Promise<void>>(),
+  clearAuthCookies: vi.fn<() => void>(),
+  establishAuthenticatedSession: vi.fn<() => Promise<void>>(() =>
+    Promise.resolve(),
+  ),
 }))
 
 vi.mock("@/server/email", () => ({
@@ -37,6 +45,17 @@ vi.mock("@/server/email/templates/verify-email", () => ({
   getVerifyEmailSubject: vi.fn<() => string>(() => "Verify email"),
   renderVerifyEmail: vi.fn<() => string>(() => "<p>Verify email</p>"),
 }))
+
+vi.mock("@/server/profile-sync", () => {
+  class SeerrProfileSyncError extends Error {}
+
+  return {
+    applyProfileToUser: vi.fn<() => Promise<{ seerrUserId: number | null }>>(
+      () => Promise.resolve({ seerrUserId: null }),
+    ),
+    SeerrProfileSyncError,
+  }
+})
 
 vi.mock("@/server/jellyfin", () => ({
   authenticateUser: vi.fn<
@@ -66,18 +85,46 @@ vi.mock("@/server/jellyfin", () => ({
     }),
   ),
   deleteUser: vi.fn<() => Promise<void>>(),
+  getAllUsers: vi.fn<() => Promise<unknown[]>>(() => Promise.resolve([])),
   isUsernameTaken: vi.fn<() => Promise<boolean>>(() => Promise.resolve(false)),
   uploadUserAvatar: vi.fn<() => Promise<void>>(),
 }))
 
 vi.mock("@/server/seerr", () => ({
-  deleteSeerrUser: vi.fn<() => Promise<void>>(),
-  resolveSeerrUser: vi.fn<() => Promise<unknown>>(),
+  deleteSeerrUser: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+  getAllSeerrUsers: vi.fn<() => Promise<unknown[]>>(() => Promise.resolve([])),
+  resolveSeerrUser: vi.fn<
+    () => Promise<{ id: number; jellyfinUserId: string }>
+  >(() =>
+    Promise.resolve({
+      id: 42,
+      jellyfinUserId: "jellyfin-user-1",
+    }),
+  ),
+}))
+
+vi.mock("@/server/session", () => ({
+  revokeAllUserSessions: vi.fn<() => Promise<void>>(() => Promise.resolve()),
 }))
 
 vi.mock("@/server/session-resolver", () => ({
-  getSessionDataForUser: vi.fn<() => Promise<undefined>>(() =>
-    Promise.resolve(undefined),
+  getSessionDataForUser: vi.fn<
+    (input: {
+      userId: string
+      name: string
+      isAdmin: boolean
+    }) => Promise<SessionData>
+  >(() =>
+    Promise.resolve({
+      userId: "jellyfin-user-1",
+      name: "test-user",
+      avatarUrl: "/api/avatar/jellyfin-user-1",
+      isAdmin: false,
+      email: "user@example.com",
+      emailVerified: false,
+      locale: null,
+      createdAt: new Date(0).toISOString(),
+    }),
   ),
 }))
 
@@ -93,10 +140,26 @@ async function loadInviteModules() {
   const schema = await import("@/server/db/schema")
   const errors = await import("@/lib/api/contracts/errors")
   const jellyfin = await import("@/server/jellyfin")
+  const auth = await import("@/server/auth")
+  const profileSync = await import("@/server/profile-sync")
+  const seerr = await import("@/server/seerr")
+  const session = await import("@/server/session")
+  const userLifecycle = await import("@/server/user-lifecycle")
 
   await database.ensureMigrated()
 
-  return { inviteService, database, schema, errors, jellyfin }
+  return {
+    inviteService,
+    database,
+    schema,
+    errors,
+    auth,
+    jellyfin,
+    profileSync,
+    seerr,
+    session,
+    userLifecycle,
+  }
 }
 
 async function seedProfile(
@@ -159,6 +222,7 @@ function expectSuccessfulInviteValidation(
 }
 
 afterEach(async () => {
+  configMocks.seerr = undefined
   await testDatabase?.cleanup()
   testDatabase = null
   vi.resetModules()
@@ -225,7 +289,7 @@ describe("validateInvite", () => {
   })
 })
 
-describe("redeemInvite reservation", () => {
+describe("redeemInvite", () => {
   const redeemInput = {
     code: "LIMIT123",
     username: "test-user",
@@ -273,5 +337,219 @@ describe("redeemInvite reservation", () => {
       success: false,
     })
     expect(await getInviteUseCount(setup, invite.id)).toBe(0)
+  })
+
+  it("compensates when applying the invite profile fails", async () => {
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    const invite = await seedInvite(setup, {
+      code: "LIMIT123",
+      profileId: profile.id,
+      useLimit: 1,
+    })
+    vi.mocked(setup.profileSync.applyProfileToUser).mockRejectedValueOnce(
+      new Error("Jellyfin policy update failed"),
+    )
+
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+
+    expect(result).toMatchObject({
+      code: setup.errors.ErrorCode.JELLYFIN_ERROR,
+      success: false,
+    })
+    expect(setup.jellyfin.deleteUser).toHaveBeenCalledWith("jellyfin-user-1")
+    expect(await getInviteUseCount(setup, invite.id)).toBe(0)
+  })
+
+  it("preserves Jellyfin when Seerr creation is uncertain", async () => {
+    configMocks.seerr = { hostname: "http://seerr.test" }
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    const invite = await seedInvite(setup, {
+      code: "LIMIT123",
+      profileId: profile.id,
+      useLimit: 1,
+    })
+    vi.mocked(setup.seerr.resolveSeerrUser).mockRejectedValueOnce(
+      new Error("Seerr unavailable"),
+    )
+
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+
+    expect(result).toMatchObject({
+      code: setup.errors.ErrorCode.SEERR_ERROR,
+      success: false,
+    })
+    expect(setup.jellyfin.deleteUser).not.toHaveBeenCalled()
+    expect(await getInviteUseCount(setup, invite.id)).toBe(0)
+  })
+
+  it("does not return success when authenticating the created user fails", async () => {
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    const invite = await seedInvite(setup, {
+      code: "LIMIT123",
+      profileId: profile.id,
+      useLimit: 1,
+    })
+    vi.mocked(setup.jellyfin.authenticateUser).mockRejectedValueOnce(
+      new Error("Jellyfin authentication failed"),
+    )
+
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+
+    expect(result).toMatchObject({
+      code: setup.errors.ErrorCode.JELLYFIN_ERROR,
+      success: false,
+    })
+    expect(setup.jellyfin.deleteUser).toHaveBeenCalledWith("jellyfin-user-1")
+    expect(await getInviteUseCount(setup, invite.id)).toBe(0)
+  })
+
+  it("preserves the Jellyfin user when Seerr cleanup fails", async () => {
+    configMocks.seerr = { hostname: "http://seerr.test" }
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    const invite = await seedInvite(setup, {
+      code: "LIMIT123",
+      profileId: profile.id,
+      useLimit: 1,
+    })
+    vi.mocked(setup.profileSync.applyProfileToUser).mockRejectedValueOnce(
+      new setup.profileSync.SeerrProfileSyncError(
+        "Seerr profile update failed",
+        new Error("Seerr unavailable"),
+      ),
+    )
+    vi.mocked(setup.seerr.deleteSeerrUser).mockRejectedValueOnce(
+      new Error("Seerr cleanup failed"),
+    )
+
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+
+    expect(result).toMatchObject({
+      code: setup.errors.ErrorCode.SEERR_ERROR,
+      success: false,
+    })
+    expect(setup.seerr.deleteSeerrUser).toHaveBeenCalledWith(42)
+    expect(setup.jellyfin.deleteUser).not.toHaveBeenCalled()
+    expect(await getInviteUseCount(setup, invite.id)).toBe(0)
+  })
+
+  it("compensates when the local redemption transaction fails", async () => {
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    const invite = await seedInvite(setup, {
+      code: "LIMIT123",
+      profileId: profile.id,
+      useLimit: 1,
+    })
+    vi.spyOn(setup.database.db, "transaction").mockRejectedValueOnce(
+      new Error("SQLite write failed"),
+    )
+
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+
+    expect(result).toMatchObject({
+      code: setup.errors.ErrorCode.INTERNAL_ERROR,
+      success: false,
+    })
+    expect(setup.jellyfin.deleteUser).toHaveBeenCalledWith("jellyfin-user-1")
+    expect(await getInviteUseCount(setup, invite.id)).toBe(0)
+  })
+
+  it("removes committed redemption state when session creation fails", async () => {
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    const invite = await seedInvite(setup, {
+      code: "LIMIT123",
+      profileId: profile.id,
+      useLimit: 1,
+    })
+    vi.mocked(setup.auth.establishAuthenticatedSession).mockRejectedValueOnce(
+      new Error("Session storage unavailable"),
+    )
+
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+    const localUser = await setup.database.db.query.users.findFirst({
+      where: eq(setup.schema.users.userId, "jellyfin-user-1"),
+    })
+    const usages = await setup.database.db
+      .select()
+      .from(setup.schema.inviteUsages)
+      .where(eq(setup.schema.inviteUsages.inviteId, invite.id))
+
+    expect(result).toMatchObject({
+      code: setup.errors.ErrorCode.INTERNAL_ERROR,
+      success: false,
+    })
+    expect(setup.auth.clearAuthCookies).toHaveBeenCalledOnce()
+    expect(setup.session.revokeAllUserSessions).toHaveBeenCalledWith(
+      "jellyfin-user-1",
+    )
+    expect(setup.jellyfin.deleteUser).toHaveBeenCalledWith("jellyfin-user-1")
+    expect(localUser).toBeUndefined()
+    expect(usages).toHaveLength(0)
+    expect(await getInviteUseCount(setup, invite.id)).toBe(0)
+  })
+
+  it("keeps invite capacity recoverable when external cleanup fails", async () => {
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    const invite = await seedInvite(setup, {
+      code: "LIMIT123",
+      profileId: profile.id,
+      useLimit: 1,
+    })
+    vi.mocked(setup.profileSync.applyProfileToUser).mockRejectedValueOnce(
+      new Error("Jellyfin policy update failed"),
+    )
+    vi.mocked(setup.jellyfin.deleteUser).mockRejectedValueOnce(
+      new Error("Jellyfin cleanup failed"),
+    )
+
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+    const validation = expectSuccessfulInviteValidation(
+      await setup.inviteService.validateInvite(redeemInput.code),
+    )
+
+    expect(result.success).toBe(false)
+    expect(validation.valid).toBe(true)
+    expect(await getInviteUseCount(setup, invite.id)).toBe(0)
+  })
+
+  it("reconciles capacity when releasing a reservation fails", async () => {
+    const setup = await loadInviteModules()
+    const profile = await seedProfile(setup.database, setup.schema)
+    const invite = await seedInvite(setup, {
+      code: "LIMIT123",
+      profileId: profile.id,
+      useLimit: 1,
+    })
+    await setup.database.sqlClient.execute(`
+      CREATE TRIGGER fail_invite_release
+      BEFORE UPDATE OF use_count ON invites
+      WHEN OLD.use_count = 1 AND NEW.use_count = 0
+      BEGIN
+        SELECT RAISE(FAIL, 'injected invite release failure');
+      END
+    `)
+    vi.mocked(setup.profileSync.applyProfileToUser).mockRejectedValueOnce(
+      new Error("Jellyfin policy update failed"),
+    )
+
+    const result = await setup.inviteService.redeemInvite(redeemInput)
+
+    expect(result.success).toBe(false)
+    expect(await getInviteUseCount(setup, invite.id)).toBe(1)
+
+    await setup.database.sqlClient.execute("DROP TRIGGER fail_invite_release")
+    await setup.userLifecycle.reconcileInviteUseCounts()
+
+    const validation = expectSuccessfulInviteValidation(
+      await setup.inviteService.validateInvite(redeemInput.code),
+    )
+    expect(await getInviteUseCount(setup, invite.id)).toBe(0)
+    expect(validation.valid).toBe(true)
   })
 })

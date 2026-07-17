@@ -24,7 +24,7 @@ async function getDashboardPageDataModule() {
 }
 
 export const getDashboardPageDataFn = createServerFn({ method: "GET" })
-  .inputValidator((input: DashboardPageLoaderInput) => input)
+  .validator((input: DashboardPageLoaderInput) => input)
   .handler(async ({ data }: { data: DashboardPageLoaderInput }) => {
     const { loadDashboardPageData } = await getDashboardPageDataModule()
     return loadDashboardPageData(data)

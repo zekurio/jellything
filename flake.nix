@@ -19,7 +19,7 @@
         pkgs:
         {
           appVersion ? null,
-          host ? "0.0.0.0",
+          host ? "127.0.0.1",
           port ? 4173,
           dbPath ? "./data/jellything.db",
           configPath ? "./data/config.json",
@@ -40,6 +40,7 @@
                 baseName == ".direnv"
                 || baseName == ".git"
                 || baseName == ".next"
+                || baseName == ".output"
                 || baseName == ".vercel"
                 || baseName == ".vscode"
                 || baseName == "coverage"
@@ -58,7 +59,7 @@
             inherit (finalAttrs) pname version src;
             inherit pnpm;
             fetcherVersion = 3;
-            hash = "sha256-0jAMhqkg9qxu8dQyUeofDhiAAkUhn6Qu1BUUE4mHAV0=";
+            hash = "sha256-m2aP1Y/76lGEAEgMNr57J+CMKgpcK8gIzdMuaYxBy6k=";
           };
 
           nativeBuildInputs = [
@@ -84,17 +85,7 @@
 
             appDir="$out/share/jellything"
             mkdir -p "$appDir" "$out/bin"
-            cp -R \
-              dist \
-              drizzle \
-              node_modules \
-              public \
-              src \
-              package.json \
-              pnpm-lock.yaml \
-              tsconfig.json \
-              vite.config.ts \
-              "$appDir/"
+            cp -R .output drizzle "$appDir/"
 
             cat > "$out/bin/jellything" <<'EOF'
             #!${pkgs.runtimeShell}
@@ -107,13 +98,10 @@
             export DB_PATH="''${DB_PATH:-${dbPath}}"
             export CONFIG_PATH="''${CONFIG_PATH:-${configPath}}"
             export LOG_LEVEL="''${LOG_LEVEL:-${logLevel}}"
+            export MIGRATIONS_PATH="''${MIGRATIONS_PATH:-${placeholder "out"}/share/jellything/drizzle}"
 
-            cd "${placeholder "out"}/share/jellything"
-            exec ${lib.getExe pkgs.nodejs_24} node_modules/vite/bin/vite.js preview \
-              --configLoader runner \
-              --host "$HOST" \
-              --port "$PORT" \
-              --strictPort \
+            exec ${lib.getExe pkgs.nodejs_24} \
+              "${placeholder "out"}/share/jellything/.output/server/index.mjs" \
               "$@"
             EOF
             chmod +x "$out/bin/jellything"

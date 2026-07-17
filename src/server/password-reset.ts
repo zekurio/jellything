@@ -32,6 +32,7 @@ import {
 } from "@/server/jellyfin/password-reset"
 import { changePassword } from "@/server/jellyfin/user"
 import { logger } from "@/server/logger"
+import { revokeAllUserSessions } from "@/server/session"
 
 const requestPasswordResetSchema = z.object({
   username: z.string().min(1, "validation.usernameRequired"),
@@ -216,6 +217,16 @@ export async function resetPassword(
 
   const userApi = createApiWithToken(authResult.accessToken)
   await changePassword(userApi, authResult.id, pin, newPassword)
+
+  try {
+    await revokeAllUserSessions(authResult.id)
+  } catch (err) {
+    logger.error(
+      { error: err, userId: authResult.id },
+      "Password reset succeeded but session revocation failed",
+    )
+    throw err
+  }
 
   logger.info(
     { username: pinInfo.userName },
