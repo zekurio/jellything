@@ -52,7 +52,7 @@ export function HeaderUserNav({
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="relative h-9 w-9 rounded-lg"
+          className="relative h-9 w-9 rounded-full"
           aria-label={name}
           title={name}
         >
