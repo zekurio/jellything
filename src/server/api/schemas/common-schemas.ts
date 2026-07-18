@@ -1,5 +1,12 @@
 import { z } from "zod"
 
+import {
+  BRANDING_IMAGE_MAX_BASE64_LENGTH,
+  BRANDING_IMAGE_MIME_TYPES,
+  isHexColor,
+  normalizeHexColor,
+} from "@/lib/branding"
+import { EMAIL_MESSAGE_TYPES } from "@/lib/email"
 import { SUPPORTED_LOCALES } from "@/lib/i18n"
 import {
   AnyStringSchema,
@@ -41,6 +48,27 @@ export const sessionSchema = z.object({
   emailVerified: BooleanSchema,
   locale: localeSchema.nullable(),
   createdAt: DateTimeStringSchema,
+})
+
+const hexColorSchema = AnyStringSchema.refine(isHexColor, {
+  message: "Must be a hex color like #6B5FC3",
+}).transform(normalizeHexColor)
+
+const brandingImageUpdateSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("keep") }),
+  z.object({ action: z.literal("remove") }),
+  z.object({
+    action: z.literal("replace"),
+    mimeType: z.enum(BRANDING_IMAGE_MIME_TYPES),
+    base64: z.string().min(1).max(BRANDING_IMAGE_MAX_BASE64_LENGTH),
+  }),
+])
+
+const brandingImageMetaSchema = z.object({
+  mimeType: z.enum(BRANDING_IMAGE_MIME_TYPES),
+  width: boundedIntSchema(1, 10000),
+  height: boundedIntSchema(1, 10000),
+  url: AnyStringSchema,
 })
 
 export const appSettingsSchema = z.object({
@@ -109,6 +137,14 @@ export const seerrTestResultSchema = z.object({
   version: exactOptional(AnyStringSchema),
 })
 
+const emailMessageTypeSchema = z.enum(EMAIL_MESSAGE_TYPES)
+
+export const emailBrandingDraftSchema = z.object({
+  accentColor: hexColorSchema,
+  pageBackgroundColor: hexColorSchema,
+  logo: brandingImageUpdateSchema,
+})
+
 export const emailConfigSchema = z.object({
   from: exactOptional(AnyStringSchema),
   smtp: exactOptional(
@@ -120,17 +156,33 @@ export const emailConfigSchema = z.object({
     }),
   ),
   smtpPasswordSet: BooleanSchema,
+  configured: BooleanSchema,
+  branding: z.object({
+    accentColor: AnyStringSchema,
+    pageBackgroundColor: AnyStringSchema,
+    logo: exactOptional(brandingImageMetaSchema),
+  }),
 })
 
 const updateEmailConfigDefinedSchema = z.object({
   from: NonEmptyStringSchema,
   smtp: exactOptional(smtpConfigSchema),
+  branding: emailBrandingDraftSchema,
 })
 
 export const updateEmailConfigBodySchema = z.union([
   updateEmailConfigDefinedSchema,
   z.undefined(),
 ])
+
+export const previewEmailBodySchema = z.object({
+  messageType: emailMessageTypeSchema,
+  branding: emailBrandingDraftSchema,
+})
+
+export const sendTestEmailBodySchema = previewEmailBodySchema.extend({
+  recipient: z.string().email(),
+})
 
 export const memberOnboardingConfigSchema = z.object({
   enabled: BooleanSchema,
@@ -162,6 +214,9 @@ export type SeerrTestResultDto = z.output<typeof seerrTestResultSchema>
 export type UpdateEmailConfigInput = z.output<
   typeof updateEmailConfigBodySchema
 >
+export type EmailBrandingDraftInput = z.output<typeof emailBrandingDraftSchema>
+export type PreviewEmailInput = z.output<typeof previewEmailBodySchema>
+export type SendTestEmailInput = z.output<typeof sendTestEmailBodySchema>
 export type UpdateMemberOnboardingConfigInput = z.output<
   typeof memberOnboardingConfigSchema
 >

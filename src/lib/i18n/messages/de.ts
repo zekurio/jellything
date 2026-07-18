@@ -31,6 +31,12 @@ export const de: Messages = {
     actions: "Aktionen",
     previousPage: "Vorherige Seite",
     nextPage: "Nächste Seite",
+    sortBy: "Sortieren nach",
+    sortOrder: "Reihenfolge",
+    sortAscending: "Aufsteigend",
+    sortDescending: "Absteigend",
+    perPage: "Pro Seite",
+    viewOptions: "Sortier- und Anzeigeoptionen",
   },
   auth: {
     login: "Anmelden",
@@ -192,6 +198,51 @@ export const de: Messages = {
     smtpPasswordDescription: `${passwordWord} für die SMTP-Anmeldung.`,
     emailSettingsSaved: "E-Mail-Einstellungen gespeichert",
     emailSettingsCleared: "E-Mail-Einstellungen gelöscht",
+    brandingImageUpload: "Bild hochladen",
+    brandingImageReplace: "Bild ersetzen",
+    brandingImageRemove: "Entfernen",
+    brandingImageTooLarge: "Das Bild muss kleiner als 256 KB sein",
+    brandingImageInvalidType: "Das Bild muss ein PNG oder JPEG sein",
+    emailBrandingTitle: "Branding",
+    emailBrandingDescription: "Farben und Logo für ausgehende E-Mails.",
+    emailAccentColor: "Akzentfarbe",
+    emailAccentColorDescription:
+      "Wird für Schaltflächen und Hervorhebungen verwendet.",
+    emailPageBackgroundColor: "Hintergrundfarbe",
+    emailPageBackgroundColorDescription:
+      "Seitenhintergrund hinter der E-Mail-Karte.",
+    emailInvalidColor: "Muss eine Hex-Farbe wie #6B5FC3 sein",
+    emailLogo: "Logo",
+    emailLogoDescription:
+      "PNG oder JPEG, bis zu 256 KB. Größere Bilder werden automatisch verkleinert. Ohne Logo wird das App-Logo verwendet.",
+    emailPreviewTitle: "Vorschau & Test",
+    emailPreviewDescription:
+      "Sieh dir E-Mails mit deinem Branding an und sende eine Test-E-Mail.",
+    emailMessageType: "E-Mail-Typ",
+    emailMessageTypes: {
+      verifyEmail: "E-Mail-Bestätigung",
+      passwordReset: `${passwordWord} zurücksetzen`,
+      expiryWarning: "Ablaufwarnung",
+      accountDisabled: "Konto deaktiviert",
+      accountDeleted: "Konto gelöscht",
+      accountRenewed: "Zugang verlängert",
+    },
+    emailMessagePlaceholders: "Platzhalter",
+    emailMessagePlaceholdersDescription:
+      "Klicken, um an der Cursorposition einzufügen.",
+    emailPreview: "Vorschau",
+    emailPreviewFailed: "Vorschau konnte nicht erstellt werden",
+    emailTestRecipient: "Testempfänger",
+    emailTestRecipientPlaceholder: "du@example.com",
+    emailTestSend: "Test-E-Mail senden",
+    emailTestSent: "Test-E-Mail gesendet",
+    emailTestFailed: "Test-E-Mail konnte nicht gesendet werden",
+    emailTestRequiresSaved:
+      "Speichere die SMTP-Einstellungen, bevor du eine Test-E-Mail sendest.",
+    emailClearConfirmTitle: "E-Mail-Einstellungen löschen?",
+    emailClearConfirmDescription:
+      "Dies entfernt die SMTP-Konfiguration und das Branding (einschließlich des hochgeladenen Logos).",
+    emailClearConfirmAction: "Einstellungen löschen",
     memberOnboardingTab: "Mitglieder-Onboarding",
     memberOnboardingTitle: "Mitglieder-Onboarding",
     memberOnboardingDescription:
@@ -279,12 +330,14 @@ export const de: Messages = {
     title: "Einladungen",
     searchInvitesPlaceholder: "Einladungen suchen...",
     searchHistoryPlaceholder: "Historie durchsuchen...",
+    sortCreated: "Erstellt",
     code: "Code",
     profile: "Profil",
     uses: "Nutzungen",
     used: "Verwendet",
     expires: "Läuft ab",
     status: "Status",
+    statusFilterAll: "Alle Status",
     statusActive: "Aktiv",
     statusDisabled: "Deaktiviert",
     statusExpiring: "Läuft bald ab",
@@ -548,6 +601,9 @@ export const de: Messages = {
     memberBadge: "Mitglied",
     disabledBadge: "Deaktiviert",
     missingInJellyfinBadge: "Fehlt in Jellyfin",
+    statusFilterLabel: "Nach Status filtern",
+    statusFilterAll: "Alle Benutzer",
+    statusExpired: "Abgelaufen",
     missingInJellyfinDescription:
       "Dieser Benutzereintrag existiert nur noch in Jellything.",
     emailNotSet: "Keine E-Mail",
@@ -618,9 +674,10 @@ export const de: Messages = {
   },
   onboarding: {
     title: "Jellything-Einrichtung",
-    stepProgress: "Schritt {current} von {total}",
     keyDescription:
       "Gib den Setup-Schlüssel aus der Konsole ein, um fortzufahren",
+    appStepTitle: "Jellything",
+    appStepDescription: "Lege fest, wo diese App erreichbar ist.",
     setupKeyLabel: "Setup-Schlüssel",
     invalidSetupKey:
       "Ungültiger Setup-Schlüssel. Prüfe die Konsole auf den richtigen Schlüssel.",
@@ -669,8 +726,6 @@ export const de: Messages = {
         "Danke für deine Anmeldung. Bitte bestätige deine E-Mail-Adresse, um Passwort-Reset und andere E-Mail-Funktionen zu aktivieren.",
       action: "E-Mail-Adresse bestätigen",
       expiry: "Dieser Link läuft in 24 Stunden ab.",
-      ignore:
-        "Wenn du kein Konto erstellt hast, kannst du diese E-Mail ignorieren.",
     },
     expiryWarning: {
       subject: "Dein Zugang läuft bald ab - {serverName}",
@@ -683,6 +738,46 @@ export const de: Messages = {
       footer:
         "Du kannst dein Konto bis zum oben genannten Ablaufzeitpunkt weiter nutzen.",
     },
+    accountDisabled: {
+      subject: "Dein Zugang wurde deaktiviert - {serverName}",
+      preview: "Dein Zugang zu {serverName} wurde deaktiviert",
+      heading: "Dein Zugang wurde deaktiviert, {username}",
+      intro:
+        "Dein Zugang zu {serverName} wurde deaktiviert. Du kannst dich nicht mehr anmelden oder streamen.",
+      contact:
+        "Wenn du glaubst, dass es sich um einen Fehler handelt, kontaktiere einen Administrator.",
+    },
+    accountDeleted: {
+      subject: "Dein Konto wurde gelöscht - {serverName}",
+      preview: "Dein Konto auf {serverName} wurde gelöscht",
+      heading: "Auf Wiedersehen, {username}",
+      intro:
+        "Dein Konto auf {serverName} wurde gelöscht. Alle zugehörigen Daten wurden entfernt.",
+      contact:
+        "Wenn du glaubst, dass es sich um einen Fehler handelt, kontaktiere einen Administrator.",
+    },
+    accountRenewed: {
+      subject: "Dein Zugang wurde verlängert - {serverName}",
+      preview: "Dein Zugang zu {serverName} wurde verlängert",
+      heading: "Zugang verlängert, {username}",
+      intro:
+        "Dein Zugang zu {serverName} wurde verlängert. Dein neues Ablaufdatum ist:",
+      action: "{serverName} öffnen",
+      footer:
+        "Du kannst dein Konto in deinem Profil verwalten und dort erneut verlängern.",
+    },
+  },
+  placeholders: {
+    serverName: "Servername",
+    appUrl: "Anwendungs-URL",
+    username: "Benutzername des Empfängers",
+    email: "E-Mail-Adresse des Empfängers",
+    verifyUrl: "Link zur E-Mail-Bestätigung",
+    resetUrl: `Link zum Zurücksetzen des ${passwordWord}s`,
+    pin: "Code zum Zurücksetzen",
+    expiresInMinutes: "Gültigkeitsdauer des Codes in Minuten",
+    expiryDate: "Formatiertes Ablaufdatum",
+    manageUrl: "Link zur Profilseite",
   },
   validation: {
     passwordMinLength: "Das Passwort muss mindestens 8 Zeichen lang sein",

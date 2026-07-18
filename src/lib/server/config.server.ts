@@ -20,6 +20,11 @@ import { dirname } from "node:path"
 import { z } from "zod"
 
 import { env } from "@/env"
+import {
+  BRANDING_IMAGE_MAX_BASE64_LENGTH,
+  BRANDING_IMAGE_MIME_TYPES,
+  HEX_COLOR_PATTERN,
+} from "@/lib/branding"
 import { SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from "@/lib/i18n"
 import { logger } from "@/server/logger"
 
@@ -62,6 +67,19 @@ const seerrConfigSchema = z.object({
   internalUrl: z.url(),
   externalUrl: z.url().optional(),
   apiKey: z.string().min(1),
+})
+
+const brandingImageSchema = z.object({
+  mimeType: z.enum(BRANDING_IMAGE_MIME_TYPES),
+  base64: z.string().min(1).max(BRANDING_IMAGE_MAX_BASE64_LENGTH),
+  width: z.number().int().min(1),
+  height: z.number().int().min(1),
+})
+
+const emailBrandingSchema = z.object({
+  accentColor: z.string().regex(HEX_COLOR_PATTERN).optional(),
+  pageBackgroundColor: z.string().regex(HEX_COLOR_PATTERN).optional(),
+  logo: brandingImageSchema.optional(),
 })
 
 const DEFAULT_MEMBER_ONBOARDING_CONFIG = {
@@ -117,6 +135,7 @@ const configSchema = z.object({
           password: z.string().min(1).optional(),
         })
         .optional(),
+      branding: emailBrandingSchema.optional(),
     })
     .optional(),
 })
@@ -127,6 +146,8 @@ export type SeerrConfig = NonNullable<Config["seerr"]>
 export type AppConfig = Config["app"]
 export type AuthConfig = Config["auth"]
 export type EmailConfig = NonNullable<Config["email"]>
+export type EmailBrandingConfig = NonNullable<EmailConfig["branding"]>
+export type BrandingImageConfig = z.infer<typeof brandingImageSchema>
 export type MemberOnboardingConfig = Config["memberOnboarding"]
 const CONFIG_DIRECTORY_MODE = 0o700
 const CONFIG_FILE_MODE = 0o600

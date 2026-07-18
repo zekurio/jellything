@@ -197,6 +197,7 @@ export function DashboardSettingsTabs({
       >
         <MemberOnboardingSettingsTab
           initialConfig={initialData.memberOnboarding}
+          appSettings={initialData.app}
         />
       </TabsContent>
       <TabsContent

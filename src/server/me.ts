@@ -28,11 +28,12 @@ import {
 } from "@/server/auth"
 import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
-import { EmailApiError, sendEmail, isEmailConfigured } from "@/server/email"
+import { EmailApiError, isEmailConfigured } from "@/server/email"
+import { sendConfiguredEmail } from "@/server/email/messages"
 import {
-  getVerifyEmailSubject,
-  renderVerifyEmail,
-} from "@/server/email/templates/verify-email"
+  sendAccountDeletedNotification,
+  sendAccountRenewedNotification,
+} from "@/server/email/notifications"
 import {
   JellyfinApiError,
   adminResetUserPassword,
@@ -168,18 +169,14 @@ export async function updateMyAccount(
       const verifyUrl = `${appUrl}/verify-email/${verifyToken}`
       const locale = resolveLocale(nextLocale, configManager.defaultLocale)
 
-      const html = await renderVerifyEmail({
-        username: nextName,
-        verifyUrl,
-        baseUrl: appUrl,
-        locale,
-      })
-
       try {
-        await sendEmail({
-          to: requestedEmail,
-          subject: getVerifyEmailSubject({ locale }),
-          html,
+        await sendConfiguredEmail(requestedEmail, {
+          type: "verifyEmail",
+          payload: {
+            username: nextName,
+            verifyUrl,
+            locale,
+          },
         })
       } catch (sendError) {
         await deleteEmailVerificationToken(session.userId)
@@ -461,6 +458,19 @@ export async function renewMyAccess(
     "Member self-renewed account access",
   )
 
+  if (evaluation.nextExpiresAt) {
+    await sendAccountRenewedNotification(
+      {
+        userId: session.userId,
+        username: session.name,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        locale: user.locale,
+      },
+      evaluation.nextExpiresAt,
+    )
+  }
+
   const refreshed = evaluateRenewal({
     renewal: user.profile?.policy.renewal,
     createdAt: user.createdAt,
@@ -490,6 +500,14 @@ export async function deleteMyAccount(
   await deleteAppUserData(session.userId)
   await revokeAllUserSessions(session.userId)
   await clearAuthenticatedSession()
+
+  await sendAccountDeletedNotification({
+    userId: session.userId,
+    username: session.name,
+    email: session.email,
+    emailVerified: session.emailVerified,
+    locale: session.locale,
+  })
 
   return success(null)
 }

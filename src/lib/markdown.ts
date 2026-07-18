@@ -1,7 +1,7 @@
 import { marked, type Token, type Tokens } from "marked"
 import { createElement, type ReactNode } from "react"
 
-function sanitizeUrl(rawUrl: string): string {
+export function sanitizeUrl(rawUrl: string): string {
   try {
     const parsed = new URL(rawUrl)
     if (parsed.protocol === "http:" || parsed.protocol === "https:") {

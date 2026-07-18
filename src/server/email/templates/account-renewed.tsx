@@ -8,69 +8,64 @@ import {
 } from "@/server/email/templates/layout"
 import { createEmailTemplateStyles } from "@/server/email/templates/styles"
 
-interface ExpiryWarningEmailProps extends EmailThemeProps {
+interface AccountRenewedEmailProps extends EmailThemeProps {
   username: string
   expiryDate: string
   manageUrl: string
   locale?: Locale
 }
 
-export function ExpiryWarningEmailTemplate({
+export function AccountRenewedEmailTemplate({
   username,
   expiryDate,
   manageUrl,
   locale,
   ...themeProps
-}: ExpiryWarningEmailProps) {
+}: AccountRenewedEmailProps) {
   const t = createTranslator(locale ?? DEFAULT_LOCALE)
   const styles = createEmailTemplateStyles(themeProps.theme)
 
   return (
     <EmailLayout
-      preview={t("emailTemplates.expiryWarning.preview", {
+      preview={t("emailTemplates.accountRenewed.preview", {
         serverName: themeProps.serverName,
       })}
       locale={locale}
       {...themeProps}
     >
       <Heading style={styles.heading}>
-        {t("emailTemplates.expiryWarning.heading", { username })}
+        {t("emailTemplates.accountRenewed.heading", { username })}
       </Heading>
 
       <Text style={styles.paragraph}>
-        {t("emailTemplates.expiryWarning.intro", {
+        {t("emailTemplates.accountRenewed.intro", {
           serverName: themeProps.serverName,
-          expiryDate,
         })}
       </Text>
 
       <Text style={styles.highlight}>{expiryDate}</Text>
 
-      <Text style={styles.paragraph}>
-        {t("emailTemplates.expiryWarning.contact")}
-      </Text>
-
       <Section style={styles.buttonSection}>
         <Button style={styles.button} href={manageUrl}>
-          {t("emailTemplates.expiryWarning.action", {
+          {t("emailTemplates.accountRenewed.action", {
             serverName: themeProps.serverName,
           })}
         </Button>
       </Section>
 
       <Text style={styles.muted}>
-        {t("emailTemplates.expiryWarning.footer")}
+        {t("emailTemplates.accountRenewed.footer")}
       </Text>
     </EmailLayout>
   )
 }
 
-export function getExpiryWarningEmailSubject(input: {
+export function getAccountRenewedEmailSubject(input: {
   serverName?: string
   locale?: Locale
 }): string {
   const t = createTranslator(input.locale ?? DEFAULT_LOCALE)
-  return t("emailTemplates.expiryWarning.subject", {
+  return t("emailTemplates.accountRenewed.subject", {
     serverName: input.serverName ?? "Jellything",
   })
 }

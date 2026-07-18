@@ -1,11 +1,17 @@
 "use client"
 
+import { useMemo } from "react"
+
 import { FormShell } from "@/components/shared/form-shell"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import type { MemberOnboardingConfigDto } from "@/lib/api/contracts/admin"
+import type {
+  AppSettingsDto,
+  MemberOnboardingConfigDto,
+} from "@/lib/api/contracts/admin"
 import { useTranslations } from "@/lib/i18n"
+import type { PlaceholderValues } from "@/lib/placeholders"
 
 import { PageEditor } from "./onboarding-page-editor"
 import { OnboardingPageToolbar } from "./onboarding-page-toolbar"
@@ -13,10 +19,12 @@ import { useMemberOnboardingStore } from "./use-member-onboarding-store"
 
 interface MemberOnboardingSettingsTabProps {
   initialConfig: MemberOnboardingConfigDto
+  appSettings: AppSettingsDto
 }
 
 export function MemberOnboardingSettingsTab({
   initialConfig,
+  appSettings,
 }: MemberOnboardingSettingsTabProps) {
   const t = useTranslations()
   const {
@@ -35,6 +43,17 @@ export function MemberOnboardingSettingsTab({
   } = useMemberOnboardingStore(initialConfig)
 
   const activePage = values.pages[activePageIndex]
+  // Sample user values stand in for the invitee, which is only known at
+  // redemption time; server values mirror what redemption interpolates.
+  const placeholderValues: PlaceholderValues = useMemo(
+    () => ({
+      serverName: appSettings.title,
+      appUrl: appSettings.url ?? "",
+      username: "username",
+      email: "user@example.com",
+    }),
+    [appSettings],
+  )
 
   return (
     <form
@@ -116,6 +135,7 @@ export function MemberOnboardingSettingsTab({
           <PageEditor
             page={activePage}
             pageIndex={activePageIndex}
+            placeholderValues={placeholderValues}
             t={t}
             updatePage={updatePage}
           />

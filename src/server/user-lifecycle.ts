@@ -10,11 +10,12 @@ import {
   users,
   type User,
 } from "@/server/db/schema"
-import { isEmailConfigured, sendEmail } from "@/server/email"
+import { isEmailConfigured } from "@/server/email"
+import { sendConfiguredEmail } from "@/server/email/messages"
 import {
-  getExpiryWarningEmailSubject,
-  renderExpiryWarningEmail,
-} from "@/server/email/templates/expiry-warning"
+  formatExpiryEmailDate,
+  sendAccountDisabledNotification,
+} from "@/server/email/notifications"
 import { getAllUsers, type JellyfinUserListItem } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
 import {
@@ -42,18 +43,6 @@ function hasSentExpiryWarningForCurrentExpiry(
   expiresAt: Date,
 ): boolean {
   return user.expiryWarningSentFor?.getTime() === expiresAt.getTime()
-}
-
-function formatExpiryWarningDate(expiresAt: Date, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "UTC",
-    timeZoneName: "short",
-  }).format(expiresAt)
 }
 
 export function backfillSeerrSyncedAt(): void {
@@ -403,6 +392,34 @@ export async function syncUsersWithJellyfin(
   }
 }
 
+// Guards against duplicate accountDisabled emails when overlapping
+// enforcement passes (startup sync + sweep) both observe the same user as
+// still enabled. In-memory only: a single-process deployment is assumed,
+// matching the SQLite setup.
+const inFlightDisabledNotifications = new Set<string>()
+
+async function notifyDisabledTransition(
+  matchedUser: SyncedAppUser,
+  username: string,
+): Promise<void> {
+  if (inFlightDisabledNotifications.has(matchedUser.userId)) {
+    return
+  }
+
+  inFlightDisabledNotifications.add(matchedUser.userId)
+  try {
+    await sendAccountDisabledNotification({
+      userId: matchedUser.userId,
+      username,
+      email: matchedUser.email,
+      emailVerified: matchedUser.emailVerified,
+      locale: matchedUser.locale,
+    })
+  } finally {
+    inFlightDisabledNotifications.delete(matchedUser.userId)
+  }
+}
+
 async function enforceExpiredMatchedUsers(
   matchedUsers: SyncedAppUser[],
   now = new Date(),
@@ -417,6 +434,7 @@ async function enforceExpiredMatchedUsers(
         return
       }
 
+      const wasDisabled = jellyfinUser.isDisabled
       try {
         await enforceExpiredUserAccess(
           {
@@ -434,6 +452,11 @@ async function enforceExpiredMatchedUsers(
           { err, userId: matchedUser.userId },
           "Failed to enforce disablement for expired user",
         )
+        return
+      }
+
+      if (!wasDisabled) {
+        await notifyDisabledTransition(matchedUser, jellyfinUser.name)
       }
     }),
   )
@@ -492,13 +515,11 @@ async function resetExpiryWarningDeliveryClaim(
 async function notifyExpiringMatchedUser(
   matchedUser: SyncedAppUser,
   options: {
-    appUrl: string
     manageUrl: string
     now: Date
-    serverName: string
   },
 ): Promise<boolean> {
-  const { appUrl, manageUrl, now, serverName } = options
+  const { manageUrl, now } = options
   const jellyfinUser = matchedUser.jellyfinUser
   const expiresAt = matchedUser.expiresAt
 
@@ -534,25 +555,17 @@ async function notifyExpiringMatchedUser(
   matchedUser.expiryWarningSentFor = expiresAt
 
   const locale = resolveLocale(matchedUser.locale, configManager.defaultLocale)
-  const expiryDate = formatExpiryWarningDate(expiresAt, locale)
+  const expiryDate = formatExpiryEmailDate(expiresAt, locale)
 
   try {
-    const html = await renderExpiryWarningEmail({
-      username: jellyfinUser.name,
-      expiryDate,
-      manageUrl,
-      serverName,
-      baseUrl: appUrl,
-      locale,
-    })
-
-    await sendEmail({
-      to: matchedUser.email,
-      subject: getExpiryWarningEmailSubject({
+    await sendConfiguredEmail(matchedUser.email, {
+      type: "expiryWarning",
+      payload: {
+        username: jellyfinUser.name,
+        expiryDate,
+        manageUrl,
         locale,
-        serverName,
-      }),
-      html,
+      },
     })
 
     return true
@@ -606,7 +619,6 @@ async function notifyExpiringMatchedUsers(
     return
   }
 
-  const serverName = configManager.app.title
   // Land on the general profile tab, which now hosts the account-access card
   // (expiry + self-service renewal control) instead of a dead /profile route.
   const manageUrl = new URL("/profile/general", appUrl).toString()
@@ -628,10 +640,8 @@ async function notifyExpiringMatchedUsers(
         }
 
         const notifiedUser = await notifyExpiringMatchedUser(matchedUser, {
-          appUrl,
           manageUrl,
           now,
-          serverName,
         })
 
         if (notifiedUser) {

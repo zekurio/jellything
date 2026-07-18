@@ -5,6 +5,8 @@ import type {
   DashboardSettingsBootstrap,
 } from "@/lib/bootstrap-data"
 import { configManager } from "@/lib/server/config.server"
+import { projectAppSettingsDto } from "@/server/admin/app"
+import { projectEmailConfigDto } from "@/server/admin/email"
 import { isEmailConfigured } from "@/server/email"
 import { ensureApplicationReady } from "@/server/readiness"
 import { resolveSessionFromCookies } from "@/server/session-resolver"
@@ -25,7 +27,7 @@ export const getAppBootstrap = cache(async (): Promise<AppBootstrapData> => {
     configured: configManager.isConfigured(),
     needsOnboarding: configManager.needsOnboarding(),
     configError: session?.isAdmin ? configManager.getError() : null,
-    app: configManager.isConfigured() ? configManager.app : null,
+    app: configManager.isConfigured() ? projectAppSettingsDto() : null,
     emailConfigured: isEmailConfigured(),
     session,
     shouldClearAuthCookies: resolvedSession?.shouldClearCookie ?? false,
@@ -39,25 +41,8 @@ export const getDashboardSettingsBootstrap = cache(
     }
 
     return {
-      app: configManager.app,
-      email: configManager.email
-        ? {
-            from: configManager.email.from,
-            smtp: configManager.email.smtp
-              ? {
-                  host: configManager.email.smtp.host,
-                  port: configManager.email.smtp.port,
-                  secure: configManager.email.smtp.secure ?? false,
-                  username: configManager.email.smtp.username,
-                }
-              : undefined,
-            smtpPasswordSet: Boolean(configManager.email.smtp?.password),
-          }
-        : {
-            from: undefined,
-            smtp: undefined,
-            smtpPasswordSet: false,
-          },
+      app: projectAppSettingsDto(),
+      email: projectEmailConfigDto(),
       jellyfin: {
         internalUrl: configManager.jellyfin.internalUrl,
         externalUrl: configManager.jellyfin.externalUrl,

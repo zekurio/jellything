@@ -10,6 +10,10 @@ import {
 import { normalizeInviteCode } from "@/lib/invite-codes"
 import { isInviteExpired } from "@/lib/invite-status"
 import {
+  interpolatePlaceholders,
+  type PlaceholderValues,
+} from "@/lib/placeholders"
+import {
   MAX_AVATAR_BYTES,
   normalizeEmail,
   redeemInviteSchema,
@@ -25,11 +29,8 @@ import {
   users,
   type ProfilePolicy,
 } from "@/server/db/schema"
-import { sendEmail, isEmailConfigured } from "@/server/email"
-import {
-  getVerifyEmailSubject,
-  renderVerifyEmail,
-} from "@/server/email/templates/verify-email"
+import { isEmailConfigured } from "@/server/email"
+import { sendConfiguredEmail } from "@/server/email/messages"
 import {
   authenticateUser,
   createUser,
@@ -151,9 +152,15 @@ export async function validateInvite(code: string): Promise<
   }
 
   const onboarding = configManager.memberOnboarding
+  // Only server-scoped placeholders resolve pre-redemption; user-scoped
+  // tokens in titles stay verbatim until the account exists.
+  const titleValues = getOnboardingPlaceholderValues()
   const onboardingSteps =
     onboarding.enabled && onboarding.pages.length > 0
-      ? onboarding.pages.map((p) => ({ id: p.id, title: p.title }))
+      ? onboarding.pages.map((p) => ({
+          id: p.id,
+          title: interpolatePlaceholders(p.title, titleValues),
+        }))
       : undefined
 
   return success({
@@ -161,6 +168,17 @@ export async function validateInvite(code: string): Promise<
     profileName: resolvedProfile.data.profileName,
     onboardingSteps,
   })
+}
+
+function getOnboardingPlaceholderValues(user?: {
+  username: string
+  email: string
+}): PlaceholderValues {
+  return {
+    serverName: configManager.app.title,
+    appUrl: configManager.appUrl ?? "",
+    ...(user ? { username: user.username, email: user.email } : {}),
+  }
 }
 
 async function releaseInviteReservation(inviteId: string): Promise<void> {
@@ -708,19 +726,13 @@ export async function redeemInvite(
 
         const verifyUrl = `${appUrl}/verify-email/${token}`
 
-        const html = await renderVerifyEmail({
-          username: parsed.data.username,
-          verifyUrl,
-          baseUrl: appUrl,
-          locale: configManager.defaultLocale,
-        })
-
-        await sendEmail({
-          to: normalizedEmail,
-          subject: getVerifyEmailSubject({
+        await sendConfiguredEmail(normalizedEmail, {
+          type: "verifyEmail",
+          payload: {
+            username: parsed.data.username,
+            verifyUrl,
             locale: configManager.defaultLocale,
-          }),
-          html,
+          },
         })
         logger.info(
           { userId: jellyfinUser.id, email: normalizedEmail },
@@ -741,10 +753,14 @@ export async function redeemInvite(
     try {
       const memberOnboarding = configManager.memberOnboarding
       if (memberOnboarding.enabled && memberOnboarding.pages.length > 0) {
+        const pageValues = getOnboardingPlaceholderValues({
+          username: jellyfinUser.name,
+          email: normalizedEmail,
+        })
         onboardingPages = memberOnboarding.pages.map((page) => ({
           id: page.id,
-          title: page.title,
-          markdown: page.markdown,
+          title: interpolatePlaceholders(page.title, pageValues),
+          markdown: interpolatePlaceholders(page.markdown, pageValues),
         }))
       }
     } catch (err) {

@@ -19,6 +19,7 @@ import {
   useState,
 } from "react"
 
+import { PlaceholderChips } from "@/components/settings/placeholder-chips"
 import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
@@ -31,6 +32,11 @@ import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useTranslations } from "@/lib/i18n"
 import { renderMarkdown } from "@/lib/markdown"
+import {
+  COMMON_PLACEHOLDERS,
+  interpolatePlaceholders,
+  type PlaceholderValues,
+} from "@/lib/placeholders"
 import type { MemberOnboardingPageFormValues } from "@/lib/schemas"
 import { cn } from "@/lib/utils"
 
@@ -93,11 +99,13 @@ function ToolbarButton({
 export function PageEditor({
   page,
   pageIndex,
+  placeholderValues,
   t,
   updatePage,
 }: {
   page: MemberOnboardingPageFormValues
   pageIndex: number
+  placeholderValues: PlaceholderValues
   t: ReturnType<typeof useTranslations>
   updatePage: (
     pageIndex: number,
@@ -120,9 +128,15 @@ export function PageEditor({
   const shouldRenderPreview = isDesktop || activeTab === "preview"
   const deferredMarkdown = useDeferredValue(page.markdown)
   const markdownPreview = useMemo(
-    () => (shouldRenderPreview ? renderMarkdown(deferredMarkdown) : null),
-    [deferredMarkdown, shouldRenderPreview],
+    () =>
+      shouldRenderPreview
+        ? renderMarkdown(
+            interpolatePlaceholders(deferredMarkdown, placeholderValues),
+          )
+        : null,
+    [deferredMarkdown, placeholderValues, shouldRenderPreview],
   )
+  const titlePreview = interpolatePlaceholders(page.title, placeholderValues)
 
   const getTextareaRef = useCallback(
     (layout: "mobile" | "desktop") =>
@@ -178,6 +192,27 @@ export function PageEditor({
       requestAnimationFrame(() => {
         textarea.focus()
         textarea.setSelectionRange(nextLine.cursor, nextLine.cursor)
+      })
+    },
+    [getTextareaRef, pageIndex, updatePage],
+  )
+
+  const insertPlaceholderToken = useCallback(
+    (layout: "mobile" | "desktop", token: string) => {
+      const textarea = getTextareaRef(layout).current
+      if (!textarea) return
+
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newValue =
+        textarea.value.slice(0, start) + token + textarea.value.slice(end)
+
+      updatePage(pageIndex, (current) => ({ ...current, markdown: newValue }))
+
+      requestAnimationFrame(() => {
+        textarea.focus()
+        const cursor = start + token.length
+        textarea.setSelectionRange(cursor, cursor)
       })
     },
     [getTextareaRef, pageIndex, updatePage],
@@ -339,6 +374,13 @@ export function PageEditor({
           }))
         }}
       />
+
+      <div className="border-input bg-muted/40 border-t px-2 py-1.5">
+        <PlaceholderChips
+          placeholderKeys={COMMON_PLACEHOLDERS}
+          onInsert={(token) => insertPlaceholderToken(layout, token)}
+        />
+      </div>
     </div>
   )
 
@@ -348,7 +390,7 @@ export function PageEditor({
         <div className="space-y-6">
           <div className="space-y-1">
             <h3 className="text-2xl font-semibold tracking-tight">
-              {page.title || "\u00A0"}
+              {titlePreview || "\u00A0"}
             </h3>
           </div>
           <div className="space-y-2">

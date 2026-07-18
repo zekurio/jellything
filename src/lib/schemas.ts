@@ -594,13 +594,21 @@ export const setupKeyFormSchema = z.object({
 export type SetupKeyFormValues = z.infer<typeof setupKeyFormSchema>
 
 /**
- * Onboarding config form schema
+ * Onboarding app (Jellything) form schema
  */
-export const onboardingConfigFormSchema = z.object({
+export const onboardingAppFormSchema = z.object({
   appUrl: z
     .string()
     .min(1, validation.appUrlRequired)
     .url(validation.validUrlRequired),
+})
+
+export type OnboardingAppFormValues = z.infer<typeof onboardingAppFormSchema>
+
+/**
+ * Onboarding Jellyfin form schema
+ */
+export const onboardingJellyfinFormSchema = z.object({
   internalUrl: z
     .string()
     .min(1, validation.internalUrlRequired)
@@ -610,8 +618,8 @@ export const onboardingConfigFormSchema = z.object({
   configPath: z.string(),
 })
 
-export type OnboardingConfigFormValues = z.infer<
-  typeof onboardingConfigFormSchema
+export type OnboardingJellyfinFormValues = z.infer<
+  typeof onboardingJellyfinFormSchema
 >
 
 /**

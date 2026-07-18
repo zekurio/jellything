@@ -1,4 +1,4 @@
-import nodemailer, { type Transporter } from "nodemailer"
+import nodemailer, { type SendMailOptions, type Transporter } from "nodemailer"
 
 import { configManager, type EmailConfig } from "@/lib/server/config.server"
 import { createChildLogger } from "@/server/logger"
@@ -82,6 +82,7 @@ export interface SendEmailOptions {
   subject: string
   html: string
   text?: string
+  attachments?: SendMailOptions["attachments"]
 }
 
 export async function sendEmail(options: SendEmailOptions): Promise<void> {
@@ -94,7 +95,9 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     throw new EmailApiError("SMTP settings are not configured")
   }
 
-  log.info({ to: options.to, subject: options.subject }, "Sending email")
+  // Subjects are omitted from logs: custom subject templates may
+  // interpolate sensitive values like reset PINs.
+  log.info({ to: options.to }, "Sending email")
   await sendSmtpEmail(options, emailConfig)
 }
 
@@ -136,17 +139,14 @@ async function sendSmtpEmail(
       subject: options.subject,
       html: options.html,
       text: options.text,
+      attachments: options.attachments,
     })
-    log.info(
-      { to: options.to, subject: options.subject },
-      "Email sent successfully",
-    )
+    log.info({ to: options.to }, "Email sent successfully")
   } catch (err) {
     log.error(
       {
         err,
         to: options.to,
-        subject: options.subject,
         smtpHost: smtp.host,
         smtpPort: smtp.port,
       },

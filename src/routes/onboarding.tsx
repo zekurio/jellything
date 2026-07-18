@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { ArrowLeft, ArrowRight } from "lucide-react"
 import { useReducer } from "react"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
@@ -29,31 +30,27 @@ import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 import { enforcePageAccessFn } from "@/lib/page-access-fns"
 import {
-  onboardingConfigFormSchema,
+  onboardingAppFormSchema,
   onboardingEmailFormSchema,
+  onboardingJellyfinFormSchema,
   onboardingSeerrFormSchema,
   setupKeyFormSchema,
-  type OnboardingConfigFormValues,
+  type OnboardingAppFormValues,
   type OnboardingEmailFormValues,
+  type OnboardingJellyfinFormValues,
   type OnboardingSeerrFormValues,
   type SetupKeyFormValues,
 } from "@/lib/schemas"
+import { cn } from "@/lib/utils"
 
-type Step = "key" | "jellyfin" | "seerr" | "email"
+type Step = "key" | "app" | "jellyfin" | "seerr" | "email"
+
+const STEP_ORDER: Step[] = ["key", "app", "jellyfin", "seerr", "email"]
 
 export const Route = createFileRoute("/onboarding")({
   loader: async () => enforcePageAccessFn({ data: "onboarding" }),
   component: OnboardingPage,
 })
-
-const ONBOARDING_TOTAL_STEPS = 4
-
-const STEP_INDEX: Record<Step, number> = {
-  key: 1,
-  jellyfin: 2,
-  seerr: 3,
-  email: 4,
-}
 
 function hasSeerrValuesInput(values: OnboardingSeerrFormValues): boolean {
   return (
@@ -101,12 +98,70 @@ function onboardingFlowReducer(
   }
 }
 
+function OnboardingStepIndicator({ currentIndex }: { currentIndex: number }) {
+  return (
+    <div className="flex items-center justify-center gap-1.5">
+      {STEP_ORDER.map((step, i) => (
+        <div
+          key={step}
+          className={cn(
+            "h-1.5 rounded-full transition-colors duration-200",
+            i === currentIndex ? "w-6 bg-primary" : "w-1.5",
+            i < currentIndex
+              ? "bg-primary/40"
+              : i > currentIndex
+                ? "bg-muted-foreground/20"
+                : "",
+          )}
+        />
+      ))}
+    </div>
+  )
+}
+
+function OnboardingStepButtons({
+  submitLabel,
+  submitIcon = true,
+  isSubmitting,
+  onBack,
+}: {
+  submitLabel: string
+  submitIcon?: boolean
+  isSubmitting: boolean
+  onBack?: () => void
+}) {
+  const t = useTranslations()
+
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <Button type="submit" className="w-full" disabled={isSubmitting}>
+        {submitLabel}
+        {submitIcon && !isSubmitting && <ArrowRight className="ml-2 h-4 w-4" />}
+      </Button>
+      {onBack && (
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-full"
+          onClick={onBack}
+          disabled={isSubmitting}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {t("common.back")}
+        </Button>
+      )}
+    </div>
+  )
+}
+
 function OnboardingSeerrSubmitButton({
   control,
   isSubmitting,
+  onBack,
 }: {
   control: ReturnType<typeof useForm<OnboardingSeerrFormValues>>["control"]
   isSubmitting: boolean
+  onBack: () => void
 }) {
   const t = useTranslations()
   const [internalUrl, externalUrl, apiKey] = useWatch({
@@ -120,22 +175,28 @@ function OnboardingSeerrSubmitButton({
   })
 
   return (
-    <Button type="submit" className="flex-1" disabled={isSubmitting}>
-      {isSubmitting
-        ? t("common.validating")
-        : hasSeerrInput
-          ? t("onboarding.continue")
-          : t("onboarding.skip")}
-    </Button>
+    <OnboardingStepButtons
+      submitLabel={
+        isSubmitting
+          ? t("common.validating")
+          : hasSeerrInput
+            ? t("onboarding.continue")
+            : t("onboarding.skip")
+      }
+      isSubmitting={isSubmitting}
+      onBack={onBack}
+    />
   )
 }
 
 function OnboardingEmailSubmitButton({
   control,
   isSubmitting,
+  onBack,
 }: {
   control: ReturnType<typeof useForm<OnboardingEmailFormValues>>["control"]
   isSubmitting: boolean
+  onBack: () => void
 }) {
   const t = useTranslations()
   const [from, smtpHost, smtpPort, smtpUsername, smtpPassword] = useWatch({
@@ -152,13 +213,18 @@ function OnboardingEmailSubmitButton({
   })
 
   return (
-    <Button type="submit" className="flex-1" disabled={isSubmitting}>
-      {isSubmitting
-        ? t("common.saving")
-        : hasEmailInput
-          ? t("onboarding.completeSetup")
-          : t("onboarding.skip")}
-    </Button>
+    <OnboardingStepButtons
+      submitLabel={
+        isSubmitting
+          ? t("common.saving")
+          : hasEmailInput
+            ? t("onboarding.completeSetup")
+            : t("onboarding.skip")
+      }
+      submitIcon={false}
+      isSubmitting={isSubmitting}
+      onBack={onBack}
+    />
   )
 }
 
@@ -177,10 +243,16 @@ function OnboardingPage() {
     },
   })
 
-  const jellyfinForm = useForm<OnboardingConfigFormValues>({
-    resolver: zodResolver(onboardingConfigFormSchema),
+  const appForm = useForm<OnboardingAppFormValues>({
+    resolver: zodResolver(onboardingAppFormSchema),
     defaultValues: {
       appUrl: "",
+    },
+  })
+
+  const jellyfinForm = useForm<OnboardingJellyfinFormValues>({
+    resolver: zodResolver(onboardingJellyfinFormSchema),
+    defaultValues: {
       internalUrl: "",
       externalUrl: "",
       apiKey: "",
@@ -209,6 +281,10 @@ function OnboardingPage() {
     },
   })
 
+  function goToStep(target: Step): void {
+    dispatch({ type: "setStep", step: target })
+  }
+
   async function handleKeySubmit(data: SetupKeyFormValues): Promise<void> {
     const client = getBrowserORPCClient()
     const result = await runApiEffect(
@@ -216,7 +292,7 @@ function OnboardingPage() {
     )
     if (result.error === null && result.data) {
       dispatch({ type: "setSetupKey", setupKey: data.setupKey })
-      dispatch({ type: "setStep", step: "jellyfin" })
+      goToStep("app")
     } else {
       toast.error(
         getApiErrorMessage(result.error, t, "onboarding.invalidSetupKey"),
@@ -224,17 +300,10 @@ function OnboardingPage() {
     }
   }
 
-  async function handleJellyfinSubmit(): Promise<void> {
-    dispatch({ type: "setStep", step: "seerr" })
-  }
-
-  async function handleSeerrSubmit(): Promise<void> {
-    dispatch({ type: "setStep", step: "email" })
-  }
-
   async function handleEmailSubmit(
     data: OnboardingEmailFormValues,
   ): Promise<void> {
+    const appValues = appForm.getValues()
     const jellyfinValues = jellyfinForm.getValues()
     const seerrSubmissionValues = seerrForm.getValues()
     const hasSeerrInput = hasSeerrValuesInput(seerrSubmissionValues)
@@ -251,7 +320,7 @@ function OnboardingPage() {
       client.onboarding.initialize({
         setupKey,
         app: {
-          url: jellyfinValues.appUrl,
+          url: appValues.appUrl,
         },
         jellyfin: {
           internalUrl: jellyfinValues.internalUrl,
@@ -293,26 +362,38 @@ function OnboardingPage() {
     }
   }
 
-  const description =
+  const stepTitle =
+    step === "key"
+      ? t("onboarding.title")
+      : step === "app"
+        ? t("onboarding.appStepTitle")
+        : step === "jellyfin"
+          ? t("settings.jellyfinConnectionTitle")
+          : step === "seerr"
+            ? t("settings.seerrConnectionTitle")
+            : t("settings.emailSettingsTitle")
+  const stepDescription =
     step === "key"
       ? t("onboarding.keyDescription")
-      : step === "jellyfin"
-        ? t("settings.jellyfinConnectionDescription")
-        : step === "seerr"
-          ? t("settings.seerrConnectionDescription")
-          : t("settings.emailSettingsDescription")
-  const stepProgress = t("onboarding.stepProgress", {
-    current: STEP_INDEX[step],
-    total: ONBOARDING_TOTAL_STEPS,
-  })
+      : step === "app"
+        ? t("onboarding.appStepDescription")
+        : step === "jellyfin"
+          ? t("settings.jellyfinConnectionDescription")
+          : step === "seerr"
+            ? t("settings.seerrConnectionDescription")
+            : t("settings.emailSettingsDescription")
 
   return (
     <CenteredPageShell>
-      <Card className="w-full max-w-md border-0 bg-transparent shadow-none">
-        <CardHeader>
-          <CardTitle className="text-2xl">{t("onboarding.title")}</CardTitle>
-          <p className="text-muted-foreground text-xs">{stepProgress}</p>
-          <CardDescription>{description}</CardDescription>
+      <Card className="w-full max-w-sm border-0 bg-transparent shadow-none">
+        <CardHeader className="space-y-4">
+          <OnboardingStepIndicator currentIndex={STEP_ORDER.indexOf(step)} />
+          <div className="space-y-1">
+            <CardTitle className="text-2xl font-semibold tracking-tight">
+              {stepTitle}
+            </CardTitle>
+            <CardDescription>{stepDescription}</CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           {step === "key" ? (
@@ -334,21 +415,20 @@ function OnboardingPage() {
                   )}
                 </Field>
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={keyForm.formState.isSubmitting}
-                >
-                  {keyForm.formState.isSubmitting
-                    ? t("onboarding.validateKey")
-                    : t("onboarding.continue")}
-                </Button>
+                <OnboardingStepButtons
+                  submitLabel={
+                    keyForm.formState.isSubmitting
+                      ? t("onboarding.validateKey")
+                      : t("onboarding.continue")
+                  }
+                  isSubmitting={keyForm.formState.isSubmitting}
+                />
               </FieldGroup>
             </form>
-          ) : step === "jellyfin" ? (
-            <form onSubmit={jellyfinForm.handleSubmit(handleJellyfinSubmit)}>
+          ) : step === "app" ? (
+            <form onSubmit={appForm.handleSubmit(() => goToStep("jellyfin"))}>
               <FieldGroup className="gap-4">
-                <Field data-invalid={!!jellyfinForm.formState.errors.appUrl}>
+                <Field data-invalid={!!appForm.formState.errors.appUrl}>
                   <FieldLabel htmlFor="appUrl">
                     {t("settings.appUrl")}
                   </FieldLabel>
@@ -356,19 +436,27 @@ function OnboardingPage() {
                     id="appUrl"
                     type="url"
                     placeholder={t("settings.appUrlPlaceholder")}
-                    aria-invalid={!!jellyfinForm.formState.errors.appUrl}
-                    {...jellyfinForm.register("appUrl")}
+                    aria-invalid={!!appForm.formState.errors.appUrl}
+                    {...appForm.register("appUrl")}
                   />
                   <FieldDescription>
                     {t("settings.appUrlDescription")}
                   </FieldDescription>
-                  {jellyfinForm.formState.errors.appUrl && (
-                    <FieldError
-                      errors={[jellyfinForm.formState.errors.appUrl]}
-                    />
+                  {appForm.formState.errors.appUrl && (
+                    <FieldError errors={[appForm.formState.errors.appUrl]} />
                   )}
                 </Field>
 
+                <OnboardingStepButtons
+                  submitLabel={t("onboarding.continue")}
+                  isSubmitting={appForm.formState.isSubmitting}
+                  onBack={() => goToStep("key")}
+                />
+              </FieldGroup>
+            </form>
+          ) : step === "jellyfin" ? (
+            <form onSubmit={jellyfinForm.handleSubmit(() => goToStep("seerr"))}>
+              <FieldGroup className="gap-4">
                 <Field
                   data-invalid={!!jellyfinForm.formState.errors.internalUrl}
                 >
@@ -459,28 +547,19 @@ function OnboardingPage() {
                   )}
                 </Field>
 
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => dispatch({ type: "setStep", step: "key" })}
-                  >
-                    {t("common.back")}
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1"
-                    disabled={jellyfinForm.formState.isSubmitting}
-                  >
-                    {jellyfinForm.formState.isSubmitting
+                <OnboardingStepButtons
+                  submitLabel={
+                    jellyfinForm.formState.isSubmitting
                       ? t("common.validating")
-                      : t("onboarding.continue")}
-                  </Button>
-                </div>
+                      : t("onboarding.continue")
+                  }
+                  isSubmitting={jellyfinForm.formState.isSubmitting}
+                  onBack={() => goToStep("app")}
+                />
               </FieldGroup>
             </form>
           ) : step === "seerr" ? (
-            <form onSubmit={seerrForm.handleSubmit(handleSeerrSubmit)}>
+            <form onSubmit={seerrForm.handleSubmit(() => goToStep("email"))}>
               <FieldGroup className="gap-4">
                 <Field data-invalid={!!seerrForm.formState.errors.internalUrl}>
                   <FieldLabel htmlFor="seerrInternalUrl">
@@ -543,21 +622,11 @@ function OnboardingPage() {
                   )}
                 </Field>
 
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      dispatch({ type: "setStep", step: "jellyfin" })
-                    }
-                  >
-                    {t("common.back")}
-                  </Button>
-                  <OnboardingSeerrSubmitButton
-                    control={seerrForm.control}
-                    isSubmitting={seerrForm.formState.isSubmitting}
-                  />
-                </div>
+                <OnboardingSeerrSubmitButton
+                  control={seerrForm.control}
+                  isSubmitting={seerrForm.formState.isSubmitting}
+                  onBack={() => goToStep("jellyfin")}
+                />
               </FieldGroup>
             </form>
           ) : (
@@ -693,19 +762,11 @@ function OnboardingPage() {
                   )}
                 </Field>
 
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => dispatch({ type: "setStep", step: "seerr" })}
-                  >
-                    {t("common.back")}
-                  </Button>
-                  <OnboardingEmailSubmitButton
-                    control={emailForm.control}
-                    isSubmitting={emailForm.formState.isSubmitting}
-                  />
-                </div>
+                <OnboardingEmailSubmitButton
+                  control={emailForm.control}
+                  isSubmitting={emailForm.formState.isSubmitting}
+                  onBack={() => goToStep("seerr")}
+                />
               </FieldGroup>
             </form>
           )}

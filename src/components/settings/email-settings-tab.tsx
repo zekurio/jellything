@@ -2,11 +2,16 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useStore } from "@tanstack/react-store"
+import { useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { toast } from "sonner"
 
+import { EmailBrandingFields } from "@/components/settings/email-branding-fields"
+import { EmailPreviewSection } from "@/components/settings/email-preview"
+import { ConfirmAlertShell } from "@/components/shared/confirm-alert-shell"
 import { FormShell } from "@/components/shared/form-shell"
 import { PasswordInput } from "@/components/shared/password-input"
+import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -16,10 +21,13 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
 import { createAppStore } from "@/hooks/store-utils"
 import { useDashboardSettingsTabDirty } from "@/hooks/use-dashboard-settings-dirty"
 import { useScopedStore } from "@/hooks/use-scoped-store"
 import type { EmailConfigDto } from "@/lib/api/contracts/admin"
+import { isHexColor } from "@/lib/branding"
+import type { EmailBrandingDraft } from "@/lib/email"
 import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 import {
@@ -33,7 +41,9 @@ interface EmailSettingsTabProps {
 
 interface EmailSettingsStoreState {
   configState: EmailConfigDto
+  branding: EmailBrandingDraft
   setConfigState: (configState: EmailConfigDto) => void
+  setBranding: (branding: EmailBrandingDraft) => void
 }
 
 function toEmailFormValues(
@@ -49,6 +59,14 @@ function toEmailFormValues(
   }
 }
 
+function toBrandingDraft(configState: EmailConfigDto): EmailBrandingDraft {
+  return {
+    accentColor: configState.branding.accentColor,
+    pageBackgroundColor: configState.branding.pageBackgroundColor,
+    logo: { action: "keep" },
+  }
+}
+
 function hasEmailSettingsInput(data: EmailSettingsFormValues): boolean {
   return (
     Boolean(data.from) ||
@@ -61,7 +79,7 @@ function hasEmailSettingsInput(data: EmailSettingsFormValues): boolean {
 
 function buildEmailSettingsUpdate(
   data: EmailSettingsFormValues,
-  configState: EmailConfigDto,
+  branding: EmailBrandingDraft,
 ): {
   from: string
   smtp?: {
@@ -71,26 +89,20 @@ function buildEmailSettingsUpdate(
     username?: string
     password?: string
   }
+  branding: EmailBrandingDraft
 } {
-  const updates: {
-    from: string
-    smtp?: {
-      host: string
-      port: number
-      secure: boolean
-      username?: string
-      password?: string
-    }
-  } = {
+  const updates: ReturnType<typeof buildEmailSettingsUpdate> = {
     from: data.from || "Jellything <noreply@example.com>",
+    branding,
   }
 
+  // Only actual SMTP field input produces an smtp payload; cleared fields
+  // drop the SMTP section instead of sending empty host/NaN port.
   if (
     data.smtpHost ||
     data.smtpPort ||
     data.smtpUsername ||
-    data.smtpPassword ||
-    configState.smtp
+    data.smtpPassword
   ) {
     updates.smtp = {
       host: data.smtpHost,
@@ -102,25 +114,6 @@ function buildEmailSettingsUpdate(
   }
 
   return updates
-}
-
-function toNextEmailConfig(
-  updates: ReturnType<typeof buildEmailSettingsUpdate>,
-  configState: EmailConfigDto,
-): EmailConfigDto {
-  return {
-    from: updates.from,
-    smtp: updates.smtp
-      ? {
-          host: updates.smtp.host,
-          port: updates.smtp.port,
-          secure: updates.smtp.secure,
-          username: updates.smtp.username,
-        }
-      : undefined,
-    smtpPasswordSet:
-      Boolean(updates.smtp?.password) || configState.smtpPasswordSet,
-  }
 }
 
 function SettingsActionButtons({
@@ -333,10 +326,13 @@ export function EmailSettingsTab({ initialConfig }: EmailSettingsTabProps) {
   const store = useScopedStore(() =>
     createAppStore<EmailSettingsStoreState>((set) => ({
       configState: initialConfig,
+      branding: toBrandingDraft(initialConfig),
       setConfigState: (configState) => set({ configState }),
+      setBranding: (branding) => set({ branding }),
     })),
   )
   const configState = useStore(store, (state) => state.configState)
+  const branding = useStore(store, (state) => state.branding)
   const {
     register,
     handleSubmit,
@@ -351,53 +347,79 @@ export function EmailSettingsTab({ initialConfig }: EmailSettingsTabProps) {
   })
 
   const smtpPassword = watch("smtpPassword")
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
 
-  useDashboardSettingsTabDirty("email", isDirty)
+  const brandingDirty =
+    branding.logo.action !== "keep" ||
+    branding.accentColor !== configState.branding.accentColor ||
+    branding.pageBackgroundColor !== configState.branding.pageBackgroundColor
+  const anyDirty = isDirty || brandingDirty
 
-  async function onSubmit(data: EmailSettingsFormValues): Promise<void> {
-    if (!hasEmailSettingsInput(data)) {
-      const client = getBrowserORPCClient()
-      const result = await runApiEffect(
-        client.admin.settings.updateEmail(undefined),
-      )
-      if (result.error === null) {
-        const clearedConfig: EmailConfigDto = {
-          from: undefined,
-          smtp: undefined,
-          smtpPasswordSet: false,
-        }
-        store.getState().setConfigState(clearedConfig)
-        reset(toEmailFormValues(clearedConfig))
-        toast.success(t("settings.emailSettingsCleared"))
-        return
-      }
+  useDashboardSettingsTabDirty("email", anyDirty)
 
-      toast.error(t("settings.savedError"))
-      return
-    }
-
-    const updates = buildEmailSettingsUpdate(data, configState)
-    const client = getBrowserORPCClient()
-    const result = await runApiEffect(
-      client.admin.settings.updateEmail(updates),
-    )
-    if (result.error !== null) {
-      toast.error(t("settings.savedError"))
-      return
-    }
-
-    const nextConfig = toNextEmailConfig(updates, configState)
-    store.getState().setConfigState(nextConfig)
+  function applySavedConfig(nextConfig: EmailConfigDto): void {
+    const state = store.getState()
+    state.setConfigState(nextConfig)
+    state.setBranding(toBrandingDraft(nextConfig))
     reset(toEmailFormValues(nextConfig))
     setValue("smtpPassword", "", {
       shouldDirty: false,
       shouldTouch: false,
       shouldValidate: false,
     })
+  }
+
+  async function performClear(): Promise<void> {
+    setIsClearing(true)
+    const client = getBrowserORPCClient()
+    const result = await runApiEffect(
+      client.admin.settings.updateEmail(undefined),
+    )
+    setIsClearing(false)
+    setConfirmClearOpen(false)
+
+    if (result.error !== null || !result.data) {
+      toast.error(t("settings.savedError"))
+      return
+    }
+
+    applySavedConfig(result.data)
+    toast.success(t("settings.emailSettingsCleared"))
+  }
+
+  async function onSubmit(data: EmailSettingsFormValues): Promise<void> {
+    if (!hasEmailSettingsInput(data) && !brandingDirty) {
+      setConfirmClearOpen(true)
+      return
+    }
+
+    const client = getBrowserORPCClient()
+
+    if (
+      !isHexColor(branding.accentColor) ||
+      !isHexColor(branding.pageBackgroundColor)
+    ) {
+      toast.error(t("settings.emailInvalidColor"))
+      return
+    }
+
+    const updates = buildEmailSettingsUpdate(data, branding)
+    const result = await runApiEffect(
+      client.admin.settings.updateEmail(updates),
+    )
+    if (result.error !== null || !result.data) {
+      toast.error(t("settings.savedError"))
+      return
+    }
+
+    applySavedConfig(result.data)
     toast.success(t("settings.emailSettingsSaved"))
   }
 
   function handleReset(): void {
+    const state = store.getState()
+    state.setBranding(toBrandingDraft(configState))
     reset(toEmailFormValues(configState))
     setValue("smtpPassword", "", {
       shouldDirty: false,
@@ -407,34 +429,65 @@ export function EmailSettingsTab({ initialConfig }: EmailSettingsTabProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <FormShell
-        title={t("settings.emailSettingsTitle")}
-        description={t("settings.emailSettingsDescription")}
-        actions={
-          <SettingsActionButtons
-            isDirty={isDirty}
-            isSubmitting={isSubmitting}
-            onReset={handleReset}
-          />
-        }
-      >
-        <FieldGroup>
-          <EmailIdentityFields errors={errors} register={register} />
-          <EmailSmtpFields
-            control={control}
-            errors={errors}
-            register={register}
-          />
-          <EmailCredentialFields
-            configState={configState}
-            errors={errors}
-            register={register}
-            setValue={setValue}
-            smtpPassword={smtpPassword}
-          />
-        </FieldGroup>
-      </FormShell>
-    </form>
+    <>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <FormShell
+          title={t("settings.emailSettingsTitle")}
+          description={t("settings.emailSettingsDescription")}
+          actions={
+            <SettingsActionButtons
+              isDirty={anyDirty}
+              isSubmitting={isSubmitting}
+              onReset={handleReset}
+            />
+          }
+        >
+          <FieldGroup>
+            <EmailIdentityFields errors={errors} register={register} />
+            <EmailSmtpFields
+              control={control}
+              errors={errors}
+              register={register}
+            />
+            <EmailCredentialFields
+              configState={configState}
+              errors={errors}
+              register={register}
+              setValue={setValue}
+              smtpPassword={smtpPassword}
+            />
+
+            <Separator />
+
+            <EmailBrandingFields
+              branding={branding}
+              currentLogo={configState.branding.logo}
+              onChange={(nextBranding) =>
+                store.getState().setBranding(nextBranding)
+              }
+            />
+
+            <Separator />
+
+            <EmailPreviewSection
+              branding={branding}
+              emailConfigured={configState.configured}
+            />
+          </FieldGroup>
+        </FormShell>
+      </form>
+
+      <AlertDialog open={confirmClearOpen} onOpenChange={setConfirmClearOpen}>
+        <ConfirmAlertShell
+          title={t("settings.emailClearConfirmTitle")}
+          description={t("settings.emailClearConfirmDescription")}
+          cancelLabel={t("common.cancel")}
+          confirmLabel={t("settings.emailClearConfirmAction")}
+          isLoading={isClearing}
+          destructive
+          onConfirm={() => void performClear()}
+        />
+      </AlertDialog>
+    </>
   )
 }

@@ -14,6 +14,14 @@ const configMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/server/config.server", () => ({
   configManager: {
+    get app() {
+      return {
+        title: "Jellything",
+        description: "",
+        defaultLocale: "en",
+        url: "http://localhost:5173",
+      }
+    },
     get memberOnboarding() {
       return { enabled: false, pages: [] }
     },
@@ -41,9 +49,8 @@ vi.mock("@/server/email", () => ({
   sendEmail: vi.fn<() => Promise<void>>(),
 }))
 
-vi.mock("@/server/email/templates/verify-email", () => ({
-  getVerifyEmailSubject: vi.fn<() => string>(() => "Verify email"),
-  renderVerifyEmail: vi.fn<() => string>(() => "<p>Verify email</p>"),
+vi.mock("@/server/email/messages", () => ({
+  sendConfiguredEmail: vi.fn<() => Promise<void>>(() => Promise.resolve()),
 }))
 
 vi.mock("@/server/profile-sync", () => {

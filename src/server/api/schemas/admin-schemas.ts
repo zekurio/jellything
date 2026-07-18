@@ -52,9 +52,20 @@ export const inviteHistoryPageInputSchema = pageInputSchema.extend({
 
 export const invitesPageInputSchema = pageInputSchema.extend({
   query: exactOptional(z.string().trim().max(100)),
-  sort: z.enum(["createdAt", "code", "profileName"]).default("createdAt"),
+  sort: z
+    .enum(["createdAt", "code", "profileName", "useCount"])
+    .default("createdAt"),
   direction: sortDirectionSchema.default("desc"),
+  status: exactOptional(z.enum(inviteStatusValues)),
 })
+
+export const userStatusFilterValues = [
+  "admin",
+  "member",
+  "disabled",
+  "missing",
+  "expired",
+] as const
 
 export const usersPageInputSchema = pageInputSchema.extend({
   query: exactOptional(z.string().trim().max(100)),
@@ -62,6 +73,7 @@ export const usersPageInputSchema = pageInputSchema.extend({
     .enum(["name", "email", "profileName", "lastActivityDate"])
     .default("name"),
   direction: sortDirectionSchema.default("asc"),
+  status: exactOptional(z.enum(userStatusFilterValues)),
 })
 
 export const userIdParamsSchema = z.object({

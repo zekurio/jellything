@@ -30,6 +30,7 @@ import { Route as DashboardSettingsRouteImport } from './routes/dashboard.settin
 import { Route as DashboardProfilesRouteImport } from './routes/dashboard.profiles'
 import { Route as DashboardInvitesRouteImport } from './routes/dashboard.invites'
 import { Route as DashboardHistoryRouteImport } from './routes/dashboard.history'
+import { Route as BrandingAssetRouteImport } from './routes/branding.$asset'
 import { Route as DashboardSettingsIndexRouteImport } from './routes/dashboard.settings.index'
 import { Route as DashboardSettingsSettingsTabRouteImport } from './routes/dashboard.settings.$settingsTab'
 
@@ -138,6 +139,11 @@ const DashboardHistoryRoute = DashboardHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => DashboardRoute,
 } as any)
+const BrandingAssetRoute = BrandingAssetRouteImport.update({
+  id: '/branding/$asset',
+  path: '/branding/$asset',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardSettingsIndexRoute = DashboardSettingsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRouteWithChildren
   '/readyz': typeof ReadyzRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/branding/$asset': typeof BrandingAssetRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/invites': typeof DashboardInvitesRoute
   '/dashboard/profiles': typeof DashboardProfilesRoute
@@ -184,6 +191,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/readyz': typeof ReadyzRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/branding/$asset': typeof BrandingAssetRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/invites': typeof DashboardInvitesRoute
   '/dashboard/profiles': typeof DashboardProfilesRoute
@@ -209,6 +217,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRouteWithChildren
   '/readyz': typeof ReadyzRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/branding/$asset': typeof BrandingAssetRoute
   '/dashboard/history': typeof DashboardHistoryRoute
   '/dashboard/invites': typeof DashboardInvitesRoute
   '/dashboard/profiles': typeof DashboardProfilesRoute
@@ -236,6 +245,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/readyz'
     | '/reset-password'
+    | '/branding/$asset'
     | '/dashboard/history'
     | '/dashboard/invites'
     | '/dashboard/profiles'
@@ -259,6 +269,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/readyz'
     | '/reset-password'
+    | '/branding/$asset'
     | '/dashboard/history'
     | '/dashboard/invites'
     | '/dashboard/profiles'
@@ -283,6 +294,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/readyz'
     | '/reset-password'
+    | '/branding/$asset'
     | '/dashboard/history'
     | '/dashboard/invites'
     | '/dashboard/profiles'
@@ -309,6 +321,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRouteWithChildren
   ReadyzRoute: typeof ReadyzRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  BrandingAssetRoute: typeof BrandingAssetRoute
   InviteCodeRoute: typeof InviteCodeRoute
   RpcSplatRoute: typeof RpcSplatRoute
   VerifyEmailTokenRoute: typeof VerifyEmailTokenRoute
@@ -463,6 +476,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardHistoryRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/branding/$asset': {
+      id: '/branding/$asset'
+      path: '/branding/$asset'
+      fullPath: '/branding/$asset'
+      preLoaderRoute: typeof BrandingAssetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/settings/': {
       id: '/dashboard/settings/'
       path: '/'
@@ -539,6 +559,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRouteWithChildren,
   ReadyzRoute: ReadyzRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  BrandingAssetRoute: BrandingAssetRoute,
   InviteCodeRoute: InviteCodeRoute,
   RpcSplatRoute: RpcSplatRoute,
   VerifyEmailTokenRoute: VerifyEmailTokenRoute,

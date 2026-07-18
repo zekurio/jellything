@@ -45,6 +45,8 @@ import {
 } from "@/server/api/schemas/admin-schemas"
 import {
   memberOnboardingConfigSchema,
+  previewEmailBodySchema,
+  sendTestEmailBodySchema,
   updateAppSettingsBodySchema,
   updateEmailConfigBodySchema,
   updateJellyfinConfigBodySchema,
@@ -82,8 +84,10 @@ import {
   rateLimitMiddleware,
 } from "@/server/orpc/middleware"
 import {
+  previewEmailService,
+  sendTestEmailService,
   testSeerrConnectionService,
-  updateAppConfig,
+  updateAppSettingsService,
   updateEmailConfigService,
   updateJellyfinConfigService,
   updateMemberOnboardingConfigService,
@@ -515,7 +519,9 @@ const adminProcedures = {
     }),
     updateApp: configuredAdminProcedure
       .input(updateAppSettingsBodySchema)
-      .handler(async ({ input }) => updateAppConfig(input)),
+      .handler(async ({ input }) =>
+        unwrapActionResultOrThrow(await updateAppSettingsService(input)),
+      ),
     updateJellyfin: configuredAdminProcedure
       .input(updateJellyfinConfigBodySchema)
       .handler(async ({ input }) => {
@@ -535,8 +541,18 @@ const adminProcedures = {
       }),
     updateEmail: configuredAdminProcedure
       .input(updateEmailConfigBodySchema)
+      .handler(async ({ input }) =>
+        unwrapActionResultOrThrow(await updateEmailConfigService(input)),
+      ),
+    previewEmail: configuredAdminProcedure
+      .input(previewEmailBodySchema)
+      .handler(async ({ input }) =>
+        unwrapActionResultOrThrow(await previewEmailService(input)),
+      ),
+    sendTestEmail: configuredAdminProcedure
+      .input(sendTestEmailBodySchema)
       .handler(async ({ input }) => {
-        unwrapActionResultOrThrow(await updateEmailConfigService(input))
+        unwrapActionResultOrThrow(await sendTestEmailService(input))
         return null
       }),
     updateMemberOnboarding: configuredAdminProcedure

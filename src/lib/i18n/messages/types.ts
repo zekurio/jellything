@@ -22,6 +22,12 @@ export interface Messages {
     actions: string
     previousPage: string
     nextPage: string
+    sortBy: string
+    sortOrder: string
+    sortAscending: string
+    sortDescending: string
+    perPage: string
+    viewOptions: string
   }
   auth: {
     login: string
@@ -165,6 +171,44 @@ export interface Messages {
     smtpPasswordPlaceholderSet: string
     smtpPasswordPlaceholder: string
     smtpPasswordKeepCurrent: string
+    brandingImageUpload: string
+    brandingImageReplace: string
+    brandingImageRemove: string
+    brandingImageTooLarge: string
+    brandingImageInvalidType: string
+    emailBrandingTitle: string
+    emailBrandingDescription: string
+    emailAccentColor: string
+    emailAccentColorDescription: string
+    emailPageBackgroundColor: string
+    emailPageBackgroundColorDescription: string
+    emailInvalidColor: string
+    emailLogo: string
+    emailLogoDescription: string
+    emailPreviewTitle: string
+    emailPreviewDescription: string
+    emailMessageType: string
+    emailMessageTypes: {
+      verifyEmail: string
+      passwordReset: string
+      expiryWarning: string
+      accountDisabled: string
+      accountDeleted: string
+      accountRenewed: string
+    }
+    emailMessagePlaceholders: string
+    emailMessagePlaceholdersDescription: string
+    emailPreview: string
+    emailPreviewFailed: string
+    emailTestRecipient: string
+    emailTestRecipientPlaceholder: string
+    emailTestSend: string
+    emailTestSent: string
+    emailTestFailed: string
+    emailTestRequiresSaved: string
+    emailClearConfirmTitle: string
+    emailClearConfirmDescription: string
+    emailClearConfirmAction: string
     smtpPasswordDescription: string
     emailSettingsSaved: string
     emailSettingsCleared: string
@@ -243,12 +287,14 @@ export interface Messages {
     title: string
     searchInvitesPlaceholder: string
     searchHistoryPlaceholder: string
+    sortCreated: string
     code: string
     profile: string
     uses: string
     used: string
     expires: string
     status: string
+    statusFilterAll: string
     statusActive: string
     statusDisabled: string
     statusExpiring: string
@@ -474,6 +520,9 @@ export interface Messages {
     memberBadge: string
     disabledBadge: string
     missingInJellyfinBadge: string
+    statusFilterLabel: string
+    statusFilterAll: string
+    statusExpired: string
     missingInJellyfinDescription: string
     emailNotSet: string
     noProfile: string
@@ -532,8 +581,9 @@ export interface Messages {
   }
   onboarding: {
     title: string
-    stepProgress: string
     keyDescription: string
+    appStepTitle: string
+    appStepDescription: string
     setupKeyLabel: string
     invalidSetupKey: string
     configSaved: string
@@ -575,7 +625,6 @@ export interface Messages {
       intro: string
       action: string
       expiry: string
-      ignore: string
     }
     expiryWarning: {
       subject: string
@@ -586,6 +635,40 @@ export interface Messages {
       action: string
       footer: string
     }
+    accountDisabled: {
+      subject: string
+      preview: string
+      heading: string
+      intro: string
+      contact: string
+    }
+    accountDeleted: {
+      subject: string
+      preview: string
+      heading: string
+      intro: string
+      contact: string
+    }
+    accountRenewed: {
+      subject: string
+      preview: string
+      heading: string
+      intro: string
+      action: string
+      footer: string
+    }
+  }
+  placeholders: {
+    serverName: string
+    appUrl: string
+    username: string
+    email: string
+    verifyUrl: string
+    resetUrl: string
+    pin: string
+    expiresInMinutes: string
+    expiryDate: string
+    manageUrl: string
   }
   validation: {
     passwordMinLength: string

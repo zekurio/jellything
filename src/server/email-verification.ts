@@ -13,11 +13,8 @@ import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
 import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
-import { EmailApiError, sendEmail, isEmailConfigured } from "@/server/email"
-import {
-  getVerifyEmailSubject,
-  renderVerifyEmail,
-} from "@/server/email/templates/verify-email"
+import { EmailApiError, isEmailConfigured } from "@/server/email"
+import { sendConfiguredEmail } from "@/server/email/messages"
 import { createChildLogger } from "@/server/logger"
 import { resolveSeerrUser } from "@/server/seerr"
 import { getSessionDataForUser } from "@/server/session-resolver"
@@ -139,18 +136,14 @@ export async function resendVerification(
   const verifyUrl = `${appUrl}/verify-email/${token}`
   const locale = resolveLocale(session.locale, configManager.defaultLocale)
 
-  const html = await renderVerifyEmail({
-    username: session.name,
-    verifyUrl,
-    baseUrl: appUrl,
-    locale,
-  })
-
   try {
-    await sendEmail({
-      to: session.email,
-      subject: getVerifyEmailSubject({ locale }),
-      html,
+    await sendConfiguredEmail(session.email, {
+      type: "verifyEmail",
+      payload: {
+        username: session.name,
+        verifyUrl,
+        locale,
+      },
     })
   } catch (err) {
     if (err instanceof EmailApiError) {

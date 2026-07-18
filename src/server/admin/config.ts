@@ -6,26 +6,21 @@ import {
 } from "@/lib/api/contracts/errors"
 import {
   configManager,
-  type EmailConfig,
   type JellyfinConfig,
   type SeerrConfig,
   type MemberOnboardingConfig,
 } from "@/lib/server/config.server"
 import type {
-  UpdateEmailConfigInput,
   UpdateJellyfinConfigInput,
   UpdateMemberOnboardingConfigInput,
   UpdateSeerrConfigInput,
 } from "@/server/api/schemas/common-schemas"
 import {
-  assertEmailConnection,
   assertJellyfinConnection,
   assertSeerrConnection,
-  EmailConnectionValidationError,
   JellyfinConnectionValidationError,
   SeerrConnectionValidationError,
 } from "@/server/config-validation"
-import { resetEmailClient } from "@/server/email"
 import { createChildLogger } from "@/server/logger"
 import { getSeerrStatus } from "@/server/seerr"
 
@@ -158,53 +153,6 @@ export async function testSeerrConnectionService(): Promise<
   } catch (err) {
     log.warn({ err }, "Seerr connection test failed")
     return error(ErrorCode.SEERR_ERROR, "Failed to connect to Seerr")
-  }
-}
-
-export async function updateEmailConfigService(
-  data: UpdateEmailConfigInput,
-): Promise<ActionResult<void>> {
-  try {
-    if (!configManager.isConfigured()) {
-      return error(ErrorCode.CONFIG_NOT_INITIALIZED)
-    }
-
-    if (!data) {
-      await configManager.setEmail(undefined)
-      resetEmailClient()
-      return success(undefined)
-    }
-
-    const existing = configManager.email
-    const nextEmail: EmailConfig = {
-      from: data.from,
-      smtp: existing?.smtp,
-    }
-
-    if (data.smtp) {
-      const smtpUsername = data.smtp.username
-      const smtpPassword = smtpUsername
-        ? (data.smtp.password ?? existing?.smtp?.password)
-        : undefined
-
-      nextEmail.smtp = {
-        host: data.smtp.host,
-        port: data.smtp.port,
-        secure: data.smtp.secure ?? false,
-        username: smtpUsername,
-        password: smtpPassword,
-      }
-    }
-
-    await assertEmailConnection(nextEmail)
-    await configManager.setEmail(nextEmail)
-    resetEmailClient()
-    return success(undefined)
-  } catch (e) {
-    if (e instanceof EmailConnectionValidationError) {
-      return error(ErrorCode.EMAIL_NOT_CONFIGURED, e.message)
-    }
-    return error(ErrorCode.OPERATION_FAILED, "Failed to update email config")
   }
 }
 

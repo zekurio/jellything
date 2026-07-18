@@ -12,11 +12,8 @@ import { passwordSchema } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
-import { isEmailConfigured, sendEmail } from "@/server/email"
-import {
-  getPasswordResetEmailSubject,
-  renderPasswordResetEmail,
-} from "@/server/email/templates/password-reset"
+import { isEmailConfigured } from "@/server/email"
+import { sendConfiguredEmail } from "@/server/email/messages"
 import {
   authenticateUser,
   forgotPassword,
@@ -146,23 +143,15 @@ async function processPasswordResetRequest(username: string): Promise<void> {
   )
   const locale = resolveLocale(dbUser.locale, configManager.defaultLocale)
 
-  const html = await renderPasswordResetEmail({
-    username: jellyfinUser.name,
-    pin: pin.pin,
-    resetUrl,
-    expiresInMinutes,
-    serverName: configManager.app.title,
-    baseUrl: appUrl,
-    locale,
-  })
-
-  await sendEmail({
-    to: dbUser.email,
-    subject: getPasswordResetEmailSubject({
+  await sendConfiguredEmail(dbUser.email, {
+    type: "passwordReset",
+    payload: {
+      username: jellyfinUser.name,
+      pin: pin.pin,
+      resetUrl,
+      expiresInMinutes,
       locale,
-      serverName: configManager.app.title,
-    }),
-    html,
+    },
   })
 
   logger.info({ username, email: dbUser.email }, "Password reset email sent")
