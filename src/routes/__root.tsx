@@ -6,6 +6,7 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from "@tanstack/react-router"
+import { useEffect } from "react"
 
 import { LocaleProviderWrapper } from "@/components/shared/locale-provider"
 import { SessionProviderWrapper } from "@/components/shared/session-provider"
@@ -13,7 +14,6 @@ import { ThemeProvider } from "@/components/shared/theme-provider"
 import { Button } from "@/components/ui/button"
 import { Toaster } from "@/components/ui/sonner"
 import { HydratedProvider } from "@/hooks/use-hydrated"
-import { usePwaRegistration } from "@/hooks/use-pwa-registration"
 import { useTranslations } from "@/lib/i18n"
 import { getPageAccessFn } from "@/lib/page-access-fns"
 
@@ -49,28 +49,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
           name: "theme-color",
           content: "#615ff0",
         },
-        {
-          name: "mobile-web-app-capable",
-          content: "yes",
-        },
-        {
-          name: "apple-mobile-web-app-capable",
-          content: "yes",
-        },
-        {
-          name: "apple-mobile-web-app-status-bar-style",
-          content: "default",
-        },
-        {
-          name: "apple-mobile-web-app-title",
-          content: appTitle,
-        },
       ],
       links: [
-        {
-          rel: "manifest",
-          href: "/manifest.webmanifest",
-        },
         {
           rel: "stylesheet",
           href: appCss,
@@ -111,9 +91,20 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 })
 
 function RootLayout() {
-  usePwaRegistration()
-
   const { bootstrap, locale } = Route.useLoaderData()
+
+  // The app used to register a PWA service worker; unregister any leftover
+  // workers so returning clients stop serving stale cached assets.
+  useEffect(() => {
+    navigator.serviceWorker
+      ?.getRegistrations()
+      .then((registrations) => {
+        for (const registration of registrations) {
+          void registration.unregister()
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   return (
     <html lang={locale} suppressHydrationWarning>
