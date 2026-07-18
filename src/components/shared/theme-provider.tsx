@@ -3,11 +3,11 @@
 import { ThemeProvider } from "next-themes"
 import type { ComponentProps } from "react"
 
-function JellythingThemeProvider({
+function InviterrThemeProvider({
   children,
   ...props
 }: ComponentProps<typeof ThemeProvider>) {
   return <ThemeProvider {...props}>{children}</ThemeProvider>
 }
 
-export { JellythingThemeProvider as ThemeProvider }
+export { InviterrThemeProvider as ThemeProvider }

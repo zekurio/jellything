@@ -15,7 +15,7 @@ async function loadRequestOrigin(trustProxy: boolean) {
 }
 
 beforeAll(async () => {
-  configDirectory = await mkdtemp(path.join(tmpdir(), "jellything-origin-"))
+  configDirectory = await mkdtemp(path.join(tmpdir(), "inviterr-origin-"))
   configPath = path.join(configDirectory, "config.json")
   process.env.SKIP_ENV_VALIDATION = "false"
   process.env.NODE_ENV = "test"

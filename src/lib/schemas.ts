@@ -594,7 +594,7 @@ export const setupKeyFormSchema = z.object({
 export type SetupKeyFormValues = z.infer<typeof setupKeyFormSchema>
 
 /**
- * Onboarding app (Jellything) form schema
+ * Onboarding app (Inviterr) form schema
  */
 export const onboardingAppFormSchema = z.object({
   appUrl: z

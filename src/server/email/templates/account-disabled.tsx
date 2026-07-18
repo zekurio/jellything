@@ -52,6 +52,6 @@ export function getAccountDisabledEmailSubject(input: {
 }): string {
   const t = createTranslator(input.locale ?? DEFAULT_LOCALE)
   return t("emailTemplates.accountDisabled.subject", {
-    serverName: input.serverName ?? "Jellything",
+    serverName: input.serverName ?? "Inviterr",
   })
 }

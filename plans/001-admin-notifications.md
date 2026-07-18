@@ -25,7 +25,7 @@
 
 ## Why this matters
 
-Today the only outbound notification channel in Jellything is member-facing
+Today the only outbound notification channel in Inviterr is member-facing
 SMTP email (`src/server/email/index.ts`). Admin-relevant events — a member
 redeeming an invite, a user being auto-disabled at expiry, and a Seerr profile
 sync failing — are **log-only**: the operator only learns about them by tailing
@@ -34,7 +34,7 @@ something meaningful (or broken) happens. This plan adds a `notifications`
 config section (generic JSON webhook and/or an Apprise API server), a
 failure-isolated `notify(event)` server helper wired into the ~3 existing
 event sites, and an admin **Notifications** settings tab. After this lands, an
-operator can point Jellything at a Discord/Slack webhook or an Apprise server
+operator can point Inviterr at a Discord/Slack webhook or an Apprise server
 and receive a message on each shipped event, with per-event toggles, without
 patching code. Delivery is fire-and-forget: an unreachable webhook must never
 break invite redemption, expiry sweeps, or profile sync.

@@ -24,7 +24,7 @@
 
 ## Why this matters
 
-Jellything persists all admin-relevant state in SQLite (`DB_PATH`) plus a JSON
+Inviterr persists all admin-relevant state in SQLite (`DB_PATH`) plus a JSON
 config, but there is no way to get that data out of the app. Admins who want to
 audit their user roster, keep an offline backup of invites, or analyze invite
 redemption history in a spreadsheet have to open Drizzle Studio or query the DB
@@ -318,11 +318,11 @@ the route can emit a 500. On success:
   `contentType = "application/json; charset=utf-8"`.
 - **CSV**: `body = toCsv(items, columns)` using the column lists in step 4,
   `contentType = "text/csv; charset=utf-8"`.
-- `filename = `jellything-${dataset}-${timestamp}.${ext}``, where `timestamp`is
+- `filename = `inviterr-${dataset}-${timestamp}.${ext}``, where `timestamp`is
   a UTC compact stamp`YYYYMMDD-HHmmss`derived from`new Date()`
   (`new Date().toISOString()`→ strip`-`, `:`, drop milliseconds/`Z`, replace
   the `T`with`-`). `ext`is`csv`or`json`. Example:
-  `jellything-users-20260704-153000.csv`.
+  `inviterr-users-20260704-153000.csv`.
 
 Return the payload wrapped in the repo's `ActionResult` (`success(payload)` /
 propagate `error`). The route unwraps it.

@@ -26,7 +26,11 @@ interface RouterContext {
 export const Route = createRootRouteWithContext<RouterContext>()({
   loader: async () => getPageAccessFn(),
   head: ({ loaderData }) => {
-    const appTitle = loaderData?.bootstrap.app?.title ?? "jellything"
+    const configuredTitle = loaderData?.bootstrap.app?.title
+    const appTitle =
+      configuredTitle && configuredTitle.toLocaleLowerCase() !== "inviterr"
+        ? `${configuredTitle} · Inviterr`
+        : "Inviterr"
     const appDescription =
       loaderData?.bootstrap.app?.description ??
       "User management and invitation system for Jellyfin"
@@ -47,7 +51,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         },
         {
           name: "theme-color",
-          content: "#615ff0",
+          content: "#261bb7",
         },
       ],
       links: [
@@ -58,7 +62,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         {
           rel: "icon",
           type: "image/svg+xml",
-          href: "/favicon.svg",
+          href: "/inviterr-mark.svg",
         },
         {
           rel: "icon",

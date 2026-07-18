@@ -1,6 +1,8 @@
-# Jellything
+# Inviterr
 
-Jellything is a self-hosted user-management and invitation app for
+![Inviterr wordmark](public/inviterr-wordmark.svg)
+
+Inviterr is a self-hosted user-management and invitation app for
 Jellyfin.
 
 > **AI disclaimer:** This is a hobby project built for a specific use case,
@@ -23,10 +25,10 @@ Run a tagged package from a stable working directory; the default database and
 configuration paths are relative to that directory:
 
 ```bash
-mkdir -p ~/jellything
-cd ~/jellything
+mkdir -p ~/inviterr
+cd ~/inviterr
 umask 077
-nix run github:zekurio/jellything/vX.Y.Z
+nix run github:zekurio/inviterr/vX.Y.Z
 ```
 
 Open `http://127.0.0.1:4173`. Override `HOST`, `PORT`, `DB_PATH`,
@@ -35,7 +37,7 @@ Open `http://127.0.0.1:4173`. Override `HOST`, `PORT`, `DB_PATH`,
 For NixOS, pin the same tag as a flake input:
 
 ```nix
-inputs.jellything.url = "github:zekurio/jellything/vX.Y.Z";
+inputs.inviterr.url = "github:zekurio/inviterr/vX.Y.Z";
 ```
 
 Import the module and keep the application port private when a reverse proxy
@@ -43,13 +45,13 @@ runs on the same host:
 
 ```nix
 {
-  imports = [ inputs.jellything.nixosModules.default ];
+  imports = [ inputs.inviterr.nixosModules.default ];
 
-  services.jellything = {
+  services.inviterr = {
     enable = true;
     host = "127.0.0.1";
     port = 4173;
-    dataDir = "/var/lib/jellything";
+    dataDir = "/var/lib/inviterr";
     logLevel = "info";
     openFirewall = false;
   };
@@ -67,15 +69,21 @@ Stable releases are published to GHCR with both versioned and `latest` tags.
 Persist `/data`, which contains the SQLite database and runtime configuration:
 
 ```bash
-docker run --name jellything \
+docker run --name inviterr \
   --publish 127.0.0.1:4173:4173 \
-  --volume jellything-data:/data \
-  ghcr.io/zekurio/jellything:X.Y.Z
+  --volume inviterr-data:/data \
+  ghcr.io/zekurio/inviterr:X.Y.Z
 ```
 
 The image listens on port `4173`. Set `LOG_LEVEL` or `TRUST_PROXY` with
 `--env` when needed. Development commits on `dev` publish only the
 `unstable` tag; use a versioned tag in production.
+
+Existing deployments may keep the legacy `jellything.db`, session-cookie,
+service-user, and state-directory names so the rebrand does not lose data or
+sign everyone out. The old `services.jellything` NixOS option remains as a
+renamed compatibility alias for `services.inviterr`. New configurations should
+use the Inviterr names shown above.
 
 ### Bare metal
 
@@ -83,8 +91,8 @@ Check out a release tag, install exactly its locked dependencies, and create
 private state:
 
 ```bash
-git clone https://github.com/zekurio/jellything.git
-cd jellything
+git clone https://github.com/zekurio/inviterr.git
+cd inviterr
 git checkout vX.Y.Z
 pnpm install --frozen-lockfile
 cp .env.example .env
@@ -118,14 +126,14 @@ state is private.
 
 ## First-run setup
 
-On first start, Jellything logs `Generated setup key for onboarding` with a
+On first start, Inviterr logs `Generated setup key for onboarding` with a
 `setupKey` field. Read it from the foreground log, or on NixOS with:
 
 ```bash
-journalctl -u jellything -n 100 --no-pager
+journalctl -u inviterr -n 100 --no-pager
 ```
 
-Keep that log private. Open Jellything, enter the setup key, then provide the
+Keep that log private. Open Inviterr, enter the setup key, then provide the
 public app URL and the required Jellyfin connection and administrator API key.
 The public URL should be the HTTPS URL users will visit. Seerr and email are
 optional: leave either section blank during onboarding and configure it later
@@ -138,10 +146,10 @@ failure.
 ## Network and TLS
 
 Nitro serves HTTP. For Internet access, terminate TLS at a reverse proxy and
-leave Jellything bound to loopback. A minimal Caddy site is:
+leave Inviterr bound to loopback. A minimal Caddy site is:
 
 ```caddyfile
-jellything.example.com {
+inviterr.example.com {
   reverse_proxy 127.0.0.1:4173
 }
 ```
@@ -150,7 +158,7 @@ Set `TRUST_PROXY=true` only when that proxy overwrites forwarded client,
 host, and protocol headers and the backend port cannot be reached around the
 proxy. This enables correct HTTPS-origin handling and per-client rate limits
 without trusting headers supplied directly by users. If the proxy is on
-another machine, bind Jellything to a private interface and firewall the port
+another machine, bind Inviterr to a private interface and firewall the port
 so only that proxy can connect. Do not expose the unencrypted application port
 directly to the Internet.
 
@@ -159,16 +167,17 @@ directly to the Internet.
 The SQLite database and runtime config are one recoverable unit. The config
 contains secrets, so encrypt or otherwise restrict every backup.
 
-1. Stop Jellything before copying files. This gives a consistent SQLite
+1. Stop Inviterr before copying files. This gives a consistent SQLite
    snapshot and prevents config changes during the copy.
 2. Back up the files at `DB_PATH` and `CONFIG_PATH` together. With the default
-   layout, archive the whole `data/` directory (bare metal) or
-   `/var/lib/jellything/` (NixOS), including any SQLite `-wal` or `-shm` files
-   that remain.
-3. Record the Jellything release tag used with that backup.
-4. Restart Jellything and confirm `/readyz` returns `200`.
+   layout, archive the whole `data/` directory (bare metal) or the configured
+   NixOS `dataDir` (`/var/lib/inviterr/` in the example above). Upgraded
+   deployments may still use `/var/lib/jellything/`. Include any SQLite `-wal`
+   or `-shm` files that remain.
+3. Record the Inviterr release tag used with that backup.
+4. Restart Inviterr and confirm `/readyz` returns `200`.
 
-To restore, stop Jellything, replace both paths from the same backup, restore
+To restore, stop Inviterr, replace both paths from the same backup, restore
 their service-account ownership and restrictive directory/file modes, then
 start the recorded release. Confirm `/readyz` before upgrading. Restoring only
 the database or only the config can invalidate sessions or integration state.
@@ -179,14 +188,14 @@ For `nix run`, stop the old process, back up its state, and run the new tag
 from the same working directory:
 
 ```bash
-nix run github:zekurio/jellything/vX.Y.Z
+nix run github:zekurio/inviterr/vX.Y.Z
 ```
 
 Back up first. For NixOS, change the pinned input URL to the new tag, update
 that input, and rebuild:
 
 ```bash
-nix flake update jellything
+nix flake update inviterr
 sudo nixos-rebuild switch --flake .#your-host
 ```
 

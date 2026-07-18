@@ -320,7 +320,7 @@ export function getInviteEmailSubject(input: {
 }): string {
   const t = createTranslator(input.locale ?? DEFAULT_LOCALE)
   return t("emailTemplates.invite.subject", {
-    serverName: input.serverName ?? "Jellything",
+    serverName: input.serverName ?? "Inviterr",
   })
 }
 export async function renderInviteEmail(props: InviteEmailProps): Promise<string> {

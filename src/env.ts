@@ -28,7 +28,7 @@ export const env = createEnv({
     LOG_LEVEL: z
       .enum(["trace", "debug", "info", "warn", "error", "fatal"])
       .default("info"),
-    // Only enable when Jellything runs behind a trusted proxy that overwrites
+    // Only enable when Inviterr runs behind a trusted proxy that overwrites
     // forwarded IP headers. When false (the default, safe for direct exposure)
     // forwarded IP headers are ignored so clients cannot spoof their address.
     TRUST_PROXY: z.stringbool().default(false),

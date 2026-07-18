@@ -19,18 +19,18 @@ let temporaryDirectory: string
 let configPath: string
 
 beforeEach(() => {
-  temporaryDirectory = mkdtempSync(join(tmpdir(), "jellything-config-"))
+  temporaryDirectory = mkdtempSync(join(tmpdir(), "inviterr-config-"))
   configPath = join(temporaryDirectory, "private", "config.json")
   process.env.CONFIG_PATH = configPath
-  globalThis.__JELLYTHING_CONFIG_MANAGER__ = undefined
-  globalThis.__jellythingSetupKey = undefined
+  globalThis.__INVITERR_CONFIG_MANAGER__ = undefined
+  globalThis.__inviterrSetupKey = undefined
   vi.resetModules()
 })
 
 afterEach(() => {
   process.env.CONFIG_PATH = ORIGINAL_CONFIG_PATH
-  globalThis.__JELLYTHING_CONFIG_MANAGER__ = undefined
-  globalThis.__jellythingSetupKey = undefined
+  globalThis.__INVITERR_CONFIG_MANAGER__ = undefined
+  globalThis.__inviterrSetupKey = undefined
   vi.resetModules()
   rmSync(temporaryDirectory, { recursive: true, force: true })
 })
@@ -74,6 +74,30 @@ describe("config persistence", () => {
     expect(persisted.auth.encryptionKey).toHaveLength(43)
     expect(statSync(dirname(configPath)).mode & 0o777).toBe(0o700)
     expect(statSync(configPath).mode & 0o777).toBe(0o600)
+  })
+
+  it("migrates only the legacy product defaults to Inviterr", async () => {
+    mkdirSync(dirname(configPath), { recursive: true })
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        app: {
+          title: "Jellything",
+          description: "A companion app for Jellyfin",
+        },
+        jellyfin: jellyfinConfig,
+      }),
+    )
+    const configManager = await loadConfigManager()
+
+    expect(configManager.app).toMatchObject({
+      title: "Inviterr",
+      description: "Invitations and user management for Jellyfin",
+    })
+    expect(JSON.parse(readFileSync(configPath, "utf-8")).app).toMatchObject({
+      title: "Inviterr",
+      description: "Invitations and user management for Jellyfin",
+    })
   })
 
   it("keeps the valid file and in-memory config when atomic replacement fails", async () => {

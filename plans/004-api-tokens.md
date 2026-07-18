@@ -24,7 +24,7 @@
 
 ## Why this matters
 
-Today Jellything can only be driven through the browser: every write goes
+Today Inviterr can only be driven through the browser: every write goes
 through session-cookie auth with a same-origin check, so there is no way to
 script invite creation or user provisioning from a cron job, another service,
 or a CLI. API tokens unlock headless automation, which is the natural next

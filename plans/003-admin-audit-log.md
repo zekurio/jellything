@@ -25,7 +25,7 @@
 
 ## Why this matters
 
-Today the only persisted history in Jellything is invite redemptions
+Today the only persisted history in Inviterr is invite redemptions
 (`invite_usages` table, surfaced on the History tab). Every other admin
 mutation — editing/disabling/deleting users, bulk user operations, creating/
 editing/deleting invites, changing profile policies, and changing Jellyfin/

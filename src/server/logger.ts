@@ -21,7 +21,7 @@ export const logger = pino({
     level: (label) => ({ level: label }),
   },
   base: {
-    service: "jellything",
+    service: "inviterr",
   },
 })
 

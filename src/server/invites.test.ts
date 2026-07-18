@@ -16,7 +16,7 @@ vi.mock("@/lib/server/config.server", () => ({
   configManager: {
     get app() {
       return {
-        title: "Jellything",
+        title: "Inviterr",
         description: "",
         defaultLocale: "en",
         url: "http://localhost:5173",

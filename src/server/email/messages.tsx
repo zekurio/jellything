@@ -36,7 +36,7 @@ import {
   VerifyEmailTemplate,
 } from "@/server/email/templates/verify-email"
 
-const EMAIL_LOGO_CID = "jellything-email-logo"
+const EMAIL_LOGO_CID = "inviterr-email-logo"
 
 interface VerifyEmailMessage {
   type: "verifyEmail"
