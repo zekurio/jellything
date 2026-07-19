@@ -1,5 +1,5 @@
 {
-  description = "Inviterr - user management and invitations for Jellyfin";
+  description = "User management and invitation app for Jellyfin";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
