@@ -26,7 +26,7 @@ configuration paths are relative to that directory:
 mkdir -p ~/inviterr
 cd ~/inviterr
 umask 077
-nix run github:zekurio/jellything/vX.Y.Z
+nix run github:zekurio/inviterr/vX.Y.Z
 ```
 
 Open `http://127.0.0.1:4173`. Override `HOST`, `PORT`, `DB_PATH`,
@@ -35,7 +35,7 @@ Open `http://127.0.0.1:4173`. Override `HOST`, `PORT`, `DB_PATH`,
 For NixOS, pin the same tag as a flake input:
 
 ```nix
-inputs.inviterr.url = "github:zekurio/jellything/vX.Y.Z";
+inputs.inviterr.url = "github:zekurio/inviterr/vX.Y.Z";
 ```
 
 Import the module and keep the application port private when a reverse proxy
@@ -70,7 +70,7 @@ Persist `/data`, which contains the SQLite database and runtime configuration:
 docker run --name inviterr \
   --publish 127.0.0.1:4173:4173 \
   --volume inviterr-data:/data \
-  ghcr.io/zekurio/jellything:X.Y.Z
+  ghcr.io/zekurio/inviterr:X.Y.Z
 ```
 
 The image listens on port `4173`. Set `LOG_LEVEL` or `TRUST_PROXY` with
@@ -83,7 +83,7 @@ Check out a release tag, install exactly its locked dependencies, and create
 private state:
 
 ```bash
-git clone https://github.com/zekurio/jellything.git
+git clone https://github.com/zekurio/inviterr.git
 cd inviterr
 git checkout vX.Y.Z
 pnpm install --frozen-lockfile
@@ -179,7 +179,7 @@ For `nix run`, stop the old process, back up its state, and run the new tag
 from the same working directory:
 
 ```bash
-nix run github:zekurio/jellything/vX.Y.Z
+nix run github:zekurio/inviterr/vX.Y.Z
 ```
 
 Back up first. For NixOS, change the pinned input URL to the new tag, update
