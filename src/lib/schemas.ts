@@ -493,6 +493,7 @@ export const jellyfinSettingsFormSchema = z.object({
   externalUrl: z.string().url(validation.validUrlRequired).or(z.literal("")),
   apiKey: z.string(),
   configPath: z.string(),
+  displayName: z.string(),
 })
 
 export type JellyfinSettingsFormValues = z.infer<

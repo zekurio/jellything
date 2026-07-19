@@ -48,6 +48,7 @@ export const getDashboardSettingsBootstrap = cache(
         externalUrl: configManager.jellyfin.externalUrl,
         apiKeySet: Boolean(configManager.jellyfin.apiKey),
         configPath: configManager.jellyfin.configPath,
+        displayName: configManager.jellyfin.displayName,
       },
       seerr: {
         internalUrl: configManager.seerr?.internalUrl,

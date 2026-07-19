@@ -101,6 +101,7 @@ export const jellyfinConfigSchema = z.object({
   externalUrl: exactOptional(UriStringSchema),
   apiKeySet: BooleanSchema,
   configPath: exactOptional(AnyStringSchema),
+  displayName: exactOptional(AnyStringSchema),
 })
 
 export const updateJellyfinConfigBodySchema = minProperties(
@@ -109,6 +110,7 @@ export const updateJellyfinConfigBodySchema = minProperties(
     externalUrl: exactOptional(UriStringSchema.nullable()),
     apiKey: exactOptional(NonEmptyStringSchema),
     configPath: exactOptional(AnyStringSchema.nullable()),
+    displayName: exactOptional(NonEmptyStringSchema.nullable()),
   }),
   1,
 )

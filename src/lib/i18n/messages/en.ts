@@ -155,6 +155,10 @@ export const en: Messages = {
       "Public browser URL. Uses internal URL when left empty.",
     externalUrlDescriptionSeerr:
       "Public Seerr URL for browser access. Uses internal URL when empty.",
+    displayNameOptional: "Display Name (optional)",
+    displayNamePlaceholderJellyfin: "My Media Server",
+    displayNameDescriptionJellyfin:
+      "Name used when emails refer to your Jellyfin server. Leave empty to use the server's own name.",
     apiKey: "API Key",
     apiKeyPlaceholderSet: "API key set",
     apiKeyPlaceholder: "Enter API key",
@@ -721,11 +725,11 @@ export const en: Messages = {
       footer: "You can keep using your account until the expiry time above.",
     },
     accountDisabled: {
-      subject: "Your access has been disabled - {serverName}",
-      preview: "Your access to {serverName} has been disabled",
+      subject: "Your access has been disabled - {mediaServerName}",
+      preview: "Your access to {mediaServerName} has been disabled",
       heading: "Your access has been disabled, {username}",
       intro:
-        "Your access to {serverName} has been disabled. You can no longer sign in or stream.",
+        "Your access to {mediaServerName} has been disabled. You can no longer sign in or stream.",
       contact: "If you believe this is a mistake, contact an administrator.",
     },
     accountDeleted: {

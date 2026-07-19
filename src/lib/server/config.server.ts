@@ -121,6 +121,7 @@ const configSchema = z.object({
     externalUrl: z.url().optional(),
     apiKey: z.string().min(1),
     configPath: z.string().optional(),
+    displayName: z.string().min(1).optional(),
   }),
   seerr: seerrConfigSchema.optional(),
   email: z

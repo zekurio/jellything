@@ -134,6 +134,9 @@ export interface Messages {
     externalUrlPlaceholderSeerr: string
     externalUrlDescriptionJellyfin: string
     externalUrlDescriptionSeerr: string
+    displayNameOptional: string
+    displayNamePlaceholderJellyfin: string
+    displayNameDescriptionJellyfin: string
     apiKey: string
     apiKeyPlaceholderSet: string
     apiKeyPlaceholder: string

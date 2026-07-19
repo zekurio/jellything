@@ -23,6 +23,9 @@ vi.mock("@/lib/server/config.server", () => ({
       defaultLocale: "en",
       url: "https://cinema.example.com",
     },
+    jellyfin: {
+      displayName: "Cinema Stream",
+    },
     email: {
       from: "Cinema Club <mail@cinema.example.com>",
       branding: {
@@ -112,6 +115,18 @@ describe("email message registry", () => {
       delivery: "preview",
     })
 
-    expect(message.subject).toBe("Your access has been disabled - Cinema Club")
+    expect(message.subject).toBe(
+      "Your access has been disabled - Cinema Stream",
+    )
+  })
+
+  it("refers to the media server in the disabled notice body", async () => {
+    const message = await buildSyntheticEmailMessage("accountDisabled", {
+      delivery: "preview",
+    })
+
+    expect(message.text).toContain(
+      "Your access to Cinema Stream has been disabled",
+    )
   })
 })
