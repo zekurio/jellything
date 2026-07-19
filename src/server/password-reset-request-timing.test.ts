@@ -28,7 +28,7 @@ async function loadService() {
 }
 
 beforeAll(async () => {
-  workDir = await mkdtemp(path.join(tmpdir(), "jellything-reset-timing-"))
+  workDir = await mkdtemp(path.join(tmpdir(), "inviterr-reset-timing-"))
   pinDir = path.join(workDir, "jellyfin-config")
 
   process.env.SKIP_ENV_VALIDATION = "true"
@@ -49,7 +49,7 @@ beforeAll(async () => {
         configPath: pinDir,
       },
       email: {
-        from: "Jellything <noreply@example.com>",
+        from: "Inviterr <noreply@example.com>",
         smtp: {
           host: "127.0.0.1",
           port: 1,

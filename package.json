@@ -1,5 +1,5 @@
 {
-  "name": "jellything",
+  "name": "inviterr",
   "version": "1.1.0",
   "private": true,
   "type": "module",
@@ -22,9 +22,9 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@fontsource/ibm-plex-mono": "^5.2.7",
-    "@fontsource/lora": "^5.2.8",
-    "@fontsource/montserrat": "^5.2.7",
+    "@fontsource/dm-sans": "^5.2.8",
+    "@fontsource/merriweather": "^5.2.12",
+    "@fontsource/roboto-mono": "^5.2.8",
     "@hookform/resolvers": "^5.4.0",
     "@libsql/client": "^0.17.4",
     "@orpc/client": "^1.14.7",

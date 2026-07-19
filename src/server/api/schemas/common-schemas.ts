@@ -51,7 +51,7 @@ export const sessionSchema = z.object({
 })
 
 const hexColorSchema = AnyStringSchema.refine(isHexColor, {
-  message: "Must be a hex color like #6B5FC3",
+  message: "Must be a hex color like #3A64F2",
 }).transform(normalizeHexColor)
 
 const brandingImageUpdateSchema = z.discriminatedUnion("action", [

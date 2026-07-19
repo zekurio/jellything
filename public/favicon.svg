@@ -1,15 +1,20 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg width="100%" height="100%" viewBox="0 0 512 512" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
-    <path d="M512,128L512,384C512,454.645 454.645,512 384,512L128,512C57.355,512 0,454.645 0,384L0,128C0,57.355 57.355,0 128,0L384,0C454.645,0 512,57.355 512,128Z" style="fill:rgb(38,38,38);"/>
-    <g transform="matrix(1,0,0,1,-40.369909,-4.280562)">
-        <g transform="matrix(383.333333,0,0,383.333333,85.713268,392.548531)">
-            <path d="M0.203,0.01C0.158,0.01 0.118,0.001 0.08,-0.016C0.042,-0.034 0.011,-0.059 -0.013,-0.091L0.061,-0.18C0.08,-0.154 0.102,-0.134 0.124,-0.12C0.147,-0.107 0.173,-0.1 0.2,-0.1C0.273,-0.1 0.309,-0.143 0.309,-0.229L0.309,-0.591L0.06,-0.591L0.06,-0.7L0.439,-0.7L0.439,-0.236C0.439,-0.153 0.419,-0.092 0.378,-0.051C0.338,-0.01 0.28,0.01 0.203,0.01Z" style="fill:rgb(229,229,229);fill-rule:nonzero;"/>
-        </g>
-        <g transform="matrix(383.333333,0,0,383.333333,282.746601,392.548531)">
-            <path d="M0.236,-0L0.236,-0.59L0.004,-0.59L0.004,-0.7L0.598,-0.7L0.598,-0.59L0.366,-0.59L0.366,-0L0.236,-0Z" style="fill:rgb(229,229,229);fill-rule:nonzero;"/>
-        </g>
-        <g transform="matrix(383.333333,0,0,383.333333,513.513268,392.548531)">
-        </g>
-    </g>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="backdrop" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6BCEFF"/>
+      <stop offset="0.55" stop-color="#3A64F2"/>
+      <stop offset="1" stop-color="#5B4EFF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.28" cy="0.22" r="0.9">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="115" fill="url(#backdrop)"/>
+  <rect width="512" height="512" rx="115" fill="url(#glow)"/>
+  <g transform="translate(256 256) rotate(-8) scale(11.5) translate(-12 -12)" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/>
+    <path d="M9 12h6"/>
+    <path d="M12 9v6"/>
+  </g>
 </svg>

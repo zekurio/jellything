@@ -29,7 +29,7 @@ import { SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from "@/lib/i18n"
 import { logger } from "@/server/logger"
 
 const DEFAULT_APP_CONFIG = {
-  title: "Jellything",
+  title: "Inviterr",
   description: "A companion app for Jellyfin",
   defaultLocale: DEFAULT_LOCALE as Locale,
   url: undefined as string | undefined,
@@ -88,7 +88,7 @@ const DEFAULT_MEMBER_ONBOARDING_CONFIG = {
 }
 
 declare global {
-  var __jellythingSetupKey: string | undefined
+  var __inviterrSetupKey: string | undefined
 }
 
 const configSchema = z.object({
@@ -125,7 +125,7 @@ const configSchema = z.object({
   seerr: seerrConfigSchema.optional(),
   email: z
     .object({
-      from: z.string().default("Jellything <noreply@example.com>"),
+      from: z.string().default("Inviterr <noreply@example.com>"),
       smtp: z
         .object({
           host: z.string().min(1),
@@ -187,7 +187,7 @@ function removeTemporaryConfigSync(temporaryPath: string): void {
     }
     logger.error(
       { err: cleanupError },
-      "Failed to clean up temporary Jellything config",
+      "Failed to clean up temporary Inviterr config",
     )
   }
 }
@@ -205,7 +205,7 @@ async function removeTemporaryConfig(temporaryPath: string): Promise<void> {
     }
     logger.error(
       { err: cleanupError },
-      "Failed to clean up temporary Jellything config",
+      "Failed to clean up temporary Inviterr config",
     )
   }
 }
@@ -231,7 +231,7 @@ function writeConfigAtomicallySync(configPath: string, payload: string): void {
       } catch (cleanupError) {
         logger.error(
           { err: cleanupError },
-          "Failed to close temporary Jellything config",
+          "Failed to close temporary Inviterr config",
         )
       }
     }
@@ -265,7 +265,7 @@ async function writeConfigAtomically(
       } catch (cleanupError) {
         logger.error(
           { err: cleanupError },
-          "Failed to close temporary Jellything config",
+          "Failed to close temporary Inviterr config",
         )
       }
     }
@@ -292,7 +292,7 @@ class ConfigManager {
     } catch (saveError) {
       logger.error(
         { err: saveError },
-        "Failed to persist normalized Jellything config",
+        "Failed to persist normalized Inviterr config",
       )
       throw saveError
     }
@@ -307,7 +307,7 @@ class ConfigManager {
       return
     }
 
-    const globalSetupKey = globalThis.__jellythingSetupKey
+    const globalSetupKey = globalThis.__inviterrSetupKey
     if (!globalSetupKey) {
       this.generateSetupKey()
       return
@@ -383,7 +383,7 @@ class ConfigManager {
       if (!hasSessionSecret || !hasEncryptionKey) {
         this.persistLoadedConfig(
           updatedConfig,
-          "Generated and persisted missing Jellything auth settings in config",
+          "Generated and persisted missing Inviterr auth settings in config",
         )
       }
       this.config = updatedConfig
@@ -405,7 +405,7 @@ class ConfigManager {
     this.setupKey = Array.from(bytes, (byte) =>
       byte.toString(16).padStart(2, "0"),
     ).join("")
-    globalThis.__jellythingSetupKey = this.setupKey
+    globalThis.__inviterrSetupKey = this.setupKey
     logger.info(
       { setupKey: this.setupKey },
       "Generated setup key for onboarding",
@@ -445,7 +445,7 @@ class ConfigManager {
 
   private clearSetupKey(): void {
     this.setupKey = null
-    globalThis.__jellythingSetupKey = undefined
+    globalThis.__inviterrSetupKey = undefined
   }
 
   get(): Config {
@@ -597,13 +597,13 @@ class ConfigManager {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __JELLYTHING_CONFIG_MANAGER__: ConfigManager | undefined
+  var __INVITERR_CONFIG_MANAGER__: ConfigManager | undefined
 }
 
-const globalConfigManager = globalThis.__JELLYTHING_CONFIG_MANAGER__
+const globalConfigManager = globalThis.__INVITERR_CONFIG_MANAGER__
 
 export const configManager = globalConfigManager ?? new ConfigManager()
 
 if (!globalConfigManager) {
-  globalThis.__JELLYTHING_CONFIG_MANAGER__ = configManager
+  globalThis.__INVITERR_CONFIG_MANAGER__ = configManager
 }

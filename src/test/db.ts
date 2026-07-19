@@ -9,7 +9,7 @@ export interface TestDatabase {
 }
 
 export async function createTestDatabase(): Promise<TestDatabase> {
-  const directory = await mkdtemp(path.join(tmpdir(), "jellything-test-"))
+  const directory = await mkdtemp(path.join(tmpdir(), "inviterr-test-"))
 
   return {
     dbPath: path.join(directory, "test.db"),

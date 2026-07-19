@@ -158,7 +158,7 @@ describe("RPC route mutation boundary", () => {
     await expect(client.auth.logout({})).resolves.toBeNull()
 
     const setCookie = getSetCookieHeader(responseState)
-    expect(setCookie).toContain("jellything-session=")
+    expect(setCookie).toContain("inviterr-session=")
     expect(setCookie).toContain("session=")
     expect(setCookie).toContain("Expires=Thu, 01 Jan 1970 00:00:00 GMT")
   })
@@ -167,7 +167,7 @@ describe("RPC route mutation boundary", () => {
 describe("RPC route bootstrap cookie boundary", () => {
   it("clears a stale auth cookie returned by session resolution", async () => {
     const { client, responseState } = createRouteClient({
-      cookie: "jellything-session=stale-session",
+      cookie: "inviterr-session=stale-session",
     })
 
     await expect(client.app.bootstrap({})).resolves.toMatchObject({
@@ -177,7 +177,7 @@ describe("RPC route bootstrap cookie boundary", () => {
     expect(resolveSession).toHaveBeenCalledOnce()
 
     const setCookie = getSetCookieHeader(responseState)
-    expect(setCookie).toContain("jellything-session=")
+    expect(setCookie).toContain("inviterr-session=")
     expect(setCookie).toContain("Expires=Thu, 01 Jan 1970 00:00:00 GMT")
   })
 })

@@ -80,6 +80,6 @@ export function getPasswordResetEmailSubject(input: {
 }): string {
   const t = createTranslator(input.locale ?? DEFAULT_LOCALE)
   return t("emailTemplates.passwordReset.subject", {
-    serverName: input.serverName ?? "Jellything",
+    serverName: input.serverName ?? "Inviterr",
   })
 }

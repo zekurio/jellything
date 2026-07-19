@@ -161,8 +161,8 @@ jobs:
           RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
-          docker tag "jellything:$RELEASE_VERSION" "$image:$RELEASE_VERSION"
-          docker tag "jellything:$RELEASE_VERSION" "$image:latest"
+          docker tag "inviterr:$RELEASE_VERSION" "$image:$RELEASE_VERSION"
+          docker tag "inviterr:$RELEASE_VERSION" "$image:latest"
           docker push "$image:$RELEASE_VERSION"
           docker push "$image:latest"
 

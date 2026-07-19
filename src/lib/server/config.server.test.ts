@@ -19,18 +19,18 @@ let temporaryDirectory: string
 let configPath: string
 
 beforeEach(() => {
-  temporaryDirectory = mkdtempSync(join(tmpdir(), "jellything-config-"))
+  temporaryDirectory = mkdtempSync(join(tmpdir(), "inviterr-config-"))
   configPath = join(temporaryDirectory, "private", "config.json")
   process.env.CONFIG_PATH = configPath
-  globalThis.__JELLYTHING_CONFIG_MANAGER__ = undefined
-  globalThis.__jellythingSetupKey = undefined
+  globalThis.__INVITERR_CONFIG_MANAGER__ = undefined
+  globalThis.__inviterrSetupKey = undefined
   vi.resetModules()
 })
 
 afterEach(() => {
   process.env.CONFIG_PATH = ORIGINAL_CONFIG_PATH
-  globalThis.__JELLYTHING_CONFIG_MANAGER__ = undefined
-  globalThis.__jellythingSetupKey = undefined
+  globalThis.__INVITERR_CONFIG_MANAGER__ = undefined
+  globalThis.__inviterrSetupKey = undefined
   vi.resetModules()
   rmSync(temporaryDirectory, { recursive: true, force: true })
 })

@@ -6,6 +6,7 @@ import {
   BRANDING_LOGO_MAX_WIDTH,
   getContrastRatio,
 } from "@/lib/branding"
+import { DEFAULT_EMAIL_BRANDING } from "@/lib/email"
 import {
   BrandingImageValidationError,
   normalizeBrandingImage,
@@ -155,7 +156,7 @@ describe("email branding", () => {
       { pageBackgroundColor: "#ECECEF" },
     )
 
-    expect(resolved.theme.accent).toBe("#6B5FC3")
+    expect(resolved.theme.accent).toBe(DEFAULT_EMAIL_BRANDING.accentColor)
   })
 
   it("rejects truncated image data", async () => {

@@ -125,13 +125,13 @@ export const de: Messages = {
       "App-Name, Beschreibung und Standardsprache festlegen.",
     appTitle: "App-Titel",
     appTitleDescription: "Wird im Browser-Tab und in der App angezeigt.",
-    appTitlePlaceholder: "Jellything",
+    appTitlePlaceholder: "Inviterr",
     appDescription: "Beschreibung",
     appDescriptionPlaceholder:
       "Benutzerverwaltung und Einladungssystem für Jellyfin",
     appDescriptionHelp: "Wird in den Seiten-Metadaten verwendet.",
     appUrl: "App-URL",
-    appUrlPlaceholder: "https://jellything.example.com",
+    appUrlPlaceholder: "https://inviterr.example.com",
     appUrlDescription:
       "Öffentliche URL für E-Mail-Links und vertrauenswürdige Same-Origin-Prüfungen.",
     defaultLocale: "Standardsprache",
@@ -164,11 +164,11 @@ export const de: Messages = {
     apiKeyUpdateHint: "Leer lassen, um den aktuellen Schlüssel zu behalten.",
     jellyfinConnectionTitle: "Jellyfin-Verbindung",
     jellyfinConnectionDescription:
-      "Konfiguriere die Jellyfin-Verbindung von Jellything.",
+      "Konfiguriere die Jellyfin-Verbindung von Inviterr.",
     jellyfinSaved: "Jellyfin-Einstellungen gespeichert",
     seerrConnectionTitle: "Seerr-Verbindung",
     seerrConnectionDescription:
-      "Konfiguriere die Seerr-Verbindung von Jellything.",
+      "Konfiguriere die Seerr-Verbindung von Inviterr.",
     seerrSaved: "Seerr-Einstellungen gespeichert",
     seerrTestFailed: "Verbindung zu Seerr fehlgeschlagen",
     noChanges: "Keine Änderungen zum Speichern",
@@ -178,7 +178,7 @@ export const de: Messages = {
     emailSettingsTitle: "E-Mail-Einstellungen",
     emailSettingsDescription: "Ausgehende E-Mails über SMTP konfigurieren.",
     emailFrom: "Absenderadresse",
-    emailFromPlaceholder: "Jellything <noreply@example.com>",
+    emailFromPlaceholder: "Inviterr <noreply@example.com>",
     emailFromDescription: "Absenderadresse für ausgehende E-Mails.",
     smtpHost: "SMTP-Host",
     smtpHostPlaceholder: "smtp.beispiel.de",
@@ -211,7 +211,7 @@ export const de: Messages = {
     emailPageBackgroundColor: "Hintergrundfarbe",
     emailPageBackgroundColorDescription:
       "Seitenhintergrund hinter der E-Mail-Karte.",
-    emailInvalidColor: "Muss eine Hex-Farbe wie #6B5FC3 sein",
+    emailInvalidColor: "Muss eine Hex-Farbe wie #3A64F2 sein",
     emailLogo: "Logo",
     emailLogoDescription:
       "PNG oder JPEG, bis zu 256 KB. Größere Bilder werden automatisch verkleinert. Ohne Logo wird das App-Logo verwendet.",
@@ -591,9 +591,9 @@ export const de: Messages = {
     deleteUser: "Benutzer löschen",
     deleteUserTitle: "Benutzer löschen",
     deleteUserDescription:
-      "{name} aus Jellyfin löschen und die gespeicherten Jellything-Daten entfernen?",
+      "{name} aus Jellyfin löschen und die gespeicherten Inviterr-Daten entfernen?",
     deleteStaleUserDescription:
-      "Die verbliebenen Jellything-Daten für {name} entfernen? Das Jellyfin-Konto existiert bereits nicht mehr.",
+      "Die verbliebenen Inviterr-Daten für {name} entfernen? Das Jellyfin-Konto existiert bereits nicht mehr.",
     userDeleted: "Benutzer gelöscht",
     staleUserDeleted: "Verbliebene Benutzerdaten gelöscht",
     userDeleteFailed: "Benutzer konnte nicht gelöscht werden",
@@ -605,7 +605,7 @@ export const de: Messages = {
     statusFilterAll: "Alle Benutzer",
     statusExpired: "Abgelaufen",
     missingInJellyfinDescription:
-      "Dieser Benutzereintrag existiert nur noch in Jellything.",
+      "Dieser Benutzereintrag existiert nur noch in Inviterr.",
     emailNotSet: "Keine E-Mail",
     noProfile: "Kein Profil",
     profileExempt: "Ausgenommen",
@@ -673,10 +673,10 @@ export const de: Messages = {
     bulkOperationFailed: "Massenoperation fehlgeschlagen",
   },
   onboarding: {
-    title: "Jellything-Einrichtung",
+    title: "Inviterr-Einrichtung",
     keyDescription:
       "Gib den Setup-Schlüssel aus der Konsole ein, um fortzufahren",
-    appStepTitle: "Jellything",
+    appStepTitle: "Inviterr",
     appStepDescription: "Lege fest, wo diese App erreichbar ist.",
     setupKeyLabel: "Setup-Schlüssel",
     invalidSetupKey:
