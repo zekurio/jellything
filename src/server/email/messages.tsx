@@ -122,6 +122,7 @@ export interface BuiltEmailMessage {
 
 interface MessageBuildContext {
   serverName: string
+  mediaServerName: string
   logoSrc?: string
   logoWidth?: number
   logoHeight?: number
@@ -257,9 +258,16 @@ function getMessageElement(
       }
     case "accountDisabled":
       return {
-        subject: getAccountDisabledEmailSubject(subjectInput),
+        subject: getAccountDisabledEmailSubject({
+          mediaServerName: context.mediaServerName,
+          locale: request.payload.locale,
+        }),
         element: (
-          <AccountDisabledEmailTemplate {...shared} {...request.payload} />
+          <AccountDisabledEmailTemplate
+            {...shared}
+            mediaServerName={context.mediaServerName}
+            {...request.payload}
+          />
         ),
       }
     case "accountDeleted":
@@ -310,8 +318,13 @@ export async function buildEmailMessage(
   }
 
   const serverName = configManager.app.title
+  const mediaServerName =
+    request.type === "accountDisabled"
+      ? await resolveMediaServerName()
+      : serverName
   const { subject, element } = getMessageElement(request, {
     serverName,
+    mediaServerName,
     theme: branding.theme,
     logoSrc,
     logoWidth: logo.width,
@@ -326,6 +339,11 @@ export async function buildEmailMessage(
   ])
 
   return { subject, html, text, attachments }
+}
+
+async function resolveMediaServerName(): Promise<string> {
+  const { getMediaServerName } = await import("@/server/jellyfin/display-name")
+  return await getMediaServerName()
 }
 
 export async function buildSyntheticEmailMessage(

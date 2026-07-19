@@ -10,11 +10,13 @@ import { createEmailTemplateStyles } from "@/server/email/templates/styles"
 
 interface AccountDisabledEmailProps extends EmailThemeProps {
   username: string
+  mediaServerName: string
   locale?: Locale
 }
 
 export function AccountDisabledEmailTemplate({
   username,
+  mediaServerName,
   locale,
   ...themeProps
 }: AccountDisabledEmailProps) {
@@ -24,7 +26,7 @@ export function AccountDisabledEmailTemplate({
   return (
     <EmailLayout
       preview={t("emailTemplates.accountDisabled.preview", {
-        serverName: themeProps.serverName,
+        mediaServerName,
       })}
       locale={locale}
       {...themeProps}
@@ -35,7 +37,7 @@ export function AccountDisabledEmailTemplate({
 
       <Text style={styles.paragraph}>
         {t("emailTemplates.accountDisabled.intro", {
-          serverName: themeProps.serverName,
+          mediaServerName,
         })}
       </Text>
 
@@ -47,11 +49,11 @@ export function AccountDisabledEmailTemplate({
 }
 
 export function getAccountDisabledEmailSubject(input: {
-  serverName?: string
+  mediaServerName?: string
   locale?: Locale
 }): string {
   const t = createTranslator(input.locale ?? DEFAULT_LOCALE)
   return t("emailTemplates.accountDisabled.subject", {
-    serverName: input.serverName ?? "Inviterr",
+    mediaServerName: input.mediaServerName ?? "Jellyfin",
   })
 }

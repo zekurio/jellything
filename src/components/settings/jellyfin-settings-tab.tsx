@@ -86,6 +86,7 @@ function toJellyfinFormValues(
     externalUrl: configState.externalUrl ?? "",
     apiKey: "",
     configPath: configState.configPath ?? "",
+    displayName: configState.displayName ?? "",
   }
 }
 
@@ -97,12 +98,14 @@ function buildJellyfinSettingsUpdate(
   externalUrl?: string | null
   apiKey?: string
   configPath?: string | null
+  displayName?: string | null
 } {
   const updates: {
     internalUrl?: string
     externalUrl?: string | null
     apiKey?: string
     configPath?: string | null
+    displayName?: string | null
   } = {}
 
   if (data.internalUrl !== configState.internalUrl) {
@@ -116,6 +119,9 @@ function buildJellyfinSettingsUpdate(
   }
   if (data.configPath !== (configState.configPath ?? "")) {
     updates.configPath = data.configPath || null
+  }
+  if (data.displayName !== (configState.displayName ?? "")) {
+    updates.displayName = data.displayName || null
   }
 
   return updates
@@ -136,6 +142,10 @@ function toNextJellyfinConfig(
       updates.configPath !== undefined
         ? (updates.configPath ?? undefined)
         : configState.configPath,
+    displayName:
+      updates.displayName !== undefined
+        ? (updates.displayName ?? undefined)
+        : configState.displayName,
   }
 }
 
@@ -190,6 +200,23 @@ function JellyfinSettingsFields({
           {t("settings.externalUrlDescriptionJellyfin")}
         </p>
         {errors.externalUrl && <FieldError errors={[errors.externalUrl]} />}
+      </Field>
+
+      <Field data-invalid={!!errors.displayName}>
+        <FieldLabel htmlFor="displayName">
+          {t("settings.displayNameOptional")}
+        </FieldLabel>
+        <Input
+          id="displayName"
+          type="text"
+          placeholder={t("settings.displayNamePlaceholderJellyfin")}
+          aria-invalid={!!errors.displayName}
+          {...register("displayName")}
+        />
+        <p className="text-muted-foreground text-xs">
+          {t("settings.displayNameDescriptionJellyfin")}
+        </p>
+        {errors.displayName && <FieldError errors={[errors.displayName]} />}
       </Field>
 
       <JellyfinSecretFields

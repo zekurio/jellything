@@ -49,6 +49,9 @@ export async function updateJellyfinConfigService(
     if (Object.hasOwn(data, "configPath")) {
       updates.configPath = data.configPath ?? undefined
     }
+    if (Object.hasOwn(data, "displayName")) {
+      updates.displayName = data.displayName ?? undefined
+    }
 
     const shouldValidateConnection =
       updates.internalUrl !== undefined || updates.apiKey !== undefined

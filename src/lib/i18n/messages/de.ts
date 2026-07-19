@@ -154,6 +154,10 @@ export const de: Messages = {
       "Öffentliche Browser-URL. Wenn leer, wird die interne URL genutzt.",
     externalUrlDescriptionSeerr:
       "Öffentliche Seerr-URL für Browserzugriff. Wenn leer, wird die interne URL genutzt.",
+    displayNameOptional: "Anzeigename (optional)",
+    displayNamePlaceholderJellyfin: "Mein Medienserver",
+    displayNameDescriptionJellyfin:
+      "Name, mit dem E-Mails auf deinen Jellyfin-Server verweisen. Leer lassen, um den Servernamen von Jellyfin zu verwenden.",
     apiKey: "API-Schlüssel",
     apiKeyPlaceholderSet: "API-Schlüssel gesetzt",
     apiKeyPlaceholder: "API-Schlüssel eingeben",
@@ -740,11 +744,11 @@ export const de: Messages = {
         "Du kannst dein Konto bis zum oben genannten Ablaufzeitpunkt weiter nutzen.",
     },
     accountDisabled: {
-      subject: "Dein Zugang wurde deaktiviert - {serverName}",
-      preview: "Dein Zugang zu {serverName} wurde deaktiviert",
+      subject: "Dein Zugang wurde deaktiviert - {mediaServerName}",
+      preview: "Dein Zugang zu {mediaServerName} wurde deaktiviert",
       heading: "Dein Zugang wurde deaktiviert, {username}",
       intro:
-        "Dein Zugang zu {serverName} wurde deaktiviert. Du kannst dich nicht mehr anmelden oder streamen.",
+        "Dein Zugang zu {mediaServerName} wurde deaktiviert. Du kannst dich nicht mehr anmelden oder streamen.",
       contact:
         "Wenn du glaubst, dass es sich um einen Fehler handelt, kontaktiere einen Administrator.",
     },
