@@ -684,8 +684,7 @@ export const en: Messages = {
   },
   emailTemplates: {
     layout: {
-      footer:
-        "This email was sent by {serverName}. If you did not expect this email, you can safely ignore it.",
+      footer: "This email was sent by {serverName}.",
     },
     passwordReset: {
       subject: `Reset your ${passwordWord.toLowerCase()} - {serverName}`,
@@ -708,6 +707,8 @@ export const en: Messages = {
         "Thanks for signing up. Please verify your email address to enable password reset and other email features.",
       action: "Verify Email Address",
       expiry: "This link will expire in 24 hours.",
+      ignore:
+        "If you didn't sign up for {serverName}, you can safely ignore this email.",
     },
     expiryWarning: {
       subject: "Your access expires soon - {serverName}",

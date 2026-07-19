@@ -76,6 +76,9 @@ export function EmailLayout({
       <Head>
         <meta name="color-scheme" content="light" />
         <meta name="supported-color-schemes" content="light" />
+        {/* "only light" opts out of forced dark-mode color transforms
+            (Chrome Auto Dark, dark-mode webviews) that black out the email. */}
+        <style>{"html, body { color-scheme: only light; }"}</style>
       </Head>
       <Preview>{preview}</Preview>
       <Body style={styles.main}>

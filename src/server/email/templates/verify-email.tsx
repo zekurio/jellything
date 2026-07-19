@@ -48,6 +48,12 @@ export function VerifyEmailTemplate({
       <Text style={styles.centeredMuted}>
         {t("emailTemplates.verifyEmail.expiry")}
       </Text>
+
+      <Text style={styles.muted}>
+        {t("emailTemplates.verifyEmail.ignore", {
+          serverName: themeProps.serverName,
+        })}
+      </Text>
     </EmailLayout>
   )
 }

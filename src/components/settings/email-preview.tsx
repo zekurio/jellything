@@ -179,7 +179,7 @@ export function EmailPreviewSection({
             title={t("settings.emailPreview")}
             sandbox=""
             srcDoc={preview?.html ?? ""}
-            className="h-[65vh] w-full rounded-md border bg-white"
+            className="h-[65vh] w-full rounded-md border bg-white [color-scheme:light]"
           />
         </DialogContent>
       </Dialog>

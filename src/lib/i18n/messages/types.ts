@@ -625,6 +625,7 @@ export interface Messages {
       intro: string
       action: string
       expiry: string
+      ignore: string
     }
     expiryWarning: {
       subject: string

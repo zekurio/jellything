@@ -701,8 +701,7 @@ export const de: Messages = {
   },
   emailTemplates: {
     layout: {
-      footer:
-        "Diese E-Mail wurde von {serverName} gesendet. Wenn du diese E-Mail nicht erwartet hast, kannst du sie ignorieren.",
+      footer: "Diese E-Mail wurde von {serverName} gesendet.",
     },
     passwordReset: {
       subject: "Setze dein Passwort zurück - {serverName}",
@@ -726,6 +725,8 @@ export const de: Messages = {
         "Danke für deine Anmeldung. Bitte bestätige deine E-Mail-Adresse, um Passwort-Reset und andere E-Mail-Funktionen zu aktivieren.",
       action: "E-Mail-Adresse bestätigen",
       expiry: "Dieser Link läuft in 24 Stunden ab.",
+      ignore:
+        "Wenn du dich nicht bei {serverName} registriert hast, kannst du diese E-Mail ignorieren.",
     },
     expiryWarning: {
       subject: "Dein Zugang läuft bald ab - {serverName}",
