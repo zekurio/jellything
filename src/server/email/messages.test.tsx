@@ -43,6 +43,7 @@ vi.mock("@/server/email/index", () => ({
   sendEmail: vi.fn<(options: unknown) => Promise<void>>(async () => undefined),
 }))
 
+import { DEFAULT_EMAIL_LOGO } from "@/server/email/default-logo"
 import { buildSyntheticEmailMessage } from "@/server/email/messages"
 
 describe("email message registry", () => {
@@ -73,6 +74,33 @@ describe("email message registry", () => {
     expect(message.html).toContain("cid:inviterr-email-logo")
     expect(message.attachments).toHaveLength(1)
     expect(message.attachments?.[0]).toMatchObject({
+      cid: "inviterr-email-logo",
+      contentType: "image/png",
+      contentDisposition: "inline",
+    })
+  })
+
+  it("falls back to the bundled app logo when no custom logo is set", async () => {
+    const preview = await buildSyntheticEmailMessage("verifyEmail", {
+      delivery: "preview",
+      // An override without a logo replaces the saved branding entirely.
+      brandingOverride: {},
+    })
+
+    expect(preview.html).toContain(
+      `data:image/png;base64,${DEFAULT_EMAIL_LOGO.base64}`,
+    )
+    // The bundled icon has no wordmark, so the brand text stays visible.
+    expect(preview.html).toMatch(/>Cinema Club<\/p>/)
+
+    const delivery = await buildSyntheticEmailMessage("verifyEmail", {
+      delivery: "smtp",
+      brandingOverride: {},
+    })
+
+    expect(delivery.html).toContain("cid:inviterr-email-logo")
+    expect(delivery.attachments).toHaveLength(1)
+    expect(delivery.attachments?.[0]).toMatchObject({
       cid: "inviterr-email-logo",
       contentType: "image/png",
       contentDisposition: "inline",

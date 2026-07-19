@@ -10,6 +10,7 @@ import {
   resolveEmailBranding,
   type EmailBrandingOverride,
 } from "@/server/email/branding"
+import { DEFAULT_EMAIL_LOGO } from "@/server/email/default-logo"
 import { sendEmail, type SendEmailOptions } from "@/server/email/index"
 import {
   AccountDeletedEmailTemplate,
@@ -286,27 +287,26 @@ export async function buildEmailMessage(
     configManager.email,
     options.brandingOverride,
   )
-  const logo = branding.logo
-  let logoSrc: string | undefined
+  // Fall back to the bundled app logo so emails always carry the real
+  // branding; a remote link to the app URL would be blocked or unreachable
+  // in many mail clients.
+  const logo = branding.logo ?? DEFAULT_EMAIL_LOGO
+  let logoSrc: string
   let attachments: SendEmailOptions["attachments"]
 
-  if (logo) {
-    if (options.delivery === "preview") {
-      logoSrc = getBrandingImageDataUrl(logo)
-    } else {
-      logoSrc = `cid:${EMAIL_LOGO_CID}`
-      attachments = [
-        {
-          filename: logo.mimeType === "image/png" ? "logo.png" : "logo.jpg",
-          content: Buffer.from(logo.base64, "base64"),
-          contentType: logo.mimeType,
-          cid: EMAIL_LOGO_CID,
-          contentDisposition: "inline",
-        },
-      ]
-    }
-  } else if (configManager.app.url) {
-    logoSrc = new URL("/logo-192.png", configManager.app.url).toString()
+  if (options.delivery === "preview") {
+    logoSrc = getBrandingImageDataUrl(logo)
+  } else {
+    logoSrc = `cid:${EMAIL_LOGO_CID}`
+    attachments = [
+      {
+        filename: logo.mimeType === "image/png" ? "logo.png" : "logo.jpg",
+        content: Buffer.from(logo.base64, "base64"),
+        contentType: logo.mimeType,
+        cid: EMAIL_LOGO_CID,
+        contentDisposition: "inline",
+      },
+    ]
   }
 
   const serverName = configManager.app.title
@@ -314,9 +314,10 @@ export async function buildEmailMessage(
     serverName,
     theme: branding.theme,
     logoSrc,
-    logoWidth: logo?.width ?? 28,
-    logoHeight: logo?.height ?? 28,
-    showBrandName: !logo,
+    logoWidth: logo.width,
+    logoHeight: logo.height,
+    // Custom logos usually include the wordmark; the bundled icon does not.
+    showBrandName: !branding.logo,
   })
 
   const [html, text] = await Promise.all([
