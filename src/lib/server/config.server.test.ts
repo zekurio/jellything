@@ -76,6 +76,37 @@ describe("config persistence", () => {
     expect(statSync(configPath).mode & 0o777).toBe(0o600)
   })
 
+  it("migrates a legacy Jellything app title to the new default", async () => {
+    mkdirSync(dirname(configPath), { recursive: true })
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        app: { title: "Jellything" },
+        auth: {
+          sessionSecret: "a".repeat(43),
+          encryptionKey: "b".repeat(43),
+        },
+        jellyfin: jellyfinConfig,
+      }),
+      { mode: 0o600 },
+    )
+    const configManager = await loadConfigManager()
+
+    expect(configManager.app.title).toBe("Inviterr")
+    expect(JSON.parse(readFileSync(configPath, "utf-8")).app.title).toBe(
+      "Inviterr",
+    )
+  })
+
+  it("keeps a custom app title untouched", async () => {
+    const configManager = await loadConfigManager()
+    await configManager.initialize(jellyfinConfig, {
+      app: { title: "Schnitzelflix" },
+    })
+
+    expect(configManager.app.title).toBe("Schnitzelflix")
+  })
+
   it("keeps the valid file and in-memory config when atomic replacement fails", async () => {
     const configManager = await loadConfigManager()
     await configManager.initialize(jellyfinConfig, {

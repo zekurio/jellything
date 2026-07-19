@@ -35,6 +35,19 @@ const DEFAULT_APP_CONFIG = {
   url: undefined as string | undefined,
 }
 
+// One-time rebrand migration: configs written before the rename to
+// Inviterr keep showing the old product name as the app title.
+function migrateLegacyTitle(config: Config): Config | null {
+  if (config.app.title.trim().toLowerCase() !== "jellything") {
+    return null
+  }
+
+  return {
+    ...config,
+    app: { ...config.app, title: DEFAULT_APP_CONFIG.title },
+  }
+}
+
 const AUTH_SECRET_BYTES = 32
 
 function generateConfigSecret(): string {
@@ -352,6 +365,8 @@ class ConfigManager {
       const raw = readFileSync(this.configPath, "utf-8")
       const parsed = JSON.parse(raw)
       const parsedConfig = configSchema.parse(parsed)
+      const migratedConfig = migrateLegacyTitle(parsedConfig) ?? parsedConfig
+      const titleMigrated = migratedConfig !== parsedConfig
 
       const parsedAuth = (
         parsed as {
@@ -368,7 +383,7 @@ class ConfigManager {
       const updatedConfig =
         !hasSessionSecret || !hasEncryptionKey
           ? {
-              ...parsedConfig,
+              ...migratedConfig,
               auth: {
                 sessionSecret: hasSessionSecret
                   ? (parsedAuth?.sessionSecret as string)
@@ -378,12 +393,14 @@ class ConfigManager {
                   : generateConfigSecret(),
               },
             }
-          : parsedConfig
+          : migratedConfig
 
-      if (!hasSessionSecret || !hasEncryptionKey) {
+      if (!hasSessionSecret || !hasEncryptionKey || titleMigrated) {
         this.persistLoadedConfig(
           updatedConfig,
-          "Generated and persisted missing Inviterr auth settings in config",
+          titleMigrated
+            ? "Migrated legacy Jellything app title to Inviterr in config"
+            : "Generated and persisted missing Inviterr auth settings in config",
         )
       }
       this.config = updatedConfig

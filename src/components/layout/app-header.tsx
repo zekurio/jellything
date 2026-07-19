@@ -24,7 +24,7 @@ export function AppHeader({ title, titleTo = "/", user }: AppHeaderProps) {
           className="flex min-w-0 flex-1 items-center gap-3 pr-2 font-semibold"
         >
           <img
-            src="/favicon.svg"
+            src="/favicon.svg?v=2"
             alt=""
             className="size-7 shrink-0 rounded-md"
           />
