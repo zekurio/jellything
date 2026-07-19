@@ -113,7 +113,7 @@
 
           meta = {
             description = "User management and invitation app for Jellyfin";
-            homepage = "https://github.com/zekurio/jellything";
+            homepage = "https://github.com/zekurio/inviterr";
             license = lib.licenses.mit;
             mainProgram = "inviterr";
             platforms = lib.platforms.linux ++ lib.platforms.darwin;
