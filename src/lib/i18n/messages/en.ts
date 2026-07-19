@@ -126,13 +126,13 @@ export const en: Messages = {
       "Set the app name, description, and default language.",
     appTitle: "App Title",
     appTitleDescription: "Shown in the browser tab and app UI.",
-    appTitlePlaceholder: "Jellything",
+    appTitlePlaceholder: "Inviterr",
     appDescription: "Description",
     appDescriptionPlaceholder:
       "User management and invitation system for Jellyfin",
     appDescriptionHelp: "Used in page metadata.",
     appUrl: "App URL",
-    appUrlPlaceholder: "https://jellything.example.com",
+    appUrlPlaceholder: "https://inviterr.example.com",
     appUrlDescription:
       "Public URL used for email links and trusted same-origin checks.",
     defaultLocale: "Default Language",
@@ -163,11 +163,10 @@ export const en: Messages = {
     apiKeyGenerateSeerr: "Create an API key in Seerr Settings > General.",
     apiKeyUpdateHint: "Leave blank to keep the current key.",
     jellyfinConnectionTitle: "Jellyfin Connection",
-    jellyfinConnectionDescription:
-      "Configure Jellything's Jellyfin connection.",
+    jellyfinConnectionDescription: "Configure Inviterr's Jellyfin connection.",
     jellyfinSaved: "Jellyfin settings saved",
     seerrConnectionTitle: "Seerr Connection",
-    seerrConnectionDescription: "Configure Jellything's Seerr connection.",
+    seerrConnectionDescription: "Configure Inviterr's Seerr connection.",
     seerrSaved: "Seerr settings saved",
     seerrTestFailed: "Failed to connect to Seerr",
     noChanges: "No changes to save",
@@ -178,7 +177,7 @@ export const en: Messages = {
     emailSettingsTitle: "Email Settings",
     emailSettingsDescription: "Configure outgoing email over SMTP.",
     emailFrom: "From Address",
-    emailFromPlaceholder: "Jellything <noreply@example.com>",
+    emailFromPlaceholder: "Inviterr <noreply@example.com>",
     emailFromDescription: "Sender address for outgoing emails.",
     smtpHost: "SMTP Host",
     smtpHostPlaceholder: "smtp.example.com",
@@ -210,7 +209,7 @@ export const en: Messages = {
     emailPageBackgroundColor: "Background color",
     emailPageBackgroundColorDescription:
       "Page background behind the email card.",
-    emailInvalidColor: "Must be a hex color like #6B5FC3",
+    emailInvalidColor: "Must be a hex color like #3A64F2",
     emailLogo: "Logo",
     emailLogoDescription:
       "PNG or JPEG, up to 256 KB. Larger images are scaled down automatically. Falls back to the app logo when unset.",
@@ -579,9 +578,9 @@ export const en: Messages = {
     deleteUser: "Delete user",
     deleteUserTitle: "Delete user",
     deleteUserDescription:
-      "Delete {name} from Jellyfin and remove their saved Jellything data?",
+      "Delete {name} from Jellyfin and remove their saved Inviterr data?",
     deleteStaleUserDescription:
-      "Remove the leftover Jellything data for {name}? Their Jellyfin account is already gone.",
+      "Remove the leftover Inviterr data for {name}? Their Jellyfin account is already gone.",
     userDeleted: "User deleted",
     staleUserDeleted: "Leftover user data deleted",
     userDeleteFailed: "Failed to delete user",
@@ -593,7 +592,7 @@ export const en: Messages = {
     statusFilterAll: "All users",
     statusExpired: "Expired",
     missingInJellyfinDescription:
-      "This user record still exists in Jellything only.",
+      "This user record still exists in Inviterr only.",
     emailNotSet: "No email",
     noProfile: "No profile",
     profileExempt: "Exempt",
@@ -658,9 +657,9 @@ export const en: Messages = {
     bulkOperationFailed: "Bulk operation failed",
   },
   onboarding: {
-    title: "Jellything Setup",
+    title: "Inviterr Setup",
     keyDescription: "Enter the setup key from the console to continue",
-    appStepTitle: "Jellything",
+    appStepTitle: "Inviterr",
     appStepDescription: "Configure where this app is reachable.",
     setupKeyLabel: "Setup Key",
     invalidSetupKey:

@@ -19,15 +19,15 @@ importers:
 
   .:
     dependencies:
-      '@fontsource/ibm-plex-mono':
-        specifier: ^5.2.7
-        version: 5.2.7
-      '@fontsource/lora':
+      '@fontsource/dm-sans':
         specifier: ^5.2.8
-        version: 5.2.8
-      '@fontsource/montserrat':
-        specifier: ^5.2.7
-        version: 5.2.8
+        version: 5.3.0
+      '@fontsource/merriweather':
+        specifier: ^5.2.12
+        version: 5.3.0
+      '@fontsource/roboto-mono':
+        specifier: ^5.2.8
+        version: 5.3.0
       '@hookform/resolvers':
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.81.0(react@19.2.7))
@@ -511,14 +511,14 @@ packages:
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
 
-  '@fontsource/ibm-plex-mono@5.2.7':
-    resolution: {integrity: sha512-MKAb8qV+CaiMQn2B0dIi1OV3565NYzp3WN5b4oT6LTkk+F0jR6j0ZN+5BKJiIhffDC3rtBULsYZE65+0018z9w==}
+  '@fontsource/dm-sans@5.3.0':
+    resolution: {integrity: sha512-lYJtMXXO28q1z+yz+z8XKd0s4hXaa9QdkETzkyD760sidCv5heI86weYA0sx0Nc4pAMAQTUuyf4gO44cYKKS9g==}
 
-  '@fontsource/lora@5.2.8':
-    resolution: {integrity: sha512-AQlfsHw4TP1x/eb2IZ6VjQ70ctKa39m9JN9A4zlvDOeKYLrCs+GaYIEQ86Y6YfSPGHn01bErXkRcyktOW0LOPQ==}
+  '@fontsource/merriweather@5.3.0':
+    resolution: {integrity: sha512-9LpPsNTYzRALj468Uj1K9Usl5eXk991L/kKmcpdWbTF1na9NfMyAXMgUABlMReViU1MYBz9kJ8jEzEOtX9qGDg==}
 
-  '@fontsource/montserrat@5.2.8':
-    resolution: {integrity: sha512-xTjLxSbSfCycDB0pwmNsfNvdfWPaDaRQ2LC6yt/ZI7SdvXG52zHnzNYC/09mzuAuWNJyShkteutfCoDgym56hQ==}
+  '@fontsource/roboto-mono@5.3.0':
+    resolution: {integrity: sha512-yhwplHMHW9dCk+1pZuERfcJe+K3rosGVZEoK0XktkxRSqQ9qsipSwwiuW2/8Qmtp9lzu3Ixa/ie4BMH3i8CkZQ==}
 
   '@hookform/resolvers@5.4.0':
     resolution: {integrity: sha512-EIsqr/t/qbinPIhGjMdtvutIN1Kk4uwbROE9/UQ93CAVGR7GkA7Y92+fX80OzXi/OB67jVFYwKGO1WzkxmkFZw==}
@@ -4069,11 +4069,11 @@ snapshots:
 
   '@floating-ui/utils@0.2.11': {}
 
-  '@fontsource/ibm-plex-mono@5.2.7': {}
+  '@fontsource/dm-sans@5.3.0': {}
 
-  '@fontsource/lora@5.2.8': {}
+  '@fontsource/merriweather@5.3.0': {}
 
-  '@fontsource/montserrat@5.2.8': {}
+  '@fontsource/roboto-mono@5.3.0': {}
 
   '@hookform/resolvers@5.4.0(react-hook-form@7.81.0(react@19.2.7))':
     dependencies:

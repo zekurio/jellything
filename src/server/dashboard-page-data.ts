@@ -265,7 +265,7 @@ export async function loadDashboardPageData({
   return {
     activeTab,
     activeSettingsTab,
-    appTitle: bootstrap.app?.title ?? "Jellything",
+    appTitle: bootstrap.app?.title ?? "Inviterr",
     session: {
       name: session.name,
       avatarUrl: session.avatarUrl,

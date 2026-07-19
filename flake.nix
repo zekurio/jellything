@@ -1,5 +1,5 @@
 {
-  description = "Jellything - user management and invitations for Jellyfin";
+  description = "Inviterr - user management and invitations for Jellyfin";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -15,13 +15,13 @@
     let
       inherit (nixpkgs) lib;
 
-      mkJellythingPackage =
+      mkInviterrPackage =
         pkgs:
         {
           appVersion ? null,
           host ? "127.0.0.1",
           port ? 4173,
-          dbPath ? "./data/jellything.db",
+          dbPath ? "./data/inviterr.db",
           configPath ? "./data/config.json",
           logLevel ? "info",
         }:
@@ -52,7 +52,7 @@
           };
         in
         pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
-          pname = "jellything";
+          pname = "inviterr";
           inherit version src;
 
           pnpmDeps = pkgs.fetchPnpmDeps {
@@ -83,11 +83,11 @@
           installPhase = ''
             runHook preInstall
 
-            appDir="$out/share/jellything"
+            appDir="$out/share/inviterr"
             mkdir -p "$appDir" "$out/bin"
             cp -R .output drizzle "$appDir/"
 
-            cat > "$out/bin/jellything" <<'EOF'
+            cat > "$out/bin/inviterr" <<'EOF'
             #!${pkgs.runtimeShell}
             set -euo pipefail
 
@@ -98,24 +98,24 @@
             export DB_PATH="''${DB_PATH:-${dbPath}}"
             export CONFIG_PATH="''${CONFIG_PATH:-${configPath}}"
             export LOG_LEVEL="''${LOG_LEVEL:-${logLevel}}"
-            export MIGRATIONS_PATH="''${MIGRATIONS_PATH:-${placeholder "out"}/share/jellything/drizzle}"
+            export MIGRATIONS_PATH="''${MIGRATIONS_PATH:-${placeholder "out"}/share/inviterr/drizzle}"
 
             exec ${lib.getExe pkgs.nodejs_24} \
-              "${placeholder "out"}/share/jellything/.output/server/index.mjs" \
+              "${placeholder "out"}/share/inviterr/.output/server/index.mjs" \
               "$@"
             EOF
-            chmod +x "$out/bin/jellything"
+            chmod +x "$out/bin/inviterr"
 
             runHook postInstall
           '';
 
-          passthru.withOptions = mkJellythingPackage pkgs;
+          passthru.withOptions = mkInviterrPackage pkgs;
 
           meta = {
             description = "User management and invitation app for Jellyfin";
             homepage = "https://github.com/zekurio/jellything";
             license = lib.licenses.mit;
-            mainProgram = "jellything";
+            mainProgram = "inviterr";
             platforms = lib.platforms.linux ++ lib.platforms.darwin;
           };
         });
@@ -123,7 +123,7 @@
       mkNixosModule =
         { config, pkgs, ... }:
         let
-          cfg = config.services.jellything;
+          cfg = config.services.inviterr;
           system = pkgs.stdenv.hostPlatform.system;
           inherit (lib)
             mkEnableOption
@@ -133,26 +133,26 @@
             ;
         in
         {
-          options.services.jellything = {
-            enable = mkEnableOption "Jellything";
+          options.services.inviterr = {
+            enable = mkEnableOption "Inviterr";
 
             package = mkOption {
               type = types.package;
               default = self.packages.${system}.default;
-              defaultText = lib.literalExpression "jellything.packages.${system}.default";
-              description = "Jellything package to run.";
+              defaultText = lib.literalExpression "inviterr.packages.${system}.default";
+              description = "Inviterr package to run.";
             };
 
             user = mkOption {
               type = types.str;
-              default = "jellything";
-              description = "User account that runs Jellything.";
+              default = "inviterr";
+              description = "User account that runs Inviterr.";
             };
 
             group = mkOption {
               type = types.str;
-              default = "jellything";
-              description = "Group account that runs Jellything.";
+              default = "inviterr";
+              description = "Group account that runs Inviterr.";
             };
 
             host = mkOption {
@@ -169,15 +169,15 @@
 
             dataDir = mkOption {
               type = types.path;
-              default = "/var/lib/jellything";
-              description = "Directory for Jellything state and the SQLite database.";
+              default = "/var/lib/inviterr";
+              description = "Directory for Inviterr state and the SQLite database.";
             };
 
             configFile = mkOption {
               type = types.path;
               default = "${cfg.dataDir}/config.json";
-              defaultText = lib.literalExpression ''"${config.services.jellything.dataDir}/config.json"'';
-              description = "Path to Jellything's runtime configuration file.";
+              defaultText = lib.literalExpression ''"${config.services.inviterr.dataDir}/config.json"'';
+              description = "Path to Inviterr's runtime configuration file.";
             };
 
             logLevel = mkOption {
@@ -202,13 +202,13 @@
             openFirewall = mkOption {
               type = types.bool;
               default = false;
-              description = "Whether to open the Jellything port in the firewall.";
+              description = "Whether to open the Inviterr port in the firewall.";
             };
 
             environment = mkOption {
               type = types.attrsOf types.str;
               default = { };
-              description = "Additional environment variables for the Jellything service.";
+              description = "Additional environment variables for the Inviterr service.";
             };
           };
 
@@ -227,8 +227,8 @@
               "d ${dirOf cfg.configFile} 0750 ${cfg.user} ${cfg.group} - -"
             ];
 
-            systemd.services.jellything = {
-              description = "Jellything";
+            systemd.services.inviterr = {
+              description = "Inviterr";
               wantedBy = [ "multi-user.target" ];
               after = [ "network-online.target" ];
               wants = [ "network-online.target" ];
@@ -238,7 +238,7 @@
                   NODE_ENV = "production";
                   HOST = cfg.host;
                   PORT = toString cfg.port;
-                  DB_PATH = "${cfg.dataDir}/jellything.db";
+                  DB_PATH = "${cfg.dataDir}/inviterr.db";
                   CONFIG_PATH = toString cfg.configFile;
                   LOG_LEVEL = cfg.logLevel;
                 }
@@ -253,7 +253,7 @@
                 User = cfg.user;
                 Group = cfg.group;
                 WorkingDirectory = cfg.dataDir;
-                StateDirectory = "jellything";
+                StateDirectory = "inviterr";
                 StateDirectoryMode = "0750";
                 NoNewPrivileges = true;
                 PrivateTmp = true;
@@ -272,16 +272,16 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        jellything = mkJellythingPackage pkgs { };
+        inviterr = mkInviterrPackage pkgs { };
         dockerImage = pkgs.dockerTools.buildLayeredImage {
-          name = "jellything";
-          tag = jellything.version;
-          contents = [ jellything ];
+          name = "inviterr";
+          tag = inviterr.version;
+          contents = [ inviterr ];
           config = {
-            Cmd = [ (lib.getExe jellything) ];
+            Cmd = [ (lib.getExe inviterr) ];
             Env = [
               "CONFIG_PATH=/data/config.json"
-              "DB_PATH=/data/jellything.db"
+              "DB_PATH=/data/inviterr.db"
               "HOST=0.0.0.0"
               "PORT=4173"
             ];
@@ -293,18 +293,18 @@
       {
         packages =
           {
-            default = jellything;
-            jellything = jellything;
+            default = inviterr;
+            inviterr = inviterr;
           }
           // lib.optionalAttrs pkgs.stdenv.isLinux {
             dockerImage = dockerImage;
           };
 
         apps.default = flake-utils.lib.mkApp {
-          drv = jellything;
+          drv = inviterr;
         };
 
-        checks.default = jellything;
+        checks.default = inviterr;
 
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
@@ -316,12 +316,12 @@
     )
     // {
       overlays.default = final: _prev: {
-        jellything = mkJellythingPackage final { };
+        inviterr = mkInviterrPackage final { };
       };
 
-      lib.mkJellythingPackage = mkJellythingPackage;
+      lib.mkInviterrPackage = mkInviterrPackage;
 
       nixosModules.default = mkNixosModule;
-      nixosModules.jellything = mkNixosModule;
+      nixosModules.inviterr = mkNixosModule;
     };
 }

@@ -52,6 +52,6 @@ export function getAccountDeletedEmailSubject(input: {
 }): string {
   const t = createTranslator(input.locale ?? DEFAULT_LOCALE)
   return t("emailTemplates.accountDeleted.subject", {
-    serverName: input.serverName ?? "Jellything",
+    serverName: input.serverName ?? "Inviterr",
   })
 }

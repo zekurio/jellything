@@ -53,7 +53,7 @@ function limiterKeyForPin(
 }
 
 beforeAll(async () => {
-  workDir = await mkdtemp(path.join(tmpdir(), "jellything-reset-"))
+  workDir = await mkdtemp(path.join(tmpdir(), "inviterr-reset-"))
   pinDir = path.join(workDir, "jellyfin-config")
 
   process.env.SKIP_ENV_VALIDATION = "true"

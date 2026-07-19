@@ -12,8 +12,8 @@ export const EMAIL_MESSAGE_TYPES = [
 export type EmailMessageType = (typeof EMAIL_MESSAGE_TYPES)[number]
 
 export const DEFAULT_EMAIL_BRANDING = {
-  accentColor: "#6B5FC3",
-  pageBackgroundColor: "#ECECEF",
+  accentColor: "#3A64F2",
+  pageBackgroundColor: "#F4F4F7",
 } as const
 
 export interface EmailBrandingDraft {

@@ -47,5 +47,5 @@ jobs:
         run: |
           source_tag="$(nix eval --raw .#dockerImage.imageTag)"
           image="ghcr.io/${GITHUB_REPOSITORY,,}:unstable"
-          docker tag "jellything:$source_tag" "$image"
+          docker tag "inviterr:$source_tag" "$image"
           docker push "$image"

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Jellything is a self-hosted user management and invitation app for Jellyfin, with optional Seerr integration. It handles onboarding, admin settings, invite creation/redemption, profile policy application, Jellyfin user lifecycle, email verification, password resets, and user expiry/renewal.
+Inviterr is a self-hosted user management and invitation app for Jellyfin, with optional Seerr integration. It handles onboarding, admin settings, invite creation/redemption, profile policy application, Jellyfin user lifecycle, email verification, password resets, and user expiry/renewal.
 
 Hobby project tailored to a self-hosted workflow. Priorities in order: performance (no waterfalls, optimistic updates), security (tight public endpoints, careful auth/admin checks), convenience, customizability, reliability under Jellyfin/Seerr/email/DB failure. When forced to trade off, choose correctness, robustness, and security.
 
@@ -41,7 +41,7 @@ Layering: **routes/loaders → server-fn bridges or ORPC client → ORPC router/
 - `src/test` — test helpers (temp-SQLite in `db.ts`).
 - `drizzle` — generated migrations (`0000_baseline.sql`, `meta/`).
 - `scripts` — `check-migration-drift.mjs`, backing `pnpm run db:check`.
-- `flake.nix` — Nix package, dev shell, and NixOS module (`services.jellything`).
+- `flake.nix` — Nix package, dev shell, and NixOS module (`services.inviterr`).
 
 ## Development Commands
 

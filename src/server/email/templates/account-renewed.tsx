@@ -66,6 +66,6 @@ export function getAccountRenewedEmailSubject(input: {
 }): string {
   const t = createTranslator(input.locale ?? DEFAULT_LOCALE)
   return t("emailTemplates.accountRenewed.subject", {
-    serverName: input.serverName ?? "Jellything",
+    serverName: input.serverName ?? "Inviterr",
   })
 }

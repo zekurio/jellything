@@ -12,9 +12,9 @@ export const JELLYFIN_INTERNAL_URL = (): string =>
 export const JELLYFIN_EXTERNAL_URL = (): string =>
   configManager.jellyfinExternalUrl
 
-const CLIENT_NAME = "Jellything"
-const DEVICE_NAME = "Jellything Server"
-const DEVICE_ID = "jellything-server"
+const CLIENT_NAME = "Inviterr"
+const DEVICE_NAME = "Inviterr Server"
+const DEVICE_ID = "inviterr-server"
 
 export interface JellyfinClient {
   token?: string

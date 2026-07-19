@@ -16,7 +16,7 @@ import { createChildLogger } from "@/server/logger"
 
 const log = createChildLogger({ module: "session" })
 
-export const SESSION_COOKIE_NAME = "jellything-session"
+export const SESSION_COOKIE_NAME = "inviterr-session"
 export const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000
 export const SESSION_DURATION_SECONDS = Math.floor(SESSION_DURATION_MS / 1000)
 export const SESSION_VALIDATION_TTL_MS = 5 * 60 * 1000

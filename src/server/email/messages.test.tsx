@@ -70,10 +70,10 @@ describe("email message registry", () => {
       delivery: "smtp",
     })
 
-    expect(message.html).toContain("cid:jellything-email-logo")
+    expect(message.html).toContain("cid:inviterr-email-logo")
     expect(message.attachments).toHaveLength(1)
     expect(message.attachments?.[0]).toMatchObject({
-      cid: "jellything-email-logo",
+      cid: "inviterr-email-logo",
       contentType: "image/png",
       contentDisposition: "inline",
     })

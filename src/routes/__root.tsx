@@ -26,7 +26,7 @@ interface RouterContext {
 export const Route = createRootRouteWithContext<RouterContext>()({
   loader: async () => getPageAccessFn(),
   head: ({ loaderData }) => {
-    const appTitle = loaderData?.bootstrap.app?.title ?? "jellything"
+    const appTitle = loaderData?.bootstrap.app?.title ?? "inviterr"
     const appDescription =
       loaderData?.bootstrap.app?.description ??
       "User management and invitation system for Jellyfin"
@@ -47,7 +47,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         },
         {
           name: "theme-color",
-          content: "#615ff0",
+          content: "#3a64f2",
         },
       ],
       links: [

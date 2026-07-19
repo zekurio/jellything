@@ -92,7 +92,7 @@ function buildEmailSettingsUpdate(
   branding: EmailBrandingDraft
 } {
   const updates: ReturnType<typeof buildEmailSettingsUpdate> = {
-    from: data.from || "Jellything <noreply@example.com>",
+    from: data.from || "Inviterr <noreply@example.com>",
     branding,
   }
 

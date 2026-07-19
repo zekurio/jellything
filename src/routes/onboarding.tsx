@@ -337,7 +337,7 @@ function OnboardingPage() {
           : undefined,
         email: hasEmailInput
           ? {
-              from: data.from || "Jellything <noreply@example.com>",
+              from: data.from || "Inviterr <noreply@example.com>",
               smtp: includesSmtpConfig
                 ? {
                     host: data.smtpHost,
