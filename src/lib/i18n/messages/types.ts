@@ -673,6 +673,9 @@ export interface Messages {
     expiresInMinutes: string
     expiryDate: string
     manageUrl: string
+    jellyfinName: string
+    jellyfinUrl: string
+    seerrUrl: string
   }
   validation: {
     passwordMinLength: string
@@ -730,6 +733,10 @@ export interface Messages {
     settings: string
     profile: string
     administrator: string
+    theme: string
+    themeLight: string
+    themeDark: string
+    themeSystem: string
   }
   errors: {
     unauthorized: string

@@ -33,7 +33,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useTranslations } from "@/lib/i18n"
 import { renderMarkdown } from "@/lib/markdown"
 import {
-  COMMON_PLACEHOLDERS,
+  ONBOARDING_PLACEHOLDERS,
   interpolatePlaceholders,
   type PlaceholderValues,
 } from "@/lib/placeholders"
@@ -377,7 +377,7 @@ export function PageEditor({
 
       <div className="border-input bg-muted/40 border-t px-2 py-1.5">
         <PlaceholderChips
-          placeholderKeys={COMMON_PLACEHOLDERS}
+          placeholderKeys={ONBOARDING_PLACEHOLDERS}
           onInsert={(token) => insertPlaceholderToken(layout, token)}
         />
       </div>

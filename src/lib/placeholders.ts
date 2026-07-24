@@ -13,6 +13,17 @@ export const COMMON_PLACEHOLDERS = [
 
 export type CommonPlaceholder = (typeof COMMON_PLACEHOLDERS)[number]
 
+// Member onboarding pages additionally expose the connected media services
+// so pages can link members straight to Jellyfin and Seerr.
+export const ONBOARDING_PLACEHOLDERS = [
+  ...COMMON_PLACEHOLDERS,
+  "jellyfinName",
+  "jellyfinUrl",
+  "seerrUrl",
+] as const
+
+export type OnboardingPlaceholder = (typeof ONBOARDING_PLACEHOLDERS)[number]
+
 export function formatPlaceholder(key: string): string {
   return `{{${key}}}`
 }

@@ -761,6 +761,9 @@ export const en: Messages = {
     expiresInMinutes: "Reset code lifetime in minutes",
     expiryDate: "Formatted expiry date",
     manageUrl: "Link to the profile page",
+    jellyfinName: "Jellyfin server name",
+    jellyfinUrl: "Jellyfin URL",
+    seerrUrl: "Seerr URL",
   },
   validation: {
     passwordMinLength: "Password must be at least 8 characters",
@@ -820,6 +823,10 @@ export const en: Messages = {
     settings: "Settings",
     profile: "Profile",
     administrator: "Administrator",
+    theme: "Theme",
+    themeLight: "Light",
+    themeDark: "Dark",
+    themeSystem: "System",
   },
   errors: {
     unauthorized: "Unauthorized",

@@ -8,7 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import type {
   AppSettingsDto,
+  JellyfinConfigDto,
   MemberOnboardingConfigDto,
+  SeerrConfigDto,
 } from "@/lib/api/contracts/admin"
 import { useTranslations } from "@/lib/i18n"
 import type { PlaceholderValues } from "@/lib/placeholders"
@@ -20,11 +22,15 @@ import { useMemberOnboardingStore } from "./use-member-onboarding-store"
 interface MemberOnboardingSettingsTabProps {
   initialConfig: MemberOnboardingConfigDto
   appSettings: AppSettingsDto
+  jellyfinConfig: JellyfinConfigDto
+  seerrConfig: SeerrConfigDto
 }
 
 export function MemberOnboardingSettingsTab({
   initialConfig,
   appSettings,
+  jellyfinConfig,
+  seerrConfig,
 }: MemberOnboardingSettingsTabProps) {
   const t = useTranslations()
   const {
@@ -51,8 +57,11 @@ export function MemberOnboardingSettingsTab({
       appUrl: appSettings.url ?? "",
       username: "username",
       email: "user@example.com",
+      jellyfinName: jellyfinConfig.displayName || "Jellyfin",
+      jellyfinUrl: jellyfinConfig.externalUrl ?? jellyfinConfig.internalUrl,
+      seerrUrl: seerrConfig.externalUrl ?? seerrConfig.internalUrl ?? "",
     }),
-    [appSettings],
+    [appSettings, jellyfinConfig, seerrConfig],
   )
 
   return (
