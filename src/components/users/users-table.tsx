@@ -1,5 +1,7 @@
 "use client"
 
+import { ListChecks } from "lucide-react"
+
 import { DashboardTabSearch } from "@/components/dashboard/dashboard-tab-search"
 import { DashboardTabToolbar } from "@/components/dashboard/dashboard-tab-toolbar"
 import { ConfirmAlertShell } from "@/components/shared/confirm-alert-shell"
@@ -49,6 +51,10 @@ export function UsersTable({
     canGoPrevious,
     canGoNext,
     selectedUsers,
+    selectedUserIds,
+    isSelecting,
+    toggleSelecting,
+    toggleUserSelected,
     isProfileLocked,
     isExpiryLocked,
     profileDescription,
@@ -99,6 +105,18 @@ export function UsersTable({
             onChange={handleGlobalFilterChange}
           />
         }
+        actions={
+          users.items.length > 0 ? (
+            <Button
+              variant="outline"
+              onClick={toggleSelecting}
+              className="w-full md:hidden"
+            >
+              <ListChecks className="mr-2 h-4 w-4" />
+              {isSelecting ? t("common.done") : t("common.select")}
+            </Button>
+          ) : undefined
+        }
       />
 
       {selectedUsers.length > 0 && (
@@ -116,6 +134,9 @@ export function UsersTable({
         users={visibleUsers}
         t={t}
         seerrConfigured={seerrConfigured}
+        isSelecting={isSelecting}
+        selectedUserIds={selectedUserIds}
+        onToggleSelected={toggleUserSelected}
         onEditUser={openEditDialog}
         onEditEmail={emailDialog.open}
         onToggleUserDisabled={disableDialog.open}

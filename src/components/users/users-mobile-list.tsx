@@ -15,6 +15,7 @@ import {
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +34,9 @@ type UsersMobileListProps = {
   users: ManagedUserListItemDto[]
   t: TranslationFn
   seerrConfigured?: boolean
+  isSelecting?: boolean
+  selectedUserIds?: ReadonlySet<string>
+  onToggleSelected?: (user: ManagedUserListItemDto) => void
   onEditUser: (user: ManagedUserListItemDto) => void
   onEditEmail: (user: ManagedUserListItemDto) => void
   onToggleUserDisabled: (user: ManagedUserListItemDto) => void
@@ -44,6 +48,9 @@ export function UsersMobileList({
   users,
   t,
   seerrConfigured = false,
+  isSelecting = false,
+  selectedUserIds,
+  onToggleSelected,
   onEditUser,
   onEditEmail,
   onToggleUserDisabled,
@@ -61,9 +68,25 @@ export function UsersMobileList({
             className={cn(
               "rounded-lg border px-3 py-2.5",
               user.missingInJellyfin && "border-dashed bg-muted/20",
+              isSelecting && "cursor-pointer select-none",
+              selectedUserIds?.has(user.userId) &&
+                "border-primary/60 ring-primary/60 ring-1",
             )}
+            onClick={
+              isSelecting && onToggleSelected
+                ? () => onToggleSelected(user)
+                : undefined
+            }
           >
             <div className="flex items-center gap-3">
+              {isSelecting && (
+                <Checkbox
+                  checked={selectedUserIds?.has(user.userId) ?? false}
+                  onCheckedChange={() => onToggleSelected?.(user)}
+                  onClick={(clickEvent) => clickEvent.stopPropagation()}
+                  aria-label={t("users.selectRow", { name: user.name })}
+                />
+              )}
               <Avatar
                 className={cn(
                   "h-8 w-8 shrink-0",
@@ -132,7 +155,7 @@ export function UsersMobileList({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 shrink-0"
+                    className={cn("h-7 w-7 shrink-0", isSelecting && "hidden")}
                   >
                     <EllipsisVertical className="h-4 w-4" />
                     <span className="sr-only">{t("common.actions")}</span>

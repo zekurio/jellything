@@ -28,6 +28,9 @@ export interface Messages {
     sortDescending: string
     perPage: string
     viewOptions: string
+    select: string
+    done: string
+    selectedCount: string
   }
   auth: {
     login: string
@@ -389,6 +392,17 @@ export interface Messages {
     stepEmailDescription: string
     stepNext: string
     stepBack: string
+    selectInvite: string
+    bulkDisable: string
+    bulkEnable: string
+    bulkDisableTitle: string
+    bulkDisableDescription: string
+    bulkEnableTitle: string
+    bulkEnableDescription: string
+    bulkDeleteTitle: string
+    bulkDeleteDescription: string
+    bulkOperationComplete: string
+    bulkOperationFailed: string
   }
   profiles: {
     searchPlaceholder: string
@@ -496,6 +510,11 @@ export interface Messages {
     jsrQuotaRequests: string
     jsrQuotaDays: string
     profileNameAlreadyExists: string
+    selectProfile: string
+    bulkDeleteTitle: string
+    bulkDeleteDescription: string
+    bulkOperationComplete: string
+    bulkOperationFailed: string
   }
   users: {
     user: string

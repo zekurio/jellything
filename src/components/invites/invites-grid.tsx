@@ -2,24 +2,38 @@
 
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
-import { Ban, Clock, Copy, Edit, Plus, Trash, Tv, Users } from "lucide-react"
+import {
+  Ban,
+  Clock,
+  Copy,
+  Edit,
+  ListChecks,
+  Plus,
+  Trash,
+  Tv,
+  Users,
+} from "lucide-react"
 import { memo, useCallback, useEffect, useMemo } from "react"
 import { toast } from "sonner"
 
 import { DashboardTabSearch } from "@/components/dashboard/dashboard-tab-search"
 import { DashboardTabToolbar } from "@/components/dashboard/dashboard-tab-toolbar"
 import { InviteFormDialog } from "@/components/invites/invite-form-dialog"
+import { InvitesBulkActionBar } from "@/components/invites/invites-bulk-action-bar"
 import { ConfirmAlertShell } from "@/components/shared/confirm-alert-shell"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { DataTablePagination } from "@/components/ui/data-table-pagination"
 import { RelativeTime } from "@/components/ui/relative-time"
 import { Spinner } from "@/components/ui/spinner"
 import { createAppStore } from "@/hooks/store-utils"
+import { useBulkSelection } from "@/hooks/use-bulk-selection"
 import { useDialogAction, useSimpleDialog } from "@/hooks/use-dialog-action"
 import { useInvitesTableStore } from "@/hooks/use-invites-table-store"
 import { useScopedStore } from "@/hooks/use-scoped-store"
 import type {
+  BulkInviteOperationDto,
   InviteDto,
   PagedInvitesDto,
   ProfileDto,
@@ -93,6 +107,9 @@ const InviteCard = memo(function InviteCard({
   invite,
   locale,
   t,
+  isSelecting,
+  isSelected,
+  onToggleSelected,
   onCopy,
   onEdit,
   onDisable,
@@ -101,6 +118,9 @@ const InviteCard = memo(function InviteCard({
   invite: InviteDto
   locale: string
   t: ReturnType<typeof useTranslations>
+  isSelecting: boolean
+  isSelected: boolean
+  onToggleSelected: (id: string) => void
   onCopy: (code: string) => void
   onEdit: (id: string) => void
   onDisable: (invite: InviteDto) => void
@@ -114,16 +134,32 @@ const InviteCard = memo(function InviteCard({
         "rounded-lg border border-l-[3px] p-4",
         getStatusAccent(invite.status),
         isInactive && "opacity-70",
+        isSelecting && "cursor-pointer select-none",
+        isSelected && "border-primary/60 ring-primary/60 ring-1",
       )}
+      onClick={isSelecting ? () => onToggleSelected(invite.id) : undefined}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
+      <div className="flex min-h-7 items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2 self-center">
+          {isSelecting && (
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => onToggleSelected(invite.id)}
+              onClick={(clickEvent) => clickEvent.stopPropagation()}
+              aria-label={t("invites.selectInvite", { code: invite.code })}
+            />
+          )}
           <p className="truncate font-mono text-sm font-medium">
             {invite.code}
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-1",
+            isSelecting && "hidden",
+          )}
+        >
           <Button
             variant="ghost"
             size="icon"
@@ -205,6 +241,9 @@ const InviteSection = memo(function InviteSection({
   invites,
   locale,
   t,
+  isSelecting,
+  selectedIds,
+  onToggleSelected,
   onCopy,
   onEdit,
   onDisable,
@@ -214,6 +253,9 @@ const InviteSection = memo(function InviteSection({
   invites: InviteDto[]
   locale: string
   t: ReturnType<typeof useTranslations>
+  isSelecting: boolean
+  selectedIds: ReadonlySet<string>
+  onToggleSelected: (id: string) => void
   onCopy: (code: string) => void
   onEdit: (id: string) => void
   onDisable: (invite: InviteDto) => void
@@ -233,6 +275,9 @@ const InviteSection = memo(function InviteSection({
             invite={invite}
             locale={locale}
             t={t}
+            isSelecting={isSelecting}
+            isSelected={selectedIds.has(invite.id)}
+            onToggleSelected={onToggleSelected}
             onCopy={onCopy}
             onEdit={onEdit}
             onDisable={onDisable}
@@ -275,6 +320,7 @@ export function InvitesGrid({
   const isLoading = useStore(scopedStore, (state) => state.isLoading)
   const query = useStore(scopedStore, (state) => state.query)
 
+  const bulkSelection = useBulkSelection()
   const createDialog = useSimpleDialog()
   const editInviteId = useInvitesTableStore((state) => state.editInviteId)
   const setEditInviteId = useInvitesTableStore((state) => state.setEditInviteId)
@@ -436,6 +482,70 @@ export function InvitesGrid({
 
   const totalVisible = invitePage.total
 
+  const selectedInvites = useMemo(
+    () => invites.filter((invite) => bulkSelection.selectedIds.has(invite.id)),
+    [bulkSelection.selectedIds, invites],
+  )
+
+  const handleBulkOperation = useCallback(
+    async (
+      operation: BulkInviteOperationDto,
+      targetInvites: InviteDto[],
+    ): Promise<void> => {
+      const client = getBrowserORPCClient()
+      const result = await runApiEffect(
+        client.admin.invites.bulk({
+          operation,
+          inviteIds: targetInvites.map((invite) => invite.id),
+        }),
+      )
+
+      if (result.error !== null || !result.data) {
+        toast.error(t("invites.bulkOperationFailed"))
+        bulkSelection.stopSelecting()
+        void refetch()
+        return
+      }
+
+      const results = result.data.results
+      setInvitesState((current) =>
+        results.reduce<InviteDto[]>((nextInvites, operationResult) => {
+          if (!operationResult.ok || "skipped" in operationResult) {
+            return nextInvites
+          }
+          if (operationResult.operation === "delete") {
+            return nextInvites.filter(
+              (invite) => invite.id !== operationResult.inviteId,
+            )
+          }
+          return upsertInvite(nextInvites, operationResult.result)
+        }, current),
+      )
+
+      const succeeded = results.filter(
+        (operationResult) => operationResult.ok,
+      ).length
+      const failed = results.length - succeeded
+      if (failed === 0 && succeeded > 0) {
+        toast.success(
+          t("invites.bulkOperationComplete", { success: succeeded, failed }),
+        )
+      }
+      if (failed > 0 && succeeded > 0) {
+        toast.warning(
+          t("invites.bulkOperationComplete", { success: succeeded, failed }),
+        )
+      }
+      if (succeeded === 0) {
+        toast.error(t("invites.bulkOperationFailed"))
+      }
+
+      bulkSelection.stopSelecting()
+      void refetch()
+    },
+    [bulkSelection, refetch, setInvitesState, t],
+  )
+
   const handleDelete = () => {
     const invite = deleteDialog.item
     if (!invite) {
@@ -484,6 +594,9 @@ export function InvitesGrid({
   const sharedCardProps = {
     locale,
     t,
+    isSelecting: bulkSelection.isSelecting,
+    selectedIds: bulkSelection.selectedIds,
+    onToggleSelected: bulkSelection.toggleSelected,
     onCopy: handleCopyInviteLink,
     onEdit: handleEditInvite,
     onDisable: disableDialog.open,
@@ -501,12 +614,35 @@ export function InvitesGrid({
           />
         }
         actions={
-          <Button onClick={createDialog.open} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            {t("invites.createInvite")}
-          </Button>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            {invites.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={bulkSelection.toggleSelecting}
+                className="flex-1 sm:flex-none"
+              >
+                <ListChecks className="mr-2 h-4 w-4" />
+                {bulkSelection.isSelecting
+                  ? t("common.done")
+                  : t("common.select")}
+              </Button>
+            )}
+            <Button onClick={createDialog.open} className="flex-1 sm:flex-none">
+              <Plus className="mr-2 h-4 w-4" />
+              {t("invites.createInvite")}
+            </Button>
+          </div>
         }
       />
+
+      {selectedInvites.length > 0 && (
+        <InvitesBulkActionBar
+          selectedInvites={selectedInvites}
+          t={t}
+          onBulkOperation={handleBulkOperation}
+          onClearSelection={bulkSelection.clearSelection}
+        />
+      )}
 
       {invites.length === 0 ? (
         <div className="text-muted-foreground rounded-md border p-6 text-center text-sm">

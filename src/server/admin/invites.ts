@@ -1,4 +1,4 @@
-import { asc, count, desc, eq, like, or, type SQL } from "drizzle-orm"
+import { asc, count, desc, eq, inArray, like, or, type SQL } from "drizzle-orm"
 import { z } from "zod"
 
 import {
@@ -11,8 +11,11 @@ import { normalizeInviteCode } from "@/lib/invite-codes"
 import { deriveInviteStatus, type InviteStatus } from "@/lib/invite-status"
 import { createInviteSchema, updateInviteSchema } from "@/lib/schemas"
 import {
+  bulkInvitesSchema,
   inviteHistoryPageInputSchema,
   invitesPageInputSchema,
+  type BulkInviteResultDto,
+  type BulkInvitesDto,
 } from "@/server/api/schemas/admin-schemas"
 import { db, ensureMigrated } from "@/server/db"
 import { inviteUsages, invites, profiles, users } from "@/server/db/schema"
@@ -350,6 +353,111 @@ export async function deleteInviteService(
   await db.delete(invites).where(eq(invites.id, inviteId))
 
   return success(null)
+}
+
+type BulkInviteOperation = z.output<typeof bulkInvitesSchema>["operation"]
+
+type BulkInviteRow = InviteRecord & { profileName: string | null }
+
+export async function bulkManageInvitesService(
+  input: z.input<typeof bulkInvitesSchema>,
+): Promise<ActionResult<BulkInvitesDto>> {
+  const parsed = bulkInvitesSchema.safeParse(input)
+  if (!parsed.success) {
+    return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
+  }
+
+  await ensureMigrated()
+
+  const rows = await db
+    .select({
+      id: invites.id,
+      code: invites.code,
+      profileId: invites.profileId,
+      profileName: profiles.name,
+      isDisabled: invites.isDisabled,
+      useLimit: invites.useLimit,
+      useCount: invites.useCount,
+      expiresAt: invites.expiresAt,
+      createdAt: invites.createdAt,
+    })
+    .from(invites)
+    .leftJoin(profiles, eq(invites.profileId, profiles.id))
+    .where(inArray(invites.id, parsed.data.inviteIds))
+  const invitesById = new Map(rows.map((row) => [row.id, row]))
+
+  const results: BulkInviteResultDto[] = []
+  for (const inviteId of parsed.data.inviteIds) {
+    results.push(
+      await applyBulkInviteOperation(
+        inviteId,
+        parsed.data.operation,
+        invitesById.get(inviteId),
+      ),
+    )
+  }
+
+  return success({ results })
+}
+
+async function applyBulkInviteOperation(
+  inviteId: string,
+  operation: BulkInviteOperation,
+  existing: BulkInviteRow | undefined,
+): Promise<BulkInviteResultDto> {
+  if (!existing) {
+    return {
+      inviteId,
+      ok: false,
+      operation,
+      code: ErrorCode.NOT_FOUND,
+      message: "Invite not found",
+    }
+  }
+
+  try {
+    if (operation === "delete") {
+      await db.delete(inviteUsages).where(eq(inviteUsages.inviteId, inviteId))
+      await db.delete(invites).where(eq(invites.id, inviteId))
+      return { inviteId, ok: true, operation }
+    }
+
+    const nextIsDisabled = operation === "disable"
+    if (existing.isDisabled === nextIsDisabled) {
+      return {
+        inviteId,
+        ok: true,
+        operation,
+        skipped: true,
+        reason: nextIsDisabled ? "already_disabled" : "already_enabled",
+      }
+    }
+
+    const [updated] = await db
+      .update(invites)
+      .set({ isDisabled: nextIsDisabled })
+      .where(eq(invites.id, inviteId))
+      .returning()
+
+    return {
+      inviteId,
+      ok: true,
+      operation,
+      result: toInviteListItem(updated, existing.profileName),
+    }
+  } catch (err) {
+    log.error({ err, inviteId, operation }, "Failed bulk invite operation")
+    return {
+      inviteId,
+      ok: false,
+      operation,
+      code: ErrorCode.OPERATION_FAILED,
+      message:
+        operation === "delete"
+          ? "Failed to delete invite"
+          : "Failed to update invite",
+    }
+  }
 }
 
 export async function getInviteHistoryService(): Promise<

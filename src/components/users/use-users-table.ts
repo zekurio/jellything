@@ -83,6 +83,7 @@ export function useUsersTable({
   const t = useTranslations()
   const locale = useLocale()
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [isSelecting, setIsSelecting] = useState(false)
   const emailDialog = useDialogAction<ManagedUserListItemDto>()
 
   const scopedStore = useScopedStore(() =>
@@ -597,6 +598,20 @@ export function useUsersTable({
     setRowSelection({})
   }, [])
 
+  // Mobile selection mode: the card list has no checkbox column, so an
+  // explicit toggle drives the same rowSelection state the desktop table uses.
+  const toggleSelecting = useCallback(() => {
+    setIsSelecting((current) => !current)
+    setRowSelection({})
+  }, [])
+
+  const toggleUserSelected = useCallback((user: ManagedUserListItemDto) => {
+    setRowSelection((current) => ({
+      ...current,
+      [user.userId]: !current[user.userId],
+    }))
+  }, [])
+
   const getUserRowClassName = useCallback(
     (user: ManagedUserListItemDto) =>
       cn(user.missingInJellyfin && "bg-muted/20"),
@@ -700,6 +715,10 @@ export function useUsersTable({
     canGoPrevious,
     canGoNext,
     selectedUsers,
+    selectedUserIds,
+    isSelecting,
+    toggleSelecting,
+    toggleUserSelected,
     isProfileLocked,
     isExpiryLocked,
     profileDescription,
