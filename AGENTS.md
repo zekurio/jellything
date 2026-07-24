@@ -40,25 +40,26 @@ Layering: **routes/loaders → server-fn bridges or ORPC client → ORPC router/
 - `src/server/jellyfin`, `src/server/seerr`, `src/server/email` — integration adapters (email templates under `email/templates/`).
 - `src/test` — test helpers (temp-SQLite in `db.ts`).
 - `drizzle` — generated migrations (`0000_baseline.sql`, `meta/`).
-- `scripts` — `check-migration-drift.mjs`, backing `pnpm run db:check`.
+- `scripts` — Deno-based migration drift checking and Nix dependency-hash updates.
 - `flake.nix` — Nix package, dev shell, and NixOS module (`services.inviterr`).
 
 ## Development Commands
 
-Use `pnpm` for everything.
+Use Deno for package management, tasks, development, and production.
 
-- `pnpm run dev` — Vite dev server.
-- `pnpm run format` / `format:check` — Oxfmt apply / verify.
-- `pnpm run lint` / `lint:fix` — Oxlint.
-- `pnpm run typecheck` — `tsgo --noEmit`.
-- `pnpm run check` — lint + typecheck shortcut.
-- `pnpm run test` — `vitest run`.
-- `pnpm run db:generate` / `db:migrate` / `db:push` (dev only) / `db:studio` — Drizzle workflows.
-- `pnpm run db:check` — fail on schema/migration drift (CI-safe).
+- `deno install --frozen` — install exactly the locked dependencies.
+- `deno task dev` — Vite dev server.
+- `deno task format` / `format:check` — Oxfmt apply / verify.
+- `deno task lint` / `lint:fix` — Oxlint.
+- `deno task typecheck` — `tsgo --noEmit` under Deno.
+- `deno task check` — lint + typecheck shortcut.
+- `deno task test` — Vitest under Deno.
+- `deno task db:generate` / `db:migrate` / `db:push` (dev only) / `db:studio` — Drizzle workflows.
+- `deno task db:check` — fail on schema/migration drift (CI-safe).
 
-Do **not** run `pnpm run build` during normal app work unless explicitly needed; it can disrupt the running dev server.
+Do **not** run `deno task build` during normal app work unless explicitly needed; it can disrupt the running dev server.
 
-**Coding-task completion checklist** (all must pass): `pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, `pnpm run test`. When changing persisted data shape, include the schema change plus generated migration and run `pnpm run db:check`.
+**Coding-task completion checklist** (all must pass): `deno task format:check`, `deno task lint`, `deno task typecheck`, `deno task test`. When changing persisted data shape, include the schema change plus generated migration and run `deno task db:check`.
 
 ## Code Conventions & Common Patterns
 
@@ -135,26 +136,27 @@ Existing schema has some camelCase TS fields; do not churn it for style unless t
 - `src/lib/server/config.server.ts` — runtime config manager (app/auth/Jellyfin/Seerr/email settings from `CONFIG_PATH`).
 - `vite.config.ts`, `vitest.config.ts`, `tsconfig.json` (path alias `@/*` → `./src/*`).
 - `.oxfmtrc.json`, `.oxlintrc.json` — format/lint rules.
-- `flake.nix` — package, dev shell (`nodejs_24`, `pnpm_10`), NixOS module.
+- `flake.nix` — Deno package, dev shell, container image, and NixOS module.
 - `.github/workflows/checks.yml` — CI pipeline.
 - `src/routeTree.gen.ts` is generated — never edit.
 
 ## Runtime/Tooling Preferences
 
-- Node 24 (pinned in CI and Nix); package manager pinned to `pnpm@10.28.0` via `packageManager` — always use `pnpm`.
-- Vite 7 + TanStack Start; SQLite through `@libsql/client` with `drizzle-orm/libsql/node`. `DB_PATH` accepts plain paths, `sqlite://`, `file://`, and `:memory:`.
+- Deno 2.9.x is pinned in CI and Nix and is the package manager, task runner, and runtime. `package.json` remains the npm dependency manifest; `deno.lock` is the only dependency lockfile.
+- After dependency changes, run `deno install`, then refresh the per-platform Nix hashes with `scripts/update-deno-deps-hashes.sh` from `nix develop`.
+- Vite 7 + TanStack Start use Nitro's `deno-server` preset; SQLite runs through Deno's Node-API compatibility with `@libsql/client` and `drizzle-orm/libsql/node`. `DB_PATH` accepts plain paths, `sqlite://`, `file://`, and `:memory:`.
 - Lint/format are Oxlint/Oxfmt only — no ESLint or Prettier configs exist; do not add them.
 - Nix: `nix develop` provides the toolchain (direnv via `.envrc`). Run Nix checks only when touching packaging, the flake, the NixOS module, or service behavior.
 - No Dockerfile; the container image is built from `packages.dockerImage` in
   `flake.nix`. Deployment supports the published GHCR image, Nix (recommended),
-  or bare-metal Node + pnpm.
+  or bare-metal Deno.
 
 ## Testing & QA
 
-- Vitest (`vitest.config.ts`): Node environment, discovers `src/**/*.test.ts(x)`. Run with `pnpm run test`; no coverage gate configured.
+- Vitest (`vitest.config.ts`): Node-compatible environment on Deno, discovers `src/**/*.test.ts(x)`. Run with `deno task test`; no coverage gate configured.
 - Avoid mocks as much as possible. Pure-logic suites (`src/lib/invite-codes.test.ts`, `src/server/renewal.test.ts`, `src/server/rate-limit.test.ts`) use none; mock only external boundaries (Jellyfin admin API, email, config) where needed, e.g. `src/server/admin/users.test.ts`.
 - Test actual implementation; never duplicate implementation logic into tests. Prefer integration-style coverage for auth, invites, profile policy application, and external-service adapters.
 - DB-backed suites use `src/test/db.ts` (`createTestDatabase()`, `configureTestEnvironment()`): set temp env paths, `vi.resetModules()`, dynamically import target modules so they read the temp env, run migrations, clean up in `afterEach`/`afterAll`. Follow `src/server/tokens.test.ts`, `session.test.ts`, or `invites.test.ts` as the pattern.
 - Run targeted tests while iterating; run the full completion checklist (format:check, lint, typecheck, test) before calling a coding task done.
-- CI (`.github/workflows/checks.yml`, on push): install → `format:check` → `lint:github` → `typecheck` → `test` → `db:check` → `build` → `nix flake check`.
+- CI (`.github/workflows/checks.yml`, on push): Deno install → `format:check` → `lint:github` → `typecheck` → `test` → `db:check` → `build` → `nix flake check`.
 - For non-coding tasks (docs, Nix, ops), propose verification steps and let the user decide validation depth.
