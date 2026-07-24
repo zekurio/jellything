@@ -14,6 +14,11 @@
     }:
     let
       inherit (nixpkgs) lib;
+      supportedSystems = [
+        "aarch64-darwin"
+        "aarch64-linux"
+        "x86_64-linux"
+      ];
 
       mkInviterrPackage =
         pkgs:
@@ -24,11 +29,27 @@
           dbPath ? "./data/inviterr.db",
           configPath ? "./data/config.json",
           logLevel ? "info",
+          denoDepsHashes ? {
+            aarch64-darwin = "sha256-bLfd8FWYEqo/LUcKlRHkO4t7Ir2VRM9RYC1WznP8pPU=";
+            x86_64-darwin = "sha256-hTZJTYYsxczDtqHE+AwbWyh2oITlyiFbOSAzkQz5hZw=";
+            aarch64-linux = "sha256-k29KFz8bpiMMTMTxX445sXHRoWw81mClV2PYe8rT1q0=";
+            x86_64-linux = "sha256-QRmfs1N9TStvMPjXUkO7nsmCCtbPd2sJ99fCpkc+Hdo=";
+          },
         }:
         let
           packageJson = lib.importJSON ./package.json;
           version = if appVersion != null then appVersion else packageJson.version;
-          pnpm = pkgs.pnpm_10;
+          system = pkgs.stdenvNoCC.hostPlatform.system;
+          targetOS = if pkgs.stdenvNoCC.hostPlatform.isDarwin then "darwin" else "linux";
+          targetArch = if pkgs.stdenvNoCC.hostPlatform.isAarch64 then "arm64" else "x64";
+          dependencySource = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [
+              ./deno.json
+              ./deno.lock
+              ./package.json
+            ];
+          };
           src = lib.cleanSourceWith {
             src = ./.;
             filter =
@@ -50,23 +71,44 @@
                 || baseName == "result"
               );
           };
+          denoDeps = pkgs.stdenvNoCC.mkDerivation {
+            pname = "inviterr-deno-dependencies";
+            inherit version;
+            src = dependencySource;
+
+            nativeBuildInputs = [ pkgs.deno ];
+            dontConfigure = true;
+            dontFixup = true;
+
+            buildPhase = ''
+              runHook preBuild
+              export DENO_DIR=$TMPDIR/deno-cache
+              deno install \
+                --os ${targetOS} \
+                --arch ${targetArch} \
+                --frozen \
+                --quiet
+              runHook postBuild
+            '';
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p $out
+              rm -f node_modules/.deno/.setup-cache.bin node_modules/.deno/.deno.lock
+              cp -a node_modules $out/node_modules
+              runHook postInstall
+            '';
+
+            outputHashMode = "recursive";
+            outputHashAlgo = "sha256";
+            outputHash = denoDepsHashes.${system};
+          };
         in
-        pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+        pkgs.stdenvNoCC.mkDerivation {
           pname = "inviterr";
           inherit version src;
 
-          pnpmDeps = pkgs.fetchPnpmDeps {
-            inherit (finalAttrs) pname version src;
-            inherit pnpm;
-            fetcherVersion = 3;
-            hash = "sha256-TjA+IiDo+6I0TH7g2aZBF2fd/UzuJQn/1URrmGM2488=";
-          };
-
-          nativeBuildInputs = [
-            pkgs.nodejs_24
-            pnpm
-            pkgs.pnpmConfigHook
-          ];
+          nativeBuildInputs = [ pkgs.deno ];
 
           env = {
             APP_VERSION = version;
@@ -76,7 +118,15 @@
 
           buildPhase = ''
             runHook preBuild
-            pnpm run build
+            cp -R ${denoDeps}/node_modules node_modules
+            chmod -R u+w node_modules
+            export DENO_DIR=$TMPDIR/deno-cache
+            deno run \
+              --cached-only \
+              --node-modules-dir=manual \
+              -A \
+              npm:vite@7.3.6 \
+              build
             runHook postBuild
           '';
 
@@ -100,7 +150,15 @@
             export LOG_LEVEL="''${LOG_LEVEL:-${logLevel}}"
             export MIGRATIONS_PATH="''${MIGRATIONS_PATH:-${placeholder "out"}/share/inviterr/drizzle}"
 
-            exec ${lib.getExe pkgs.nodejs_24} \
+            exec ${lib.getExe pkgs.deno} run \
+              --cached-only \
+              --no-prompt \
+              --allow-env \
+              --allow-net \
+              --allow-read \
+              --allow-write \
+              --allow-ffi \
+              --allow-sys \
               "${placeholder "out"}/share/inviterr/.output/server/index.mjs" \
               "$@"
             EOF
@@ -109,16 +167,19 @@
             runHook postInstall
           '';
 
-          passthru.withOptions = mkInviterrPackage pkgs;
+          passthru = {
+            inherit denoDeps;
+            withOptions = mkInviterrPackage pkgs;
+          };
 
           meta = {
             description = "User management and invitation app for Jellyfin";
             homepage = "https://github.com/zekurio/inviterr";
             license = lib.licenses.mit;
             mainProgram = "inviterr";
-            platforms = lib.platforms.linux ++ lib.platforms.darwin;
+            platforms = supportedSystems;
           };
-        });
+        };
 
       mkNixosModule =
         { config, pkgs, ... }:
@@ -233,19 +294,19 @@
               after = [ "network-online.target" ];
               wants = [ "network-online.target" ];
 
-              environment =
-                {
-                  NODE_ENV = "production";
-                  HOST = cfg.host;
-                  PORT = toString cfg.port;
-                  DB_PATH = "${cfg.dataDir}/inviterr.db";
-                  CONFIG_PATH = toString cfg.configFile;
-                  LOG_LEVEL = cfg.logLevel;
-                }
-                // lib.optionalAttrs (cfg.appVersion != null) {
-                  APP_VERSION = cfg.appVersion;
-                }
-                // cfg.environment;
+              environment = {
+                NODE_ENV = "production";
+                HOST = cfg.host;
+                PORT = toString cfg.port;
+                DB_PATH = "${cfg.dataDir}/inviterr.db";
+                CONFIG_PATH = toString cfg.configFile;
+                LOG_LEVEL = cfg.logLevel;
+                DENO_DIR = "${cfg.dataDir}/.deno";
+              }
+              // lib.optionalAttrs (cfg.appVersion != null) {
+                APP_VERSION = cfg.appVersion;
+              }
+              // cfg.environment;
 
               serviceConfig = {
                 ExecStart = "${lib.getExe cfg.package}";
@@ -268,7 +329,7 @@
           };
         };
     in
-    flake-utils.lib.eachDefaultSystem (
+    flake-utils.lib.eachSystem supportedSystems (
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -284,6 +345,7 @@
               "DB_PATH=/data/inviterr.db"
               "HOST=0.0.0.0"
               "PORT=4173"
+              "DENO_DIR=/data/.deno"
             ];
             ExposedPorts."4173/tcp" = { };
             Volumes."/data" = { };
@@ -291,14 +353,13 @@
         };
       in
       {
-        packages =
-          {
-            default = inviterr;
-            inviterr = inviterr;
-          }
-          // lib.optionalAttrs pkgs.stdenv.isLinux {
-            dockerImage = dockerImage;
-          };
+        packages = {
+          default = inviterr;
+          inviterr = inviterr;
+        }
+        // lib.optionalAttrs pkgs.stdenv.isLinux {
+          dockerImage = dockerImage;
+        };
 
         apps.default = flake-utils.lib.mkApp {
           drv = inviterr;
@@ -307,10 +368,7 @@
         checks.default = inviterr;
 
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            nodejs_24
-            pnpm_10
-          ];
+          packages = [ pkgs.deno ];
         };
       }
     )

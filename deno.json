@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true
+  },
+  "imports": {
+    "@/": "./src/"
+  },
+  "tasks": {
+    "dev": "deno run -A npm:vite@7.3.6 dev",
+    "build": "deno run -A npm:vite@7.3.6 build",
+    "start": "deno run --frozen --no-prompt --allow-env --allow-net --allow-read --allow-write --allow-ffi --allow-sys .output/server/index.mjs",
+    "lint": "deno run -A npm:oxlint@1.73.0 .",
+    "lint:github": "deno run -A npm:oxlint@1.73.0 . --format=github",
+    "lint:fix": "deno run -A npm:oxlint@1.73.0 . --fix",
+    "test": "deno run -A npm:vitest@4.1.10 run",
+    "typecheck": "deno run -A npm:@typescript/native-preview@7.0.0-dev.20260414.1 --noEmit -p tsconfig.json",
+    "check": "deno task lint && deno task typecheck",
+    "format": "deno run -A npm:oxfmt@0.58.0 .",
+    "format:check": "deno run -A npm:oxfmt@0.58.0 --check .",
+    "db:generate": "deno run -A --unstable-sloppy-imports npm:drizzle-kit@0.31.10 generate",
+    "db:check": "deno run --allow-read --allow-write --allow-run scripts/check-migration-drift.ts",
+    "db:migrate": "deno run -A --unstable-sloppy-imports npm:drizzle-kit@0.31.10 migrate",
+    "db:push": "deno run -A --unstable-sloppy-imports npm:drizzle-kit@0.31.10 push",
+    "db:studio": "deno run -A --unstable-sloppy-imports npm:drizzle-kit@0.31.10 studio"
+  },
+  "nodeModulesDir": "auto",
+  "exclude": [".output", "dist", "node_modules"]
+}

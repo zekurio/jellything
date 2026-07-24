@@ -50,6 +50,11 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.sha }}
 
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.3
+
       - id: release
         name: Resolve version, commit, and tag
         shell: bash
@@ -58,7 +63,7 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          current="$(node -p "require('./package.json').version")"
+          current="$(deno eval 'console.log(JSON.parse(Deno.readTextFileSync("package.json")).version)')"
           if [[ ! "$current" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid package.json version: $current" >&2
             exit 1
@@ -83,15 +88,16 @@ jobs:
             echo "Recovering unpublished release v$current."
             version="$current"
           else
-            # JavaScript template expressions must remain literal for node -e.
-            # shellcheck disable=SC2016
-            version="$(CURRENT="$current" BUMP="$INPUT_BUMP" node -e '
-              const [major, minor, patch] = process.env.CURRENT.split(".").map(Number)
-              const bump = process.env.BUMP || "patch"
-              if (bump === "major") console.log(`${major + 1}.0.0`)
-              else if (bump === "minor") console.log(`${major}.${minor + 1}.0`)
-              else console.log(`${major}.${minor}.${patch + 1}`)
-            ')"
+            IFS=. read -r major minor patch <<< "$current"
+            case "${INPUT_BUMP:-patch}" in
+              major) version="$((major + 1)).0.0" ;;
+              minor) version="$major.$((minor + 1)).0" ;;
+              patch) version="$major.$minor.$((patch + 1))" ;;
+              *)
+                echo "Unsupported version bump: $INPUT_BUMP" >&2
+                exit 1
+                ;;
+            esac
           fi
 
           tag="v$version"
@@ -107,14 +113,16 @@ jobs:
               "41898282+github-actions[bot]@users.noreply.github.com"
 
             if [[ "$version" != "$current" ]]; then
-              # JavaScript template expressions must remain literal for node -e.
+              # Keep the Deno template expression literal until Deno evaluates it.
               # shellcheck disable=SC2016
-              RELEASE_VERSION="$version" node -e '
-                const fs = require("node:fs")
-                const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"))
-                packageJson.version = process.env.RELEASE_VERSION
-                fs.writeFileSync("package.json", `${JSON.stringify(packageJson, null, 2)}\n`)
-              '
+              RELEASE_VERSION="$version" deno eval '
+                  const packageJson = JSON.parse(Deno.readTextFileSync("package.json"))
+                  packageJson.version = Deno.env.get("RELEASE_VERSION")
+                  Deno.writeTextFileSync(
+                    "package.json",
+                    `${JSON.stringify(packageJson, null, 2)}\n`,
+                  )
+                '
               git add package.json
               git commit -m "chore: release $tag"
             fi

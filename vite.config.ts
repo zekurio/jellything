@@ -58,7 +58,7 @@ export default defineConfig({
         routesDirectory: "routes",
       },
     }),
-    nitro(),
+    nitro({ preset: "deno-server" }),
     viteReact(),
   ],
 })
