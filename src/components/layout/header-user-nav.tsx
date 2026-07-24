@@ -1,7 +1,8 @@
 "use client"
 
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
-import { LogOut, ShieldCheck, User } from "lucide-react"
+import { LogOut, ShieldCheck, SunMoon, User } from "lucide-react"
+import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -10,9 +11,15 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useHydrated } from "@/hooks/use-hydrated"
 import { useSession } from "@/hooks/use-session"
 import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
@@ -33,6 +40,8 @@ export function HeaderUserNav({
   const navigate = useNavigate()
   const router = useRouter()
   const { setSession } = useSession()
+  const { theme, setTheme } = useTheme()
+  const hydrated = useHydrated()
 
   async function handleLogout(): Promise<void> {
     const client = getBrowserORPCClient()
@@ -85,6 +94,30 @@ export function HeaderUserNav({
             {t("nav.profile")}
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="cursor-pointer">
+            <SunMoon className="mr-2 h-4 w-4" />
+            {t("nav.theme")}
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup
+              // next-themes only knows the stored theme after mount; render
+              // "system" during SSR so the forceMount-ed menu hydrates cleanly.
+              value={hydrated ? (theme ?? "system") : "system"}
+              onValueChange={setTheme}
+            >
+              <DropdownMenuRadioItem value="light" className="cursor-pointer">
+                {t("nav.themeLight")}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="dark" className="cursor-pointer">
+                {t("nav.themeDark")}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="system" className="cursor-pointer">
+                {t("nav.themeSystem")}
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleLogout}

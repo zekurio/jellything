@@ -198,6 +198,8 @@ export function DashboardSettingsTabs({
         <MemberOnboardingSettingsTab
           initialConfig={initialData.memberOnboarding}
           appSettings={initialData.app}
+          jellyfinConfig={initialData.jellyfin}
+          seerrConfig={initialData.seerr}
         />
       </TabsContent>
       <TabsContent

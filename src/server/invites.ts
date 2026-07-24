@@ -38,6 +38,7 @@ import {
   isUsernameTaken,
   uploadUserAvatar,
 } from "@/server/jellyfin"
+import { getMediaServerName } from "@/server/jellyfin/display-name"
 import { logger } from "@/server/logger"
 import {
   applyProfileToUser,
@@ -153,15 +154,18 @@ export async function validateInvite(code: string): Promise<
 
   const onboarding = configManager.memberOnboarding
   // Only server-scoped placeholders resolve pre-redemption; user-scoped
-  // tokens in titles stay verbatim until the account exists.
-  const titleValues = getOnboardingPlaceholderValues()
-  const onboardingSteps =
+  // tokens in titles stay verbatim until the account exists. Values are
+  // resolved lazily because jellyfinName may hit the Jellyfin API.
+  const titleValues =
     onboarding.enabled && onboarding.pages.length > 0
-      ? onboarding.pages.map((p) => ({
-          id: p.id,
-          title: interpolatePlaceholders(p.title, titleValues),
-        }))
+      ? await getOnboardingPlaceholderValues()
       : undefined
+  const onboardingSteps = titleValues
+    ? onboarding.pages.map((p) => ({
+        id: p.id,
+        title: interpolatePlaceholders(p.title, titleValues),
+      }))
+    : undefined
 
   return success({
     valid: true,
@@ -170,13 +174,16 @@ export async function validateInvite(code: string): Promise<
   })
 }
 
-function getOnboardingPlaceholderValues(user?: {
+async function getOnboardingPlaceholderValues(user?: {
   username: string
   email: string
-}): PlaceholderValues {
+}): Promise<PlaceholderValues> {
   return {
     serverName: configManager.app.title,
     appUrl: configManager.appUrl ?? "",
+    jellyfinName: await getMediaServerName(),
+    jellyfinUrl: configManager.jellyfinExternalUrl,
+    seerrUrl: configManager.seerrExternalUrl ?? "",
     ...(user ? { username: user.username, email: user.email } : {}),
   }
 }
@@ -753,7 +760,7 @@ export async function redeemInvite(
     try {
       const memberOnboarding = configManager.memberOnboarding
       if (memberOnboarding.enabled && memberOnboarding.pages.length > 0) {
-        const pageValues = getOnboardingPlaceholderValues({
+        const pageValues = await getOnboardingPlaceholderValues({
           username: jellyfinUser.name,
           email: normalizedEmail,
         })

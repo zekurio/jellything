@@ -783,6 +783,9 @@ export const de: Messages = {
     expiresInMinutes: "Gültigkeitsdauer des Codes in Minuten",
     expiryDate: "Formatiertes Ablaufdatum",
     manageUrl: "Link zur Profilseite",
+    jellyfinName: "Name des Jellyfin-Servers",
+    jellyfinUrl: "Jellyfin-URL",
+    seerrUrl: "Seerr-URL",
   },
   validation: {
     passwordMinLength: "Das Passwort muss mindestens 8 Zeichen lang sein",
@@ -850,6 +853,10 @@ export const de: Messages = {
     settings: "Einstellungen",
     profile: "Profil",
     administrator: "Administrator",
+    theme: "Design",
+    themeLight: "Hell",
+    themeDark: "Dunkel",
+    themeSystem: "System",
   },
   errors: {
     unauthorized: "Nicht autorisiert",
