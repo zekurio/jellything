@@ -49,5 +49,8 @@ jobs:
       - name: Set up Nix
         uses: DeterminateSystems/nix-installer-action@v20
 
+      - name: Check Nix dependency hashes
+        run: scripts/update-deno-deps-hashes.sh --check
+
       - name: Run Nix flake check
         run: nix flake check
