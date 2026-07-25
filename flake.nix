@@ -30,15 +30,26 @@
           configPath ? "./data/config.json",
           logLevel ? "info",
           denoDepsHashes ? {
-            aarch64-darwin = "sha256-bLfd8FWYEqo/LUcKlRHkO4t7Ir2VRM9RYC1WznP8pPU=";
-            x86_64-darwin = "sha256-hTZJTYYsxczDtqHE+AwbWyh2oITlyiFbOSAzkQz5hZw=";
-            aarch64-linux = "sha256-k29KFz8bpiMMTMTxX445sXHRoWw81mClV2PYe8rT1q0=";
-            x86_64-linux = "sha256-QRmfs1N9TStvMPjXUkO7nsmCCtbPd2sJ99fCpkc+Hdo=";
+            aarch64-darwin = "sha256-m871REz9psAET//UYEqMb/bpKOy8LCP/Uq/P+bWOl+M=";
+            x86_64-darwin = "sha256-FP7dW7dBTNoQRXDJapGWJGbMfeDfef4e+yfxRtvuztc=";
+            aarch64-linux = "sha256-63Ubn/cfE3oboQxqRaGPuV3APOcQrh7l8jVorY6OunM=";
+            x86_64-linux = "sha256-A4ipkFKHfAQJWgKl3gphzLdqzNzfAtgUbnw/APJmTOI=";
           },
         }:
         let
           packageJson = lib.importJSON ./package.json;
           version = if appVersion != null then appVersion else packageJson.version;
+          dependencyFingerprint = builtins.substring 0 12 (
+            builtins.hashString "sha256" (
+              builtins.concatStringsSep ":" (
+                map (builtins.hashFile "sha256") [
+                  ./deno.json
+                  ./deno.lock
+                  ./package.json
+                ]
+              )
+            )
+          );
           system = pkgs.stdenvNoCC.hostPlatform.system;
           targetOS = if pkgs.stdenvNoCC.hostPlatform.isDarwin then "darwin" else "linux";
           targetArch = if pkgs.stdenvNoCC.hostPlatform.isAarch64 then "arm64" else "x64";
@@ -73,7 +84,7 @@
           };
           denoDeps = pkgs.stdenvNoCC.mkDerivation {
             pname = "inviterr-deno-dependencies";
-            inherit version;
+            version = dependencyFingerprint;
             src = dependencySource;
 
             nativeBuildInputs = [ pkgs.deno ];
