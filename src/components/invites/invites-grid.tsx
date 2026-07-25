@@ -492,56 +492,67 @@ export function InvitesGrid({
       operation: BulkInviteOperationDto,
       targetInvites: InviteDto[],
     ): Promise<void> => {
-      const client = getBrowserORPCClient()
-      const result = await runApiEffect(
-        client.admin.invites.bulk({
-          operation,
-          inviteIds: targetInvites.map((invite) => invite.id),
-        }),
-      )
+      try {
+        const client = getBrowserORPCClient()
+        const result = await runApiEffect(
+          client.admin.invites.bulk({
+            operation,
+            inviteIds: targetInvites.map((invite) => invite.id),
+          }),
+        )
 
-      if (result.error !== null || !result.data) {
+        if (result.error !== null || !result.data) {
+          toast.error(t("invites.bulkOperationFailed"))
+          return
+        }
+
+        const results = result.data.results
+        setInvitesState((current) =>
+          results.reduce<InviteDto[]>((nextInvites, operationResult) => {
+            if (!operationResult.ok || "skipped" in operationResult) {
+              return nextInvites
+            }
+            if (operationResult.operation === "delete") {
+              return nextInvites.filter(
+                (invite) => invite.id !== operationResult.inviteId,
+              )
+            }
+            return upsertInvite(nextInvites, operationResult.result)
+          }, current),
+        )
+
+        // Skipped items were already in the requested state, so they count
+        // neither as changed nor as failed.
+        const succeeded = results.filter(
+          (operationResult) =>
+            operationResult.ok && !("skipped" in operationResult),
+        ).length
+        const failed = results.filter(
+          (operationResult) => !operationResult.ok,
+        ).length
+        if (failed === 0 && succeeded > 0) {
+          toast.success(
+            t("invites.bulkOperationComplete", { success: succeeded, failed }),
+          )
+        }
+        if (failed > 0 && succeeded > 0) {
+          toast.warning(
+            t("invites.bulkOperationComplete", { success: succeeded, failed }),
+          )
+        }
+        if (failed > 0 && succeeded === 0) {
+          toast.error(t("invites.bulkOperationFailed"))
+        }
+        if (failed === 0 && succeeded === 0) {
+          toast.info(t("invites.bulkOperationNoChanges"))
+        }
+      } catch (err) {
+        reportClientError(err)
         toast.error(t("invites.bulkOperationFailed"))
+      } finally {
         bulkSelection.stopSelecting()
         void refetch()
-        return
       }
-
-      const results = result.data.results
-      setInvitesState((current) =>
-        results.reduce<InviteDto[]>((nextInvites, operationResult) => {
-          if (!operationResult.ok || "skipped" in operationResult) {
-            return nextInvites
-          }
-          if (operationResult.operation === "delete") {
-            return nextInvites.filter(
-              (invite) => invite.id !== operationResult.inviteId,
-            )
-          }
-          return upsertInvite(nextInvites, operationResult.result)
-        }, current),
-      )
-
-      const succeeded = results.filter(
-        (operationResult) => operationResult.ok,
-      ).length
-      const failed = results.length - succeeded
-      if (failed === 0 && succeeded > 0) {
-        toast.success(
-          t("invites.bulkOperationComplete", { success: succeeded, failed }),
-        )
-      }
-      if (failed > 0 && succeeded > 0) {
-        toast.warning(
-          t("invites.bulkOperationComplete", { success: succeeded, failed }),
-        )
-      }
-      if (succeeded === 0) {
-        toast.error(t("invites.bulkOperationFailed"))
-      }
-
-      bulkSelection.stopSelecting()
-      void refetch()
     },
     [bulkSelection, refetch, setInvitesState, t],
   )
@@ -604,7 +615,10 @@ export function InvitesGrid({
   }
 
   return (
-    <div className="space-y-4">
+    // Bottom padding keeps the last cards clear of the fixed mobile bulk bar.
+    <div
+      className={cn("space-y-4", selectedInvites.length > 0 && "pb-16 md:pb-0")}
+    >
       <DashboardTabToolbar
         search={
           <DashboardTabSearch

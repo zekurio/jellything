@@ -14,6 +14,7 @@ import { UserEmailDialog } from "@/components/users/user-email-dialog"
 import { UsersBulkActionBar } from "@/components/users/users-bulk-action-bar"
 import { UsersDesktopTable } from "@/components/users/users-desktop-table"
 import { UsersMobileList } from "@/components/users/users-mobile-list"
+import { cn } from "@/lib/utils"
 
 import { useUsersTable, type UsersPayload } from "./use-users-table"
 
@@ -96,7 +97,10 @@ export function UsersTable({
   }
 
   return (
-    <div className="space-y-4">
+    // Bottom padding keeps the last cards clear of the fixed mobile bulk bar.
+    <div
+      className={cn("space-y-4", selectedUsers.length > 0 && "pb-16 md:pb-0")}
+    >
       <DashboardTabToolbar
         search={
           <DashboardTabSearch

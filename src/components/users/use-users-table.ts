@@ -532,8 +532,12 @@ export function useUsersTable({
       if (failed > 0 && success > 0) {
         toast.warning(t("users.bulkOperationComplete", { success, failed }))
       }
-      if (success === 0) {
+      if (failed > 0 && success === 0) {
         toast.error(t("users.bulkOperationFailed"))
+      }
+      // Everything was skipped: nothing changed, but nothing failed either.
+      if (failed === 0 && success === 0) {
+        toast.info(t("users.bulkOperationNoChanges"))
       }
 
       setRowSelection({})

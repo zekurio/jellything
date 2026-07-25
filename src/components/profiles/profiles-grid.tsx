@@ -404,10 +404,12 @@ export function ProfilesGrid({
         )
       }
 
-      const succeeded = results.filter(
-        (operationResult) => operationResult.ok,
+      // Skipped items were already in the requested state, so they count
+      // neither as changed nor as failed.
+      const succeeded = deletedIds.size
+      const failed = results.filter(
+        (operationResult) => !operationResult.ok,
       ).length
-      const failed = results.length - succeeded
       if (failed === 0 && succeeded > 0) {
         toast.success(
           t("profiles.bulkOperationComplete", { success: succeeded, failed }),
@@ -418,8 +420,11 @@ export function ProfilesGrid({
           t("profiles.bulkOperationComplete", { success: succeeded, failed }),
         )
       }
-      if (succeeded === 0) {
+      if (failed > 0 && succeeded === 0) {
         toast.error(t("profiles.bulkOperationFailed"))
+      }
+      if (failed === 0 && succeeded === 0) {
+        toast.info(t("profiles.bulkOperationNoChanges"))
       }
 
       void refetch()
@@ -493,7 +498,13 @@ export function ProfilesGrid({
   }
 
   return (
-    <div className="space-y-4">
+    // Bottom padding keeps the last cards clear of the fixed mobile bulk bar.
+    <div
+      className={cn(
+        "space-y-4",
+        selectedProfiles.length > 0 && "pb-16 md:pb-0",
+      )}
+    >
       <DashboardTabToolbar
         search={
           <DashboardTabSearch

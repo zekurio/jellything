@@ -403,6 +403,7 @@ export interface Messages {
     bulkDeleteDescription: string
     bulkOperationComplete: string
     bulkOperationFailed: string
+    bulkOperationNoChanges: string
   }
   profiles: {
     searchPlaceholder: string
@@ -515,6 +516,7 @@ export interface Messages {
     bulkDeleteDescription: string
     bulkOperationComplete: string
     bulkOperationFailed: string
+    bulkOperationNoChanges: string
   }
   users: {
     user: string
@@ -600,6 +602,7 @@ export interface Messages {
     bulkOperationProgress: string
     bulkOperationComplete: string
     bulkOperationFailed: string
+    bulkOperationNoChanges: string
   }
   onboarding: {
     title: string

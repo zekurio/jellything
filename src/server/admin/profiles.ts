@@ -17,6 +17,7 @@ import {
 import { db, ensureMigrated } from "@/server/db"
 import {
   DEFAULT_PROFILE_POLICY,
+  invites,
   profiles,
   users,
   type Profile,
@@ -527,6 +528,21 @@ export async function deleteProfileService(
     return error(
       ErrorCode.CONFLICT,
       "Cannot delete a profile before a default profile exists",
+    )
+  }
+
+  // invites.profileId has no ON DELETE action, so deleting a referenced
+  // profile would fail the FK constraint with an opaque error. Surface a
+  // clear conflict instead; admins must delete or reassign the invites first.
+  const [referencingInvite] = await db
+    .select({ id: invites.id })
+    .from(invites)
+    .where(eq(invites.profileId, profileId))
+    .limit(1)
+  if (referencingInvite) {
+    return error(
+      ErrorCode.CONFLICT,
+      "Cannot delete a profile that is still used by invites",
     )
   }
 

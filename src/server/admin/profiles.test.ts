@@ -116,4 +116,51 @@ describe("bulkManageProfilesService", () => {
     ])
     expect(await setup.database.db.query.profiles.findMany()).toHaveLength(1)
   })
+
+  it("refuses to delete a profile that is still used by invites", async () => {
+    const setup = await loadProfilesServiceModules()
+
+    const defaultProfileId = crypto.randomUUID()
+    const usedProfileId = crypto.randomUUID()
+    await setup.database.db.insert(setup.schema.profiles).values([
+      {
+        id: defaultProfileId,
+        name: "Default",
+        isDefault: true,
+        policy: setup.schema.DEFAULT_PROFILE_POLICY,
+      },
+      {
+        id: usedProfileId,
+        name: "Used",
+        isDefault: false,
+        policy: setup.schema.DEFAULT_PROFILE_POLICY,
+      },
+    ])
+    await setup.database.db.insert(setup.schema.invites).values({
+      id: crypto.randomUUID(),
+      code: "USESPROF",
+      profileId: usedProfileId,
+    })
+
+    const result = await setup.profilesService.bulkManageProfilesService({
+      operation: "delete",
+      profileIds: [usedProfileId],
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) {
+      throw new Error("Expected bulk delete to return a success envelope")
+    }
+
+    expect(result.data.results).toEqual([
+      expect.objectContaining({
+        profileId: usedProfileId,
+        ok: false,
+        operation: "delete",
+        code: setup.errors.ErrorCode.CONFLICT,
+        message: "Cannot delete a profile that is still used by invites",
+      }),
+    ])
+    expect(await setup.database.db.query.profiles.findMany()).toHaveLength(2)
+  })
 })

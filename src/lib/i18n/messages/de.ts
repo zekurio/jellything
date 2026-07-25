@@ -463,6 +463,7 @@ export const de: Messages = {
     bulkOperationComplete:
       "Massenoperation abgeschlossen ({success} erfolgreich, {failed} fehlgeschlagen)",
     bulkOperationFailed: "Massenoperation fehlgeschlagen",
+    bulkOperationNoChanges: "Keine Änderungen erforderlich",
   },
   profiles: {
     searchPlaceholder: "Profile suchen...",
@@ -600,6 +601,7 @@ export const de: Messages = {
     bulkOperationComplete:
       "Massenoperation abgeschlossen ({success} erfolgreich, {failed} fehlgeschlagen)",
     bulkOperationFailed: "Massenoperation fehlgeschlagen",
+    bulkOperationNoChanges: "Keine Änderungen erforderlich",
   },
   users: {
     user: "Benutzer",
@@ -700,6 +702,7 @@ export const de: Messages = {
     bulkOperationComplete:
       "Massenoperation abgeschlossen ({success} erfolgreich, {failed} fehlgeschlagen)",
     bulkOperationFailed: "Massenoperation fehlgeschlagen",
+    bulkOperationNoChanges: "Keine Änderungen erforderlich",
   },
   onboarding: {
     title: "Inviterr-Einrichtung",

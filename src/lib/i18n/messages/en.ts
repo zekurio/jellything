@@ -454,6 +454,7 @@ export const en: Messages = {
     bulkOperationComplete:
       "Bulk operation completed ({success} succeeded, {failed} failed)",
     bulkOperationFailed: "Bulk operation failed",
+    bulkOperationNoChanges: "No changes were needed",
   },
   profiles: {
     searchPlaceholder: "Search profiles...",
@@ -587,6 +588,7 @@ export const en: Messages = {
     bulkOperationComplete:
       "Bulk operation completed ({success} succeeded, {failed} failed)",
     bulkOperationFailed: "Bulk operation failed",
+    bulkOperationNoChanges: "No changes were needed",
   },
   users: {
     user: "User",
@@ -684,6 +686,7 @@ export const en: Messages = {
     bulkOperationComplete:
       "Bulk operation completed ({success} succeeded, {failed} failed)",
     bulkOperationFailed: "Bulk operation failed",
+    bulkOperationNoChanges: "No changes were needed",
   },
   onboarding: {
     title: "Inviterr Setup",

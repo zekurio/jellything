@@ -349,8 +349,10 @@ export async function deleteInviteService(
     return error(ErrorCode.NOT_FOUND, "Invite not found")
   }
 
-  await db.delete(inviteUsages).where(eq(inviteUsages.inviteId, inviteId))
-  await db.delete(invites).where(eq(invites.id, inviteId))
+  await db.transaction(async (tx) => {
+    await tx.delete(inviteUsages).where(eq(inviteUsages.inviteId, inviteId))
+    await tx.delete(invites).where(eq(invites.id, inviteId))
+  })
 
   return success(null)
 }
@@ -417,8 +419,10 @@ async function applyBulkInviteOperation(
 
   try {
     if (operation === "delete") {
-      await db.delete(inviteUsages).where(eq(inviteUsages.inviteId, inviteId))
-      await db.delete(invites).where(eq(invites.id, inviteId))
+      await db.transaction(async (tx) => {
+        await tx.delete(inviteUsages).where(eq(inviteUsages.inviteId, inviteId))
+        await tx.delete(invites).where(eq(invites.id, inviteId))
+      })
       return { inviteId, ok: true, operation }
     }
 
