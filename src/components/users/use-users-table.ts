@@ -83,6 +83,7 @@ export function useUsersTable({
   const t = useTranslations()
   const locale = useLocale()
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [isSelecting, setIsSelecting] = useState(false)
   const emailDialog = useDialogAction<ManagedUserListItemDto>()
 
   const scopedStore = useScopedStore(() =>
@@ -531,8 +532,12 @@ export function useUsersTable({
       if (failed > 0 && success > 0) {
         toast.warning(t("users.bulkOperationComplete", { success, failed }))
       }
-      if (success === 0) {
+      if (failed > 0 && success === 0) {
         toast.error(t("users.bulkOperationFailed"))
+      }
+      // Everything was skipped: nothing changed, but nothing failed either.
+      if (failed === 0 && success === 0) {
+        toast.info(t("users.bulkOperationNoChanges"))
       }
 
       setRowSelection({})
@@ -595,6 +600,20 @@ export function useUsersTable({
 
   const clearRowSelection = useCallback(() => {
     setRowSelection({})
+  }, [])
+
+  // Mobile selection mode: the card list has no checkbox column, so an
+  // explicit toggle drives the same rowSelection state the desktop table uses.
+  const toggleSelecting = useCallback(() => {
+    setIsSelecting((current) => !current)
+    setRowSelection({})
+  }, [])
+
+  const toggleUserSelected = useCallback((user: ManagedUserListItemDto) => {
+    setRowSelection((current) => ({
+      ...current,
+      [user.userId]: !current[user.userId],
+    }))
   }, [])
 
   const getUserRowClassName = useCallback(
@@ -700,6 +719,10 @@ export function useUsersTable({
     canGoPrevious,
     canGoNext,
     selectedUsers,
+    selectedUserIds,
+    isSelecting,
+    toggleSelecting,
+    toggleUserSelected,
     isProfileLocked,
     isExpiryLocked,
     profileDescription,

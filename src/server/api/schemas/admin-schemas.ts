@@ -371,6 +371,85 @@ export const bulkManagedUsersResponseSchema = z.object({
   results: z.array(bulkManagedUserResultSchema),
 })
 
+export const bulkInviteOperationSchema = z.enum(["disable", "enable", "delete"])
+
+export const bulkInvitesSchema = z.object({
+  operation: bulkInviteOperationSchema,
+  inviteIds: z.array(UuidStringSchema).min(1).max(100),
+})
+
+export const bulkInviteSkipReasonSchema = z.enum([
+  "already_disabled",
+  "already_enabled",
+])
+
+export const bulkInviteResultSchema = z.discriminatedUnion("ok", [
+  z.object({
+    inviteId: AnyStringSchema,
+    ok: z.literal(true),
+    operation: z.enum(["disable", "enable"]),
+    result: inviteSchema,
+  }),
+  z.object({
+    inviteId: AnyStringSchema,
+    ok: z.literal(true),
+    operation: z.literal("delete"),
+  }),
+  z.object({
+    inviteId: AnyStringSchema,
+    ok: z.literal(true),
+    operation: bulkInviteOperationSchema,
+    skipped: z.literal(true),
+    reason: bulkInviteSkipReasonSchema,
+  }),
+  z.object({
+    inviteId: AnyStringSchema,
+    ok: z.literal(false),
+    operation: bulkInviteOperationSchema,
+    code: z.enum(ErrorCode),
+    message: AnyStringSchema,
+  }),
+])
+
+export const bulkInvitesResponseSchema = z.object({
+  results: z.array(bulkInviteResultSchema),
+})
+
+export const bulkProfileOperationSchema = z.enum(["delete"])
+
+export const bulkProfilesSchema = z.object({
+  operation: bulkProfileOperationSchema,
+  profileIds: z.array(UuidStringSchema).min(1).max(100),
+})
+
+export const bulkProfileSkipReasonSchema = z.enum(["default_profile"])
+
+export const bulkProfileResultSchema = z.discriminatedUnion("ok", [
+  z.object({
+    profileId: AnyStringSchema,
+    ok: z.literal(true),
+    operation: z.literal("delete"),
+  }),
+  z.object({
+    profileId: AnyStringSchema,
+    ok: z.literal(true),
+    operation: bulkProfileOperationSchema,
+    skipped: z.literal(true),
+    reason: bulkProfileSkipReasonSchema,
+  }),
+  z.object({
+    profileId: AnyStringSchema,
+    ok: z.literal(false),
+    operation: bulkProfileOperationSchema,
+    code: z.enum(ErrorCode),
+    message: AnyStringSchema,
+  }),
+])
+
+export const bulkProfilesResponseSchema = z.object({
+  results: z.array(bulkProfileResultSchema),
+})
+
 export const mediaLibrarySchema = z.object({
   id: AnyStringSchema,
   name: AnyStringSchema,
@@ -453,3 +532,10 @@ export type BulkManagedUserResultDto = z.output<
 export type BulkManagedUsersDto = z.output<
   typeof bulkManagedUsersResponseSchema
 >
+export type BulkInvitesInputDto = z.input<typeof bulkInvitesSchema>
+export type BulkInviteOperationDto = z.output<typeof bulkInviteOperationSchema>
+export type BulkInviteResultDto = z.output<typeof bulkInviteResultSchema>
+export type BulkInvitesDto = z.output<typeof bulkInvitesResponseSchema>
+export type BulkProfilesInputDto = z.input<typeof bulkProfilesSchema>
+export type BulkProfileResultDto = z.output<typeof bulkProfileResultSchema>
+export type BulkProfilesDto = z.output<typeof bulkProfilesResponseSchema>

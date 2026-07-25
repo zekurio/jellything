@@ -1,11 +1,11 @@
 "use client"
 
-import { Ban, CheckCircle2, Edit, RefreshCw, Trash, X } from "lucide-react"
+import { Ban, CheckCircle2, Edit, RefreshCw, Trash } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 
+import { BulkActionBar } from "@/components/shared/bulk-action-bar"
 import { ConfirmAlertShell } from "@/components/shared/confirm-alert-shell"
 import { AlertDialog } from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
 import { UserEditDialog } from "@/components/users/user-edit-dialog"
 import type {
   ManagedUserListItemDto,
@@ -141,83 +141,80 @@ export function UsersBulkActionBar({
     setActiveConfirm("syncSeerr")
   }, [])
 
+  const barActions = useMemo(
+    () => [
+      ...(eligibleForEdit.length > 0
+        ? [
+            {
+              key: "edit",
+              label: t("users.editUser"),
+              icon: Edit,
+              onClick: openEditDialog,
+            },
+          ]
+        : []),
+      ...(eligibleForDisable.length > 0
+        ? [
+            {
+              key: "disable",
+              label: t("users.bulkDisable"),
+              icon: Ban,
+              onClick: openDisableConfirm,
+            },
+          ]
+        : []),
+      ...(eligibleForEnable.length > 0
+        ? [
+            {
+              key: "enable",
+              label: t("users.bulkEnable"),
+              icon: CheckCircle2,
+              onClick: openEnableConfirm,
+            },
+          ]
+        : []),
+      ...(seerrConfigured
+        ? [
+            {
+              key: "syncSeerr",
+              label: t("users.bulkSyncSeerr"),
+              icon: RefreshCw,
+              onClick: openSyncSeerrConfirm,
+            },
+          ]
+        : []),
+      {
+        key: "delete",
+        label: t("users.bulkDelete"),
+        icon: Trash,
+        onClick: openDeleteConfirm,
+        destructive: true,
+      },
+    ],
+    [
+      eligibleForDisable.length,
+      eligibleForEdit.length,
+      eligibleForEnable.length,
+      openDeleteConfirm,
+      openDisableConfirm,
+      openEditDialog,
+      openEnableConfirm,
+      openSyncSeerrConfirm,
+      seerrConfigured,
+      t,
+    ],
+  )
+
   if (count === 0) return null
 
   return (
     <>
-      <div className="bg-muted/50 flex items-center gap-2 rounded-lg border px-3 py-2">
-        <span className="mr-1 text-sm font-medium">
-          {t("users.bulkSelectedCount", { count })}
-        </span>
-
-        <div className="flex items-center gap-1">
-          {eligibleForEdit.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
-              onClick={openEditDialog}
-            >
-              <Edit className="h-3.5 w-3.5" />
-              {t("users.editUser")}
-            </Button>
-          )}
-          {eligibleForDisable.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
-              onClick={openDisableConfirm}
-            >
-              <Ban className="h-3.5 w-3.5" />
-              {t("users.bulkDisable")}
-            </Button>
-          )}
-          {eligibleForEnable.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
-              onClick={openEnableConfirm}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {t("users.bulkEnable")}
-            </Button>
-          )}
-          {seerrConfigured && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 text-xs"
-              onClick={openSyncSeerrConfirm}
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              {t("users.bulkSyncSeerr")}
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive h-7 gap-1.5 text-xs"
-            onClick={openDeleteConfirm}
-          >
-            <Trash className="h-3.5 w-3.5" />
-            {t("users.bulkDelete")}
-          </Button>
-        </div>
-
-        <div className="ml-auto">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onClearSelection}
-            aria-label={t("common.close")}
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
+      <BulkActionBar
+        label={t("users.bulkSelectedCount", { count })}
+        actions={barActions}
+        clearLabel={t("common.close")}
+        onClear={onClearSelection}
+      />
 
       {/* Bulk edit dialog (profile + expiry) */}
       <UserEditDialog

@@ -37,6 +37,9 @@ export const de: Messages = {
     sortDescending: "Absteigend",
     perPage: "Pro Seite",
     viewOptions: "Sortier- und Anzeigeoptionen",
+    select: "Auswählen",
+    done: "Fertig",
+    selectedCount: "{count} ausgewählt",
   },
   auth: {
     login: "Anmelden",
@@ -445,6 +448,22 @@ export const de: Messages = {
     stepEmailDescription: `Wird für ${passwordWord}-Reset und Benachrichtigungen verwendet.`,
     stepNext: "Weiter",
     stepBack: "Zurück",
+    selectInvite: "{code} auswählen",
+    bulkDisable: "Deaktivieren",
+    bulkEnable: "Aktivieren",
+    bulkDisableTitle: "Einladungen deaktivieren",
+    bulkDisableDescription:
+      "{count} Einladungen deaktivieren, damit sie nicht mehr eingelöst werden können?",
+    bulkEnableTitle: "Einladungen aktivieren",
+    bulkEnableDescription:
+      "{count} Einladungen aktivieren, damit sie wieder eingelöst werden können?",
+    bulkDeleteTitle: "Einladungen löschen",
+    bulkDeleteDescription:
+      "{count} Einladungen löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    bulkOperationComplete:
+      "Massenoperation abgeschlossen ({success} erfolgreich, {failed} fehlgeschlagen)",
+    bulkOperationFailed: "Massenoperation fehlgeschlagen",
+    bulkOperationNoChanges: "Keine Änderungen erforderlich",
   },
   profiles: {
     searchPlaceholder: "Profile suchen...",
@@ -575,6 +594,14 @@ export const de: Messages = {
     jsrQuotaRequests: "Anfragen",
     jsrQuotaDays: "Tage",
     profileNameAlreadyExists: "Ein Profil mit diesem Namen existiert bereits",
+    selectProfile: "{name} auswählen",
+    bulkDeleteTitle: "Profile löschen",
+    bulkDeleteDescription:
+      "{count} Profile löschen? Zugehörige Benutzer werden dem Standardprofil zugewiesen.",
+    bulkOperationComplete:
+      "Massenoperation abgeschlossen ({success} erfolgreich, {failed} fehlgeschlagen)",
+    bulkOperationFailed: "Massenoperation fehlgeschlagen",
+    bulkOperationNoChanges: "Keine Änderungen erforderlich",
   },
   users: {
     user: "Benutzer",
@@ -675,6 +702,7 @@ export const de: Messages = {
     bulkOperationComplete:
       "Massenoperation abgeschlossen ({success} erfolgreich, {failed} fehlgeschlagen)",
     bulkOperationFailed: "Massenoperation fehlgeschlagen",
+    bulkOperationNoChanges: "Keine Änderungen erforderlich",
   },
   onboarding: {
     title: "Inviterr-Einrichtung",

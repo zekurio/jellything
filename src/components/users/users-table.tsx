@@ -1,5 +1,7 @@
 "use client"
 
+import { ListChecks } from "lucide-react"
+
 import { DashboardTabSearch } from "@/components/dashboard/dashboard-tab-search"
 import { DashboardTabToolbar } from "@/components/dashboard/dashboard-tab-toolbar"
 import { ConfirmAlertShell } from "@/components/shared/confirm-alert-shell"
@@ -12,6 +14,7 @@ import { UserEmailDialog } from "@/components/users/user-email-dialog"
 import { UsersBulkActionBar } from "@/components/users/users-bulk-action-bar"
 import { UsersDesktopTable } from "@/components/users/users-desktop-table"
 import { UsersMobileList } from "@/components/users/users-mobile-list"
+import { cn } from "@/lib/utils"
 
 import { useUsersTable, type UsersPayload } from "./use-users-table"
 
@@ -49,6 +52,10 @@ export function UsersTable({
     canGoPrevious,
     canGoNext,
     selectedUsers,
+    selectedUserIds,
+    isSelecting,
+    toggleSelecting,
+    toggleUserSelected,
     isProfileLocked,
     isExpiryLocked,
     profileDescription,
@@ -90,7 +97,10 @@ export function UsersTable({
   }
 
   return (
-    <div className="space-y-4">
+    // Bottom padding keeps the last cards clear of the fixed mobile bulk bar.
+    <div
+      className={cn("space-y-4", selectedUsers.length > 0 && "pb-16 md:pb-0")}
+    >
       <DashboardTabToolbar
         search={
           <DashboardTabSearch
@@ -98,6 +108,18 @@ export function UsersTable({
             value={query}
             onChange={handleGlobalFilterChange}
           />
+        }
+        actions={
+          users.items.length > 0 ? (
+            <Button
+              variant="outline"
+              onClick={toggleSelecting}
+              className="w-full md:hidden"
+            >
+              <ListChecks className="mr-2 h-4 w-4" />
+              {isSelecting ? t("common.done") : t("common.select")}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -116,6 +138,9 @@ export function UsersTable({
         users={visibleUsers}
         t={t}
         seerrConfigured={seerrConfigured}
+        isSelecting={isSelecting}
+        selectedUserIds={selectedUserIds}
+        onToggleSelected={toggleUserSelected}
         onEditUser={openEditDialog}
         onEditEmail={emailDialog.open}
         onToggleUserDisabled={disableDialog.open}

@@ -36,6 +36,9 @@ export const en: Messages = {
     sortDescending: "Descending",
     perPage: "Per page",
     viewOptions: "Sort and view options",
+    select: "Select",
+    done: "Done",
+    selectedCount: "{count} selected",
   },
   auth: {
     login: "Log in",
@@ -436,6 +439,22 @@ export const en: Messages = {
       "We'll use this for password resets and notifications.",
     stepNext: "Continue",
     stepBack: "Back",
+    selectInvite: "Select {code}",
+    bulkDisable: "Disable",
+    bulkEnable: "Enable",
+    bulkDisableTitle: "Disable Invites",
+    bulkDisableDescription:
+      "Disable {count} invites so they can no longer be redeemed?",
+    bulkEnableTitle: "Enable Invites",
+    bulkEnableDescription:
+      "Enable {count} invites so they can be redeemed again?",
+    bulkDeleteTitle: "Delete Invites",
+    bulkDeleteDescription:
+      "Delete {count} invites? This action cannot be undone.",
+    bulkOperationComplete:
+      "Bulk operation completed ({success} succeeded, {failed} failed)",
+    bulkOperationFailed: "Bulk operation failed",
+    bulkOperationNoChanges: "No changes were needed",
   },
   profiles: {
     searchPlaceholder: "Search profiles...",
@@ -562,6 +581,14 @@ export const en: Messages = {
     jsrQuotaRequests: "Requests",
     jsrQuotaDays: "Days",
     profileNameAlreadyExists: "A profile with this name already exists",
+    selectProfile: "Select {name}",
+    bulkDeleteTitle: "Delete Profiles",
+    bulkDeleteDescription:
+      "Delete {count} profiles? Their users will be moved to the default profile.",
+    bulkOperationComplete:
+      "Bulk operation completed ({success} succeeded, {failed} failed)",
+    bulkOperationFailed: "Bulk operation failed",
+    bulkOperationNoChanges: "No changes were needed",
   },
   users: {
     user: "User",
@@ -659,6 +686,7 @@ export const en: Messages = {
     bulkOperationComplete:
       "Bulk operation completed ({success} succeeded, {failed} failed)",
     bulkOperationFailed: "Bulk operation failed",
+    bulkOperationNoChanges: "No changes were needed",
   },
   onboarding: {
     title: "Inviterr Setup",

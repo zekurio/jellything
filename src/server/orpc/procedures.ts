@@ -19,6 +19,7 @@ import {
 } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import {
+  bulkManageInvitesService,
   createInviteService,
   deleteInviteService,
   getInviteHistoryPageService,
@@ -26,6 +27,7 @@ import {
 } from "@/server/admin/invites"
 import { getOverviewService } from "@/server/admin/overview"
 import {
+  bulkManageProfilesService,
   createProfileService,
   deleteProfileService,
   updateProfileService,
@@ -38,7 +40,9 @@ import {
   updateManagedUserService,
 } from "@/server/admin/users"
 import {
+  bulkInvitesSchema,
   bulkManagedUsersSchema,
+  bulkProfilesSchema,
   inviteHistoryPageInputSchema,
   invitesPageInputSchema,
   usersPageInputSchema,
@@ -437,6 +441,11 @@ const adminProcedures = {
         unwrapActionResultOrThrow(await deleteInviteService(input.inviteId))
         return null
       }),
+    bulk: configuredAdminProcedure
+      .input(bulkInvitesSchema)
+      .handler(async ({ input }) =>
+        unwrapActionResultOrThrow(await bulkManageInvitesService(input)),
+      ),
   },
   profiles: {
     page: configuredAdminProcedure.input(noInputSchema).handler(async () => {
@@ -472,6 +481,11 @@ const adminProcedures = {
         unwrapActionResultOrThrow(await deleteProfileService(input.profileId))
         return null
       }),
+    bulk: configuredAdminProcedure
+      .input(bulkProfilesSchema)
+      .handler(async ({ input }) =>
+        unwrapActionResultOrThrow(await bulkManageProfilesService(input)),
+      ),
   },
   users: {
     page: configuredAdminProcedure

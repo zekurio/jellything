@@ -1,15 +1,23 @@
 import { eq, isNull } from "drizzle-orm"
+import { z } from "zod"
 
 import {
   ErrorCode,
   error,
+  getErrorMessage,
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
 import { createProfileSchema, updateProfileSchema } from "@/lib/schemas"
+import {
+  bulkProfilesSchema,
+  type BulkProfileResultDto,
+  type BulkProfilesDto,
+} from "@/server/api/schemas/admin-schemas"
 import { db, ensureMigrated } from "@/server/db"
 import {
   DEFAULT_PROFILE_POLICY,
+  invites,
   profiles,
   users,
   type Profile,
@@ -432,6 +440,68 @@ export async function updateProfileService(
   }
 }
 
+export async function bulkManageProfilesService(
+  input: z.input<typeof bulkProfilesSchema>,
+): Promise<ActionResult<BulkProfilesDto>> {
+  const parsed = bulkProfilesSchema.safeParse(input)
+  if (!parsed.success) {
+    return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
+  }
+
+  await ensureMigrated()
+
+  // Sequential on purpose: each delete re-reads profile state, so the
+  // last-profile and default-profile guards stay accurate as the set shrinks.
+  const results: BulkProfileResultDto[] = []
+  for (const profileId of parsed.data.profileIds) {
+    results.push(await applyBulkProfileDelete(profileId))
+  }
+
+  return success({ results })
+}
+
+async function applyBulkProfileDelete(
+  profileId: string,
+): Promise<BulkProfileResultDto> {
+  const [existing] = await db
+    .select({ isDefault: profiles.isDefault })
+    .from(profiles)
+    .where(eq(profiles.id, profileId))
+  if (existing?.isDefault) {
+    return {
+      profileId,
+      ok: true,
+      operation: "delete",
+      skipped: true,
+      reason: "default_profile",
+    }
+  }
+
+  try {
+    const result = await deleteProfileService(profileId)
+    if (!result.success) {
+      return {
+        profileId,
+        ok: false,
+        operation: "delete",
+        code: result.code,
+        message: result.error ?? getErrorMessage(result.code),
+      }
+    }
+
+    return { profileId, ok: true, operation: "delete" }
+  } catch (err) {
+    log.error({ err, profileId }, "Failed bulk profile delete")
+    return {
+      profileId,
+      ok: false,
+      operation: "delete",
+      code: ErrorCode.OPERATION_FAILED,
+      message: "Failed to delete profile",
+    }
+  }
+}
+
 export async function deleteProfileService(
   profileId: string,
 ): Promise<ActionResult<null>> {
@@ -458,6 +528,21 @@ export async function deleteProfileService(
     return error(
       ErrorCode.CONFLICT,
       "Cannot delete a profile before a default profile exists",
+    )
+  }
+
+  // invites.profileId has no ON DELETE action, so deleting a referenced
+  // profile would fail the FK constraint with an opaque error. Surface a
+  // clear conflict instead; admins must delete or reassign the invites first.
+  const [referencingInvite] = await db
+    .select({ id: invites.id })
+    .from(invites)
+    .where(eq(invites.profileId, profileId))
+    .limit(1)
+  if (referencingInvite) {
+    return error(
+      ErrorCode.CONFLICT,
+      "Cannot delete a profile that is still used by invites",
     )
   }
 

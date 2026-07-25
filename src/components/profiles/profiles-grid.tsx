@@ -1,18 +1,21 @@
 "use client"
 
 import { useStore } from "@tanstack/react-store"
-import { Edit, Plus, Star, Trash } from "lucide-react"
-import { memo, useCallback, useMemo } from "react"
+import { Edit, ListChecks, Plus, Star, Trash } from "lucide-react"
+import { memo, useCallback, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { DashboardTabSearch } from "@/components/dashboard/dashboard-tab-search"
 import { DashboardTabToolbar } from "@/components/dashboard/dashboard-tab-toolbar"
 import { ProfileFormDialog } from "@/components/profiles/profile-form-dialog"
+import { BulkActionBar } from "@/components/shared/bulk-action-bar"
 import { ConfirmAlertShell } from "@/components/shared/confirm-alert-shell"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Spinner } from "@/components/ui/spinner"
 import { createAppStore } from "@/hooks/store-utils"
+import { useBulkSelection } from "@/hooks/use-bulk-selection"
 import { useDialogAction, useSimpleDialog } from "@/hooks/use-dialog-action"
 import { useProfilesTableStore } from "@/hooks/use-profiles-table-store"
 import { useScopedStore } from "@/hooks/use-scoped-store"
@@ -21,6 +24,7 @@ import { reportClientError } from "@/lib/client-error"
 import { notifyProfilesChanged } from "@/lib/dashboard-events"
 import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
+import { cn } from "@/lib/utils"
 
 interface ProfilesGridProps {
   initialProfiles: ProfileDto[]
@@ -64,6 +68,9 @@ const ProfileCard = memo(function ProfileCard({
   profile,
   defaultLoading,
   t,
+  isSelecting,
+  isSelected,
+  onToggleSelected,
   onEdit,
   onSetDefault,
   onDelete,
@@ -71,20 +78,48 @@ const ProfileCard = memo(function ProfileCard({
   profile: ProfileDto
   defaultLoading: boolean
   t: ReturnType<typeof useTranslations>
+  isSelecting: boolean
+  isSelected: boolean
+  onToggleSelected: (id: string) => void
   onEdit: (id: string) => void
   onSetDefault: (profile: ProfileDto) => void
   onDelete: (profile: ProfileDto) => void
 }) {
+  // Default profiles cannot be bulk-deleted, so they are not selectable.
+  const isSelectable = isSelecting && !profile.isDefault
+
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border p-4">
+    <div
+      className={cn(
+        "flex min-h-[3.75rem] items-center justify-between gap-3 rounded-lg border p-4",
+        isSelectable && "cursor-pointer select-none",
+        isSelecting && profile.isDefault && "opacity-60",
+        isSelected && "border-primary/60 ring-primary/60 ring-1",
+      )}
+      onClick={isSelectable ? () => onToggleSelected(profile.id) : undefined}
+    >
       <div className="flex min-w-0 items-center gap-2">
+        {isSelecting && (
+          <Checkbox
+            checked={isSelected}
+            disabled={profile.isDefault}
+            onCheckedChange={() => onToggleSelected(profile.id)}
+            onClick={(clickEvent) => clickEvent.stopPropagation()}
+            aria-label={t("profiles.selectProfile", { name: profile.name })}
+          />
+        )}
         {profile.isDefault && (
           <Star className="h-4 w-4 shrink-0 fill-current text-amber-500" />
         )}
         <p className="truncate text-sm font-medium">{profile.name}</p>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
+      <div
+        className={cn(
+          "flex shrink-0 items-center gap-1",
+          isSelecting && "hidden",
+        )}
+      >
         <Button
           variant="ghost"
           size="icon"
@@ -180,6 +215,9 @@ export function ProfilesGrid({
   const error = useStore(scopedStore, (state) => state.error)
   const isLoading = useStore(scopedStore, (state) => state.isLoading)
 
+  const bulkSelection = useBulkSelection()
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false)
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const globalFilter = useProfilesTableStore((state) => state.globalFilter)
   const setGlobalFilter = useProfilesTableStore(
     (state) => state.setGlobalFilter,
@@ -327,6 +365,97 @@ export function ProfilesGrid({
     [profiles, filterLower],
   )
 
+  const selectedProfiles = useMemo(
+    () =>
+      profiles.filter(
+        (profile) =>
+          !profile.isDefault && bulkSelection.selectedIds.has(profile.id),
+      ),
+    [bulkSelection.selectedIds, profiles],
+  )
+
+  const handleBulkDelete = useCallback(async (): Promise<void> => {
+    setIsBulkDeleting(true)
+    try {
+      const client = getBrowserORPCClient()
+      const result = await runApiEffect(
+        client.admin.profiles.bulk({
+          operation: "delete",
+          profileIds: selectedProfiles.map((profile) => profile.id),
+        }),
+      )
+
+      if (result.error !== null || !result.data) {
+        toast.error(t("profiles.bulkOperationFailed"))
+        return
+      }
+
+      const results = result.data.results
+      const deletedIds = new Set(
+        results.flatMap((operationResult) =>
+          operationResult.ok && !("skipped" in operationResult)
+            ? [operationResult.profileId]
+            : [],
+        ),
+      )
+      if (deletedIds.size > 0) {
+        setProfilesState((current) =>
+          current.filter((profile) => !deletedIds.has(profile.id)),
+        )
+      }
+
+      // Skipped items were already in the requested state, so they count
+      // neither as changed nor as failed.
+      const succeeded = deletedIds.size
+      const failed = results.filter(
+        (operationResult) => !operationResult.ok,
+      ).length
+      if (failed === 0 && succeeded > 0) {
+        toast.success(
+          t("profiles.bulkOperationComplete", { success: succeeded, failed }),
+        )
+      }
+      if (failed > 0 && succeeded > 0) {
+        toast.warning(
+          t("profiles.bulkOperationComplete", { success: succeeded, failed }),
+        )
+      }
+      if (failed > 0 && succeeded === 0) {
+        toast.error(t("profiles.bulkOperationFailed"))
+      }
+      if (failed === 0 && succeeded === 0) {
+        toast.info(t("profiles.bulkOperationNoChanges"))
+      }
+
+      void refetch()
+      notifyProfilesChanged()
+    } catch (err) {
+      reportClientError(err)
+      toast.error(t("profiles.bulkOperationFailed"))
+    } finally {
+      setIsBulkDeleting(false)
+      setIsBulkDeleteOpen(false)
+      bulkSelection.stopSelecting()
+    }
+  }, [bulkSelection, refetch, selectedProfiles, setProfilesState, t])
+
+  const openBulkDeleteConfirm = useCallback(() => {
+    setIsBulkDeleteOpen(true)
+  }, [])
+
+  const bulkBarActions = useMemo(
+    () => [
+      {
+        key: "delete",
+        label: t("common.delete"),
+        icon: Trash,
+        onClick: openBulkDeleteConfirm,
+        destructive: true,
+      },
+    ],
+    [openBulkDeleteConfirm, t],
+  )
+
   const handleDelete = () => {
     const profile = deleteDialog.item
     if (!profile) {
@@ -369,7 +498,13 @@ export function ProfilesGrid({
   }
 
   return (
-    <div className="space-y-4">
+    // Bottom padding keeps the last cards clear of the fixed mobile bulk bar.
+    <div
+      className={cn(
+        "space-y-4",
+        selectedProfiles.length > 0 && "pb-16 md:pb-0",
+      )}
+    >
       <DashboardTabToolbar
         search={
           <DashboardTabSearch
@@ -379,12 +514,35 @@ export function ProfilesGrid({
           />
         }
         actions={
-          <Button onClick={createDialog.open} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            {t("profiles.createProfile")}
-          </Button>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            {profiles.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={bulkSelection.toggleSelecting}
+                className="flex-1 sm:flex-none"
+              >
+                <ListChecks className="mr-2 h-4 w-4" />
+                {bulkSelection.isSelecting
+                  ? t("common.done")
+                  : t("common.select")}
+              </Button>
+            )}
+            <Button onClick={createDialog.open} className="flex-1 sm:flex-none">
+              <Plus className="mr-2 h-4 w-4" />
+              {t("profiles.createProfile")}
+            </Button>
+          </div>
         }
       />
+
+      {selectedProfiles.length > 0 && (
+        <BulkActionBar
+          label={t("common.selectedCount", { count: selectedProfiles.length })}
+          actions={bulkBarActions}
+          clearLabel={t("common.close")}
+          onClear={bulkSelection.clearSelection}
+        />
+      )}
 
       {filteredProfiles.length === 0 ? (
         <div className="text-muted-foreground rounded-md border p-6 text-center text-sm">
@@ -398,6 +556,9 @@ export function ProfilesGrid({
               profile={profile}
               defaultLoading={defaultLoading}
               t={t}
+              isSelecting={bulkSelection.isSelecting}
+              isSelected={bulkSelection.selectedIds.has(profile.id)}
+              onToggleSelected={bulkSelection.toggleSelected}
               onEdit={handleEditProfile}
               onSetDefault={handleSetDefaultClick}
               onDelete={deleteDialog.open}
@@ -458,6 +619,25 @@ export function ProfilesGrid({
           }
           isLoading={deleteDialog.isLoading}
           onConfirm={handleDelete}
+          destructive
+        />
+      </AlertDialog>
+
+      <AlertDialog
+        open={isBulkDeleteOpen}
+        onOpenChange={(open) => !open && setIsBulkDeleteOpen(false)}
+      >
+        <ConfirmAlertShell
+          title={t("profiles.bulkDeleteTitle")}
+          description={t("profiles.bulkDeleteDescription", {
+            count: selectedProfiles.length,
+          })}
+          cancelLabel={t("common.cancel")}
+          confirmLabel={
+            isBulkDeleting ? t("common.deleting") : t("common.delete")
+          }
+          isLoading={isBulkDeleting}
+          onConfirm={() => void handleBulkDelete()}
           destructive
         />
       </AlertDialog>
