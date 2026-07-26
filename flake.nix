@@ -53,6 +53,15 @@
           system = pkgs.stdenvNoCC.hostPlatform.system;
           targetOS = if pkgs.stdenvNoCC.hostPlatform.isDarwin then "darwin" else "linux";
           targetArch = if pkgs.stdenvNoCC.hostPlatform.isAarch64 then "arm64" else "x64";
+          # sharp's prebuilt addon dlopens libstdc++, which has no global search
+          # path on NixOS, so loading it fails and takes SSR down app-wide. Its
+          # own RUNPATH already resolves libvips relative to $ORIGIN, so only the
+          # compiler runtime is missing. Rewriting RPATHs with autoPatchelfHook
+          # corrupts the prebuilt addon (it segfaults on load), so extend the
+          # loader search path at launch instead.
+          nativeLibraryPath = lib.optionalString pkgs.stdenvNoCC.hostPlatform.isLinux ''
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          '';
           dependencySource = lib.fileset.toSource {
             root = ./.;
             fileset = lib.fileset.unions [
@@ -160,7 +169,7 @@
             export CONFIG_PATH="''${CONFIG_PATH:-${configPath}}"
             export LOG_LEVEL="''${LOG_LEVEL:-${logLevel}}"
             export MIGRATIONS_PATH="''${MIGRATIONS_PATH:-${placeholder "out"}/share/inviterr/drizzle}"
-
+            ${nativeLibraryPath}
             exec ${lib.getExe pkgs.deno} run \
               --cached-only \
               --no-prompt \
