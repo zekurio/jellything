@@ -1,8 +1,6 @@
 import "@tanstack/react-start/server-only"
 import { createHash } from "node:crypto"
 
-import sharp from "sharp"
-
 import {
   BRANDING_IMAGE_MAX_BASE64_LENGTH,
   BRANDING_IMAGE_MAX_BYTES,
@@ -53,6 +51,10 @@ export async function normalizeBrandingImage(
     throw new BrandingImageValidationError("Invalid branding image size")
   }
 
+  // Loaded lazily so a broken native sharp install only fails logo uploads.
+  // At module scope it would be pulled into the SSR graph via the pure
+  // helpers below and break server rendering for every route.
+  const { default: sharp } = await import("sharp")
   const image = sharp(buffer, {
     limitInputPixels: BRANDING_IMAGE_DECODE_MAX_PIXELS,
     failOn: "error",
