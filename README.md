@@ -1,37 +1,38 @@
-# Inviterr
+<p align="center">
+  <img src="./public/logo-256.png" alt="Inviterr" width="128" />
+</p>
 
-Inviterr is a self-hosted user-management and invitation app for
-Jellyfin.
+<h1 align="center">Inviterr</h1>
 
-> **AI disclaimer:** This is a hobby project built for a specific use case,
-> with substantial AI-agent involvement.
+<hr />
 
-## Requirements
+Self-hosted user management and invitations for Jellyfin: issue invite links,
+apply profile-based library and Seerr permissions on redemption, and handle
+email verification, password resets, and account expiry/renewal from one
+dashboard.
 
-- Jellyfin `10.11.x` and a Jellyfin administrator API key
+This is a hobby project built for a specific self-hosted workflow, with
+substantial AI-agent involvement. Expect sharp edges.
+
+### Requirements
+
+- Jellyfin `10.11.x` plus an administrator API key
+- Optional: Seerr `3.x.x`, and an SMTP server for verification and reset email
 - Deno 2.9.x for a bare-metal install
-- Optional: Seerr `3.x.x`
-- Optional: an SMTP server for verification and password-reset email
 
-Use a tagged release (`vX.Y.Z`) rather than a moving branch in production.
+Always deploy a tagged release (`vX.Y.Z`), never a moving branch.
 
-## Install
+### Nix
 
-### Nix package
-
-Run a tagged package from a stable working directory; the default database and
-configuration paths are relative to that directory:
+Run a tagged package from a stable working directory; default database and
+config paths are relative to it. Packages are published for `aarch64-darwin`,
+`aarch64-linux`, and `x86_64-linux`.
 
 ```bash
-mkdir -p ~/inviterr
-cd ~/inviterr
+mkdir -p ~/inviterr && cd ~/inviterr
 umask 077
 nix run github:zekurio/inviterr/vX.Y.Z
 ```
-
-Open `http://127.0.0.1:4173`. Override `HOST`, `PORT`, `DB_PATH`,
-`CONFIG_PATH`, or `LOG_LEVEL` in the environment when needed. The flake
-publishes packages for Apple silicon and ARM64/x86-64 Linux.
 
 For NixOS, pin the same tag as a flake input:
 
@@ -39,8 +40,8 @@ For NixOS, pin the same tag as a flake input:
 inputs.inviterr.url = "github:zekurio/inviterr/vX.Y.Z";
 ```
 
-Import the module and keep the application port private when a reverse proxy
-runs on the same host:
+Then import and configure the module, keeping the app port private when a
+reverse proxy runs on the same host:
 
 ```nix
 {
@@ -51,21 +52,20 @@ runs on the same host:
     host = "127.0.0.1";
     port = 4173;
     dataDir = "/var/lib/inviterr";
-    logLevel = "info";
     openFirewall = false;
   };
 }
 ```
 
-The module runs as a dedicated user and creates its state directory with mode
-`0750`. Its main options are `package`, `user`, `group`, `host`, `port`,
-`dataDir`, `configFile`, `logLevel`, `appVersion`, `openFirewall`, and
-`environment`.
+The module runs as a dedicated system user with a `0750` state directory.
+Other options: `package`, `user`, `group`, `configFile`, `logLevel`,
+`appVersion`, and `environment`.
 
 ### Container
 
-Stable releases are published to GHCR with both versioned and `latest` tags.
-Persist `/data`, which contains the SQLite database and runtime configuration:
+Stable releases are published to GHCR with versioned and `latest` tags; `dev`
+commits publish only `unstable`. Persist `/data`, which holds the SQLite
+database and runtime config:
 
 ```bash
 docker run --name inviterr \
@@ -74,74 +74,39 @@ docker run --name inviterr \
   ghcr.io/zekurio/inviterr:X.Y.Z
 ```
 
-The image listens on port `4173`. Set `LOG_LEVEL` or `TRUST_PROXY` with
-`--env` when needed. Development commits on `dev` publish only the
-`unstable` tag; use a versioned tag in production.
-
 ### Bare metal
 
-Check out a release tag, install exactly its locked dependencies, and create
-private state:
-
 ```bash
-git clone https://github.com/zekurio/inviterr.git
-cd inviterr
+git clone https://github.com/zekurio/inviterr.git && cd inviterr
 git checkout vX.Y.Z
 deno install --frozen
 cp .env.example .env
-umask 077
-install -d -m 0700 data
-chmod 0600 .env
+umask 077 && install -d -m 0700 data && chmod 0600 .env
 deno task build
 deno task --env-file=.env start
 ```
 
-The final command starts Nitro's Deno server preset with the permissions needed
-for network access, SQLite, configuration, and image processing. `deno task
-start` uses the same `.output/server/index.mjs` entry point when a service
-manager already supplies the environment. Run it from the repository root so
-the bundled application can find `drizzle/`; database migrations run
-automatically at startup.
+Run from the repository root so the bundled app can find `drizzle/`;
+migrations run automatically at startup. See [`.env.example`](.env.example) for
+the full set: `NODE_ENV`, `HOST`, `PORT`, `DB_PATH`, `CONFIG_PATH`,
+`LOG_LEVEL`, and `TRUST_PROXY`.
 
-The production environment is intentionally small:
+Keep the state directory, database, config, `.env`, backups, and logs readable
+only by the service account.
 
-| Variable        | Purpose                                                    |
-| --------------- | ---------------------------------------------------------- |
-| `NODE_ENV`      | Set to `production`.                                       |
-| `HOST` / `PORT` | Nitro address and port; example: `127.0.0.1:4173`.         |
-| `DB_PATH`       | SQLite database path.                                      |
-| `CONFIG_PATH`   | Config path with integration credentials and auth secrets. |
-| `LOG_LEVEL`     | `trace`, `debug`, `info`, `warn`, `error`, or `fatal`.     |
-| `TRUST_PROXY`   | Keep `false` unless only a trusted proxy can connect.      |
+### First run
 
-Keep the state directory, database, config, environment file, backups, and
-service logs readable only by the service account or an administrative backup
-account. Start the service with `umask 077` on bare metal so newly created
-state is private.
+On first start Inviterr logs `Generated setup key for onboarding` with a
+`setupKey` field (`journalctl -u inviterr` on NixOS). Keep that log private.
+Enter the key, then set the public app URL and the Jellyfin connection plus
+admin API key; Seerr and email can be left blank and configured later in
+Settings. `GET /healthz` is liveness; `GET /readyz` returns `200` only after
+startup database work succeeds.
 
-## First-run setup
+### Network and TLS
 
-On first start, Inviterr logs `Generated setup key for onboarding` with a
-`setupKey` field. Read it from the foreground log, or on NixOS with:
-
-```bash
-journalctl -u inviterr -n 100 --no-pager
-```
-
-Keep that log private. Open Inviterr, enter the setup key, then provide the
-public app URL and the required Jellyfin connection and administrator API key.
-The public URL should be the HTTPS URL users will visit. Seerr and email are
-optional: leave either section blank during onboarding and configure it later
-in Settings. After onboarding, create or customize profiles and issue invites.
-
-`GET /healthz` is the process liveness endpoint. `GET /readyz` returns `200`
-only after startup database work succeeds, and `503` on an initialization
-failure.
-
-## Network and TLS
-
-The Deno-backed Nitro server serves HTTP. For Internet access, terminate TLS at a reverse proxy and
-leave Inviterr bound to loopback. A minimal Caddy site is:
+Inviterr serves plain HTTP. Terminate TLS at a reverse proxy and keep the app
+bound to loopback:
 
 ```caddyfile
 inviterr.example.com {
@@ -149,93 +114,52 @@ inviterr.example.com {
 }
 ```
 
-Set `TRUST_PROXY=true` only when that proxy overwrites forwarded client,
-host, and protocol headers and the backend port cannot be reached around the
-proxy. This enables correct HTTPS-origin handling and per-client rate limits
-without trusting headers supplied directly by users. If the proxy is on
-another machine, bind Inviterr to a private interface and firewall the port
-so only that proxy can connect. Do not expose the unencrypted application port
-directly to the Internet.
+Set `TRUST_PROXY=true` only when that proxy overwrites forwarded client, host,
+and protocol headers and the backend port cannot be reached around it; this
+enables correct HTTPS-origin handling and per-client rate limits.
 
-## Back up and restore
+### Backups and upgrades
 
-The SQLite database and runtime config are one recoverable unit. The config
-contains secrets, so encrypt or otherwise restrict every backup.
+The SQLite database (`DB_PATH`) and runtime config (`CONFIG_PATH`) are one
+recoverable unit, and the config holds secrets. Stop Inviterr, archive both
+paths together (the whole `data/` or `/var/lib/inviterr/` directory, including
+any `-wal`/`-shm` files), and record the release tag. Restoring only one of the
+two can invalidate sessions or integration state.
 
-1. Stop Inviterr before copying files. This gives a consistent SQLite
-   snapshot and prevents config changes during the copy.
-2. Back up the files at `DB_PATH` and `CONFIG_PATH` together. With the default
-   layout, archive the whole `data/` directory (bare metal) or
-   `/var/lib/inviterr/` (NixOS), including any SQLite `-wal` or `-shm` files
-   that remain.
-3. Record the Inviterr release tag used with that backup.
-4. Restart Inviterr and confirm `/readyz` returns `200`.
+To upgrade, back up, stop the service, move to the new tag (`nix flake update
+inviterr && nixos-rebuild switch`, a new image tag, or `git checkout vX.Y.Z &&
+deno install --frozen && deno task build`), and confirm `/readyz` returns
+`200`. Rollbacks may require restoring the matching backup, not just an older
+tag.
 
-To restore, stop Inviterr, replace both paths from the same backup, restore
-their service-account ownership and restrictive directory/file modes, then
-start the recorded release. Confirm `/readyz` before upgrading. Restoring only
-the database or only the config can invalidate sessions or integration state.
+### Development
 
-## Upgrade
-
-For `nix run`, stop the old process, back up its state, and run the new tag
-from the same working directory:
-
-```bash
-nix run github:zekurio/inviterr/vX.Y.Z
-```
-
-Back up first. For NixOS, change the pinned input URL to the new tag, update
-that input, and rebuild:
-
-```bash
-nix flake update inviterr
-sudo nixos-rebuild switch --flake .#your-host
-```
-
-For bare metal, stop the service, then:
-
-```bash
-git fetch --tags
-git checkout vX.Y.Z
-deno install --frozen
-deno task build
-deno task --env-file=.env start
-```
-
-Migrations run on startup. A rollback may require restoring the matching
-database and config backup rather than only checking out an older tag.
-
-## Dependencies and development
-
-Deno is the package manager, task runner, development runtime, and production
-runtime. `package.json` remains the npm dependency manifest because the Vite,
-TanStack Start, and native-addon ecosystem consumes it directly. `deno.lock`
-is the reproducible lockfile and must be committed.
+Deno is the package manager, task runner, and runtime. `package.json` remains
+the npm dependency manifest; `deno.lock` is the committed lockfile.
 
 ```bash
 deno install --frozen
 deno task dev
-deno task format:check
-deno task lint
-deno task typecheck
-deno task test
-deno task db:check
-deno task build
 ```
 
-`node_modules/` is generated by Deno and is not committed. After changing
-dependencies, run `deno install`, commit `package.json` and `deno.lock`, then
-run `scripts/update-deno-deps-hashes.sh` from `nix develop` and copy any changed
-per-platform hashes into `flake.nix`. Confirm the result with `nix build`.
+With [Nix](https://nixos.org): `nix develop` (or `direnv allow`) provides the
+toolchain.
 
-## Maintainer releases
+Before opening a pull request, run `deno task format:check`, `deno task lint`,
+`deno task typecheck`, and `deno task test`; schema changes also need a
+generated migration and `deno task db:check`. After changing dependencies, run
+`deno install`, then `scripts/update-deno-deps-hashes.sh` from `nix develop`
+and copy the changed per-platform hashes into `flake.nix`.
 
-Dispatch the `Release` workflow from `dev`. Choose a patch, minor, or major
-bump, or provide an exact plain-semver override. The workflow runs the complete
-format, lint, typecheck, test, migration-drift, production-build, and Nix gate;
-commits the version bump; atomically pushes `dev` and the tag; publishes the
-versioned and `latest` container images; and creates the GitHub release.
-Interrupted runs recover the pending version or tag rather than bumping again.
-Only stable `vX.Y.Z` releases are supported; release candidates and other
-prereleases are not published.
+[AGENTS.md](AGENTS.md) documents architecture, conventions, and repo patterns.
+
+### Contributing
+
+Found a bug or have an idea?
+[Open an issue](https://github.com/zekurio/inviterr/issues/new). Branch names
+are at most three hyphenated words; commits and PR titles follow
+`type(scope): summary`.
+
+### License
+
+[MIT](LICENSE)
