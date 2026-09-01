@@ -177,10 +177,10 @@ export const en: Messages = {
     seerrSaved: "Seerr settings saved",
     seerrTestFailed: "Failed to connect to Seerr",
     noChanges: "No changes to save",
-    configPathOptional: "Config Path (optional)",
+    configPathOptional: "Jellyfin Data Path (optional)",
     configPathPlaceholder: "/var/lib/jellyfin",
     configPathDescription:
-      "Path to Jellyfin's config folder. Required for password reset.",
+      "Path to Jellyfin's data folder containing passwordreset*.json files. Required to email resets started in Jellyfin.",
     emailSettingsTitle: "Email Settings",
     emailSettingsDescription: "Configure outgoing email over SMTP.",
     emailFrom: "From Address",

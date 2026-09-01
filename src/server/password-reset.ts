@@ -7,13 +7,11 @@ import {
   success,
   type ActionResult,
 } from "@/lib/api/contracts/errors"
-import { resolveLocale } from "@/lib/i18n"
 import { passwordSchema } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
 import { isEmailConfigured } from "@/server/email"
-import { sendConfiguredEmail } from "@/server/email/messages"
 import {
   authenticateUser,
   forgotPassword,
@@ -24,11 +22,11 @@ import {
 import { createApiWithToken } from "@/server/jellyfin/client"
 import {
   findPasswordResetPinByCode,
-  waitForPasswordResetPin,
   type PasswordResetPin,
 } from "@/server/jellyfin/password-reset"
 import { changePassword } from "@/server/jellyfin/user"
 import { logger } from "@/server/logger"
+import { scanPasswordResetNotifications } from "@/server/password-reset-notifications"
 import { revokeAllUserSessions } from "@/server/session"
 
 const requestPasswordResetSchema = z.object({
@@ -53,7 +51,7 @@ export async function requestPasswordReset(
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
 
-  const { username } = parsed.data
+  const username = parsed.data.username
 
   if (!configManager.jellyfinConfigPath) {
     logger.warn("Password reset requested but configPath not set")
@@ -65,11 +63,9 @@ export async function requestPasswordReset(
     return error(ErrorCode.EMAIL_NOT_CONFIGURED)
   }
 
-  // Account existence and verification checks, the Jellyfin forgot-password
-  // call, the up-to-10s PIN wait, and email rendering/sending all run in the
-  // background so request latency stays constant regardless of whether the
-  // account exists or has a verified email. Failures are logged internally and
-  // never change the uniform response the client already received.
+  // Account existence and verification checks plus the Jellyfin and email work
+  // stay off the request path. The public response remains uniform regardless
+  // of whether the account exists or has a verified email.
   void processPasswordResetRequest(username).catch((err) => {
     logger.error({ error: err }, "Password reset background task failed")
   })
@@ -77,10 +73,6 @@ export async function requestPasswordReset(
   return success(null)
 }
 
-// Runs the account-specific reset work off the request path. Expected outcomes
-// (missing account, unverified email, unavailable Jellyfin reset) are logged
-// and returned quietly; unexpected external failures reject and are caught by
-// the fire-and-forget caller above.
 async function processPasswordResetRequest(username: string): Promise<void> {
   const jellyfinUser = await findJellyfinUser(username)
 
@@ -97,7 +89,7 @@ async function processPasswordResetRequest(username: string): Promise<void> {
     where: eq(users.userId, jellyfinUser.id),
   })
 
-  if (!dbUser || !dbUser.email || !dbUser.emailVerified) {
+  if (!dbUser?.email || !dbUser.emailVerified) {
     logger.debug(
       {
         username,
@@ -124,37 +116,7 @@ async function processPasswordResetRequest(username: string): Promise<void> {
     return
   }
 
-  const pin = await waitForPasswordResetPin(username, 10000)
-  if (!pin) {
-    logger.error({ username }, "Failed to retrieve password reset PIN")
-    return
-  }
-
-  const appUrl = configManager.appUrl
-  if (!appUrl) {
-    logger.warn("Password reset requested but app URL is not configured")
-    return
-  }
-
-  const resetUrl = `${appUrl}/reset-password?pin=${encodeURIComponent(pin.pin)}`
-
-  const expiresInMinutes = Math.round(
-    (pin.expirationDate.getTime() - Date.now()) / 1000 / 60,
-  )
-  const locale = resolveLocale(dbUser.locale, configManager.defaultLocale)
-
-  await sendConfiguredEmail(dbUser.email, {
-    type: "passwordReset",
-    payload: {
-      username: jellyfinUser.name,
-      pin: pin.pin,
-      resetUrl,
-      expiresInMinutes,
-      locale,
-    },
-  })
-
-  logger.info({ username, email: dbUser.email }, "Password reset email sent")
+  await scanPasswordResetNotifications()
 }
 
 const resetPasswordSchema = z.object({
@@ -183,7 +145,8 @@ export async function resetPassword(
     return error(ErrorCode.PASSWORD_RESET_NOT_CONFIGURED)
   }
 
-  const { pin, newPassword } = parsed.data
+  const pin = parsed.data.pin
+  const newPassword = parsed.data.newPassword
   const pinInfo = await findPasswordResetPinByCode(pin)
   if (!pinInfo) {
     return error(ErrorCode.PASSWORD_RESET_PIN_INVALID)

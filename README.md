@@ -103,6 +103,34 @@ admin API key; Seerr and email can be left blank and configured later in
 Settings. `GET /healthz` is liveness; `GET /readyz` returns `200` only after
 startup database work succeeds.
 
+### Jellyfin password reset emails
+
+When SMTP and the Jellyfin data path are configured, Inviterr watches for
+`passwordreset*.json` files created by Jellyfin's own forgot-password page. It
+matches the Jellyfin username to the local user record and emails the reset link
+only when that user has a verified address. Inviterr reads but never modifies
+these files.
+
+The Inviterr process needs read access to that directory. For containers, mount
+Jellyfin's data directory read-only and enter the path inside the Inviterr
+container in Settings:
+
+```bash
+--volume /path/to/jellyfin-data:/jellyfin-data:ro
+```
+
+For a same-host NixOS deployment, grant the Inviterr service account read and
+traverse access. If Jellyfin's group owns the directory, this is usually enough:
+
+```nix
+users.users.inviterr.extraGroups = [ "jellyfin" ];
+```
+
+Then set the Jellyfin data path, commonly `/var/lib/jellyfin`, in Inviterr's
+Jellyfin settings. Use an ACL instead if the local Jellyfin permissions differ.
+The reset JSON contains a live credential, so do not grant broader access than
+needed.
+
 ### Network and TLS
 
 Inviterr serves plain HTTP. Terminate TLS at a reverse proxy and keep the app
