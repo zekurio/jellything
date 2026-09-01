@@ -52,6 +52,7 @@ reverse proxy runs on the same host:
     host = "127.0.0.1";
     port = 4173;
     dataDir = "/var/lib/inviterr";
+    jellyfinDataDir = "/var/lib/jellyfin";
     openFirewall = false;
   };
 }
@@ -119,17 +120,17 @@ container in Settings:
 --volume /path/to/jellyfin-data:/jellyfin-data:ro
 ```
 
-For a same-host NixOS deployment, grant the Inviterr service account read and
-traverse access. If Jellyfin's group owns the directory, this is usually enough:
+For a same-host NixOS deployment, set the module's data-directory option:
 
 ```nix
-users.users.inviterr.extraGroups = [ "jellyfin" ];
+services.inviterr.jellyfinDataDir = "/var/lib/jellyfin";
 ```
 
-Then set the Jellyfin data path, commonly `/var/lib/jellyfin`, in Inviterr's
-Jellyfin settings. Use an ACL instead if the local Jellyfin permissions differ.
-The reset JSON contains a live credential, so do not grant broader access than
-needed.
+This grants the service read access through Jellyfin's group and changes the
+data directory from `0700` to `0750`. Set `jellyfinUser` or `jellyfinGroup` too
+when the local Jellyfin service uses non-default accounts. Then enter the same
+path in Inviterr's Jellyfin settings. The reset JSON contains a live credential,
+so do not grant broader access than needed.
 
 ### Network and TLS
 
