@@ -1,5 +1,6 @@
 import { configManager } from "@/lib/server/config.server"
 import { createChildLogger } from "@/server/logger"
+import { startPasswordResetNotificationWatcher } from "@/server/password-reset-notifications"
 import {
   runUserStartupMaintenance,
   startUserExpiryMaintenanceScheduler,
@@ -29,6 +30,7 @@ export function runStartupTasks(): void {
 
   startupPromise = (async () => {
     log.info("Running startup tasks")
+    startPasswordResetNotificationWatcher()
     startUserExpiryMaintenanceScheduler()
     await runUserStartupMaintenance()
 

@@ -52,6 +52,7 @@ reverse proxy runs on the same host:
     host = "127.0.0.1";
     port = 4173;
     dataDir = "/var/lib/inviterr";
+    jellyfinDataDir = "/var/lib/jellyfin";
     openFirewall = false;
   };
 }
@@ -102,6 +103,34 @@ Enter the key, then set the public app URL and the Jellyfin connection plus
 admin API key; Seerr and email can be left blank and configured later in
 Settings. `GET /healthz` is liveness; `GET /readyz` returns `200` only after
 startup database work succeeds.
+
+### Jellyfin password reset emails
+
+When SMTP and the Jellyfin data path are configured, Inviterr watches for
+`passwordreset*.json` files created by Jellyfin's own forgot-password page. It
+matches the Jellyfin username to the local user record and emails the reset link
+only when that user has a verified address. Inviterr reads but never modifies
+these files.
+
+The Inviterr process needs read access to that directory. For containers, mount
+Jellyfin's data directory read-only and enter the path inside the Inviterr
+container in Settings:
+
+```bash
+--volume /path/to/jellyfin-data:/jellyfin-data:ro
+```
+
+For a same-host NixOS deployment, set the module's data-directory option:
+
+```nix
+services.inviterr.jellyfinDataDir = "/var/lib/jellyfin";
+```
+
+This grants the service read access through Jellyfin's group and changes the
+data directory from `0700` to `0750`. Set `jellyfinUser` or `jellyfinGroup` too
+when the local Jellyfin service uses non-default accounts. Then enter the same
+path in Inviterr's Jellyfin settings. The reset JSON contains a live credential,
+so do not grant broader access than needed.
 
 ### Network and TLS
 

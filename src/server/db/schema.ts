@@ -98,6 +98,22 @@ export const users = sqliteTable("users", {
     .default(DEFAULT_TIMESTAMP_MS),
 })
 
+export const password_reset_notifications = sqliteTable(
+  "password_reset_notifications",
+  {
+    id: text().primaryKey(),
+    jellyfin_user_id: text(),
+    expires_at: integer({ mode: "timestamp_ms" }).notNull(),
+    processing_at: integer({ mode: "timestamp_ms" }),
+    processing_token: text(),
+    completed_at: integer({ mode: "timestamp_ms" }),
+    email_sent_at: integer({ mode: "timestamp_ms" }),
+    created_at: integer({ mode: "timestamp_ms" })
+      .notNull()
+      .default(DEFAULT_TIMESTAMP_MS),
+  },
+)
+
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey().$defaultFn(createId),
   userId: text("user_id")
@@ -240,6 +256,7 @@ export const schema = {
   invites,
   inviteUsages,
   emailVerificationTokens,
+  password_reset_notifications,
   profilesRelations,
   usersRelations,
   sessionsRelations,
@@ -261,3 +278,5 @@ export type NewSession = typeof sessions.$inferInsert
 export type EmailVerificationToken = typeof emailVerificationTokens.$inferSelect
 export type NewEmailVerificationToken =
   typeof emailVerificationTokens.$inferInsert
+export type PasswordResetNotification =
+  typeof password_reset_notifications.$inferSelect

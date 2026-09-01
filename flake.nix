@@ -261,6 +261,29 @@
               description = "Path to Inviterr's runtime configuration file.";
             };
 
+            jellyfinDataDir = mkOption {
+              type = types.nullOr types.path;
+              default = null;
+              example = "/var/lib/jellyfin";
+              description = ''
+                Jellyfin data directory containing password reset JSON files.
+                When set, Inviterr receives read access through the configured
+                Jellyfin group and the directory mode is adjusted to 0750.
+              '';
+            };
+
+            jellyfinUser = mkOption {
+              type = types.str;
+              default = "jellyfin";
+              description = "User account that owns the Jellyfin data directory.";
+            };
+
+            jellyfinGroup = mkOption {
+              type = types.str;
+              default = "jellyfin";
+              description = "Group used to grant Inviterr read access to Jellyfin data.";
+            };
+
             logLevel = mkOption {
               type = types.enum [
                 "trace"
@@ -308,6 +331,16 @@
               "d ${dirOf cfg.configFile} 0750 ${cfg.user} ${cfg.group} - -"
             ];
 
+            systemd.tmpfiles.settings.jellyfinDirs = lib.optionalAttrs
+              (cfg.jellyfinDataDir != null)
+              {
+                "${toString cfg.jellyfinDataDir}"."d" = {
+                  mode = lib.mkForce "0750";
+                  user = cfg.jellyfinUser;
+                  group = cfg.jellyfinGroup;
+                };
+              };
+
             systemd.services.inviterr = {
               description = "Inviterr";
               wantedBy = [ "multi-user.target" ];
@@ -340,10 +373,16 @@
                 PrivateTmp = true;
                 ProtectHome = true;
                 ProtectSystem = "strict";
+                ReadOnlyPaths = lib.optional
+                  (cfg.jellyfinDataDir != null)
+                  cfg.jellyfinDataDir;
                 ReadWritePaths = [
                   cfg.dataDir
                   (dirOf cfg.configFile)
                 ];
+                SupplementaryGroups = lib.optional
+                  (cfg.jellyfinDataDir != null)
+                  cfg.jellyfinGroup;
               };
             };
           };
