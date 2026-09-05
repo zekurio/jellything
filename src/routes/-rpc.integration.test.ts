@@ -129,6 +129,17 @@ afterEach(() => {
 })
 
 describe("RPC route mutation boundary", () => {
+  it("rejects an invalid login submission without creating an auth cookie", async () => {
+    const route = createRouteClient()
+    await expect(
+      route.client.auth.login({ username: "Member", password: "" }),
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      status: 400,
+    })
+    expect(getSetCookieHeader(route.responseState)).toBe("")
+  })
+
   it("rejects a mutation without the RPC CSRF token before logout can clear cookies", async () => {
     const { client, responseState } = createRouteClient({ csrf: false })
 

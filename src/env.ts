@@ -1,5 +1,31 @@
 import { createEnv } from "@t3-oss/env-core"
-import { z } from "zod"
+import { Type } from "typebox"
+
+// Vite loads this module before the application's path aliases are available.
+import {
+  defaulted,
+  enumValues,
+  standardSchema,
+  stringSchema,
+} from "./lib/validation"
+
+const truthyValues = ["true", "1", "yes", "on", "y", "enabled"]
+const stringBooleanPattern = `^(?:${[
+  ...truthyValues,
+  "false",
+  "0",
+  "no",
+  "off",
+  "n",
+  "disabled",
+]
+  .map((value) =>
+    value.replace(
+      /[a-z]/g,
+      (character) => `[${character}${character.toUpperCase()}]`,
+    ),
+  )
+  .join("|")})(?![\\s\\S])`
 
 const shouldSkipValidation = process.env.SKIP_ENV_VALIDATION === "true"
 
@@ -19,19 +45,36 @@ function withSkipValidationDefaults() {
 
 export const env = createEnv({
   server: {
-    DB_PATH: z.string().min(1).default("./data/inviterr.db"),
-    CONFIG_PATH: z.string().min(1).default("./data/config.json"),
-    MIGRATIONS_PATH: z.string().min(1).optional(),
-    NODE_ENV: z
-      .enum(["development", "production", "test"])
-      .default("development"),
-    LOG_LEVEL: z
-      .enum(["trace", "debug", "info", "warn", "error", "fatal"])
-      .default("info"),
+    DB_PATH: standardSchema(
+      defaulted(stringSchema({ minLength: 1 }), "./data/inviterr.db"),
+    ),
+    CONFIG_PATH: standardSchema(
+      defaulted(stringSchema({ minLength: 1 }), "./data/config.json"),
+    ),
+    MIGRATIONS_PATH: standardSchema(
+      Type.Union([stringSchema({ minLength: 1 }), Type.Undefined()]),
+    ),
+    NODE_ENV: standardSchema(
+      defaulted(
+        enumValues(["development", "production", "test"]),
+        "development",
+      ),
+    ),
+    LOG_LEVEL: standardSchema(
+      defaulted(
+        enumValues(["trace", "debug", "info", "warn", "error", "fatal"]),
+        "info",
+      ),
+    ),
     // Only enable when Inviterr runs behind a trusted proxy that overwrites
     // forwarded IP headers. When false (the default, safe for direct exposure)
     // forwarded IP headers are ignored so clients cannot spoof their address.
-    TRUST_PROXY: z.stringbool().default(false),
+    TRUST_PROXY: standardSchema(
+      Type.Decode(
+        defaulted(Type.String({ pattern: stringBooleanPattern }), "false"),
+        (value) => truthyValues.includes(value.toLowerCase()),
+      ),
+    ),
   },
   runtimeEnv: withSkipValidationDefaults(),
   skipValidation: shouldSkipValidation,

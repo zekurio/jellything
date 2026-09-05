@@ -1,7 +1,7 @@
-import { z } from "zod"
+import type { StaticDecode, TSchema } from "typebox"
 
+import { decodeWithSchema } from "@/lib/schema-decode"
 import { configManager, type SeerrConfig } from "@/lib/server/config.server"
-import { decodeWithSchema } from "@/lib/zod-decode"
 import { createChildLogger } from "@/server/logger"
 import { SeerrStatusSchema, type SeerrStatus } from "@/server/seerr/schemas"
 
@@ -195,13 +195,13 @@ export async function seerrRequest<T = unknown, TBody = unknown>(
 }
 
 export async function seerrRequestDecoded<
-  TSchema extends z.ZodType,
+  Type extends TSchema,
   TBody = unknown,
 >(
   path: string,
-  schema: TSchema,
+  schema: Type,
   options: SeerrRequestOptions<TBody> = {},
-): Promise<z.output<TSchema>> {
+): Promise<StaticDecode<Type>> {
   const response = await seerrRequest<unknown, TBody>(path, options)
   return decodeWithSchema(schema, response, {
     service: "Seerr",

@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { Loader2, LogOut, ArrowLeft, ArrowRight, Check } from "lucide-react"
 import {
@@ -49,6 +49,7 @@ import {
   type InviteRedemptionFormValues,
 } from "@/lib/schemas"
 import { cn } from "@/lib/utils"
+import { standardSchema } from "@/lib/validation"
 
 const REGISTRATION_STEP_COUNT = 3
 
@@ -216,7 +217,9 @@ function InviteRedeemPage() {
     clearErrors,
     formState: { errors, isSubmitting, touchedFields, submitCount },
   } = useForm<InviteRedemptionFormValues>({
-    resolver: zodResolver(inviteRedemptionFormSchema),
+    resolver: standardSchemaResolver(
+      standardSchema(inviteRedemptionFormSchema),
+    ),
     defaultValues: {
       username: "",
       email: "",

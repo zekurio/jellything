@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { useStore } from "@tanstack/react-store"
 import { Controller, useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -36,6 +36,7 @@ import {
   appSettingsFormSchema,
   type AppSettingsFormValues,
 } from "@/lib/schemas"
+import { standardSchema } from "@/lib/validation"
 
 interface AppSettingsTabProps {
   initialConfig: AppSettingsDto
@@ -201,7 +202,7 @@ export function AppSettingsTab({ initialConfig }: AppSettingsTabProps) {
     control,
     formState: { errors, isSubmitting },
   } = useForm<AppSettingsFormValues>({
-    resolver: zodResolver(appSettingsFormSchema),
+    resolver: standardSchemaResolver(standardSchema(appSettingsFormSchema)),
     defaultValues: initialValues,
   })
   const formValues = watch()

@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { Type, type StaticDecode, type TSchema } from "typebox"
 
 import {
   JELLYFIN_EXTERNAL_URL,
@@ -36,11 +36,11 @@ function adminRequest<T, TBody = unknown>(
   })
 }
 
-function adminRequestDecoded<TSchema extends z.ZodType, TBody = unknown>(
+function adminRequestDecoded<Type extends TSchema, TBody = unknown>(
   path: string,
-  schema: TSchema,
+  schema: Type,
   options: Omit<JellyfinRequestOptions<TBody>, "token"> = {},
-): Promise<z.output<TSchema>> {
+): Promise<StaticDecode<Type>> {
   const api: JellyfinClient = createAdminApi()
   return jellyfinRequestDecoded(path, schema, {
     ...options,
@@ -251,7 +251,10 @@ export interface JellyfinUserListItem {
  * Requires admin API key.
  */
 export async function getAllUsers(): Promise<JellyfinUserListItem[]> {
-  const data = await adminRequestDecoded("/Users", z.array(JellyfinUserSchema))
+  const data = await adminRequestDecoded(
+    "/Users",
+    Type.Array(JellyfinUserSchema),
+  )
   return (data ?? []).map((user: JellyfinUserRaw) => ({
     id: user.Id ?? "",
     name: user.Name ?? "Unknown",

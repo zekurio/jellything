@@ -1,5 +1,5 @@
 import { eq, isNull } from "drizzle-orm"
-import { z } from "zod"
+import type { StaticEncode } from "typebox"
 
 import {
   ErrorCode,
@@ -9,6 +9,7 @@ import {
   type ActionResult,
 } from "@/lib/api/contracts/errors"
 import { createProfileSchema, updateProfileSchema } from "@/lib/schemas"
+import { safeParse } from "@/lib/validation"
 import {
   bulkProfilesSchema,
   type BulkProfileResultDto,
@@ -299,7 +300,7 @@ export async function createProfileService(
 ): Promise<ActionResult<ProfileListItem>> {
   try {
     await ensureMigrated()
-    const parsed = createProfileSchema.safeParse(input)
+    const parsed = safeParse(createProfileSchema, input)
     if (!parsed.success) {
       return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
     }
@@ -338,7 +339,7 @@ export async function updateProfileService(
 ): Promise<ActionResult<ProfileListItem>> {
   try {
     await ensureMigrated()
-    const parsed = updateProfileSchema.safeParse(input)
+    const parsed = safeParse(updateProfileSchema, input)
     if (!parsed.success) {
       return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
     }
@@ -441,9 +442,9 @@ export async function updateProfileService(
 }
 
 export async function bulkManageProfilesService(
-  input: z.input<typeof bulkProfilesSchema>,
+  input: StaticEncode<typeof bulkProfilesSchema>,
 ): Promise<ActionResult<BulkProfilesDto>> {
-  const parsed = bulkProfilesSchema.safeParse(input)
+  const parsed = safeParse(bulkProfilesSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }

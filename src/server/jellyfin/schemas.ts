@@ -1,75 +1,79 @@
-import { z } from "zod"
+import { Type, type StaticDecode } from "typebox"
 
-export const JellyfinUserPolicySchema = z.object({
-  IsAdministrator: z.boolean().optional(),
-  IsDisabled: z.boolean().optional(),
-  IsHidden: z.boolean().optional(),
-  EnabledFolders: z.array(z.string()).nullable().optional(),
-  EnableAllFolders: z.boolean().optional(),
-  RemoteClientBitrateLimit: z.number().optional(),
-  EnableVideoPlaybackTranscoding: z.boolean().optional(),
-  EnableAudioPlaybackTranscoding: z.boolean().optional(),
-  EnablePlaybackRemuxing: z.boolean().optional(),
+import { enumValues, nullable } from "@/lib/validation"
+
+export const JellyfinUserPolicySchema = Type.Object({
+  IsAdministrator: Type.Optional(Type.Boolean()),
+  IsDisabled: Type.Optional(Type.Boolean()),
+  IsHidden: Type.Optional(Type.Boolean()),
+  EnabledFolders: Type.Optional(nullable(Type.Array(Type.String()))),
+  EnableAllFolders: Type.Optional(Type.Boolean()),
+  RemoteClientBitrateLimit: Type.Optional(Type.Number()),
+  EnableVideoPlaybackTranscoding: Type.Optional(Type.Boolean()),
+  EnableAudioPlaybackTranscoding: Type.Optional(Type.Boolean()),
+  EnablePlaybackRemuxing: Type.Optional(Type.Boolean()),
 })
 
-export type JellyfinUserPolicyRaw = z.output<typeof JellyfinUserPolicySchema>
+export type JellyfinUserPolicyRaw = StaticDecode<
+  typeof JellyfinUserPolicySchema
+>
 
-export const JellyfinUserSchema = z.object({
-  Id: z.string().optional(),
-  Name: z.string().nullable().optional(),
-  Policy: JellyfinUserPolicySchema.optional(),
-  LastActivityDate: z.string().nullable().optional(),
-  HasPassword: z.boolean().optional(),
+export const JellyfinUserSchema = Type.Object({
+  Id: Type.Optional(Type.String()),
+  Name: Type.Optional(nullable(Type.String())),
+  Policy: Type.Optional(JellyfinUserPolicySchema),
+  LastActivityDate: Type.Optional(nullable(Type.String())),
+  HasPassword: Type.Optional(Type.Boolean()),
 })
 
-export type JellyfinUserRaw = z.output<typeof JellyfinUserSchema>
+export type JellyfinUserRaw = StaticDecode<typeof JellyfinUserSchema>
 
-export const JellyfinAuthenticationResultSchema = z.object({
-  User: JellyfinUserSchema.optional(),
-  AccessToken: z.string().nullable().optional(),
+export const JellyfinAuthenticationResultSchema = Type.Object({
+  User: Type.Optional(JellyfinUserSchema),
+  AccessToken: Type.Optional(nullable(Type.String())),
 })
 
-export type JellyfinAuthenticationResultRaw = z.output<
+export type JellyfinAuthenticationResultRaw = StaticDecode<
   typeof JellyfinAuthenticationResultSchema
 >
 
-export const JellyfinPublicSystemInfoSchema = z.object({
-  ServerName: z.string().nullable().optional(),
-  Version: z.string().nullable().optional(),
+export const JellyfinPublicSystemInfoSchema = Type.Object({
+  ServerName: Type.Optional(nullable(Type.String())),
+  Version: Type.Optional(nullable(Type.String())),
 })
 
-export type JellyfinPublicSystemInfoRaw = z.output<
+export type JellyfinPublicSystemInfoRaw = StaticDecode<
   typeof JellyfinPublicSystemInfoSchema
 >
 
-export const JellyfinBaseItemSchema = z.object({
-  Id: z.string().optional(),
-  Name: z.string().nullable().optional(),
-  CollectionType: z.string().nullable().optional(),
+export const JellyfinBaseItemSchema = Type.Object({
+  Id: Type.Optional(Type.String()),
+  Name: Type.Optional(nullable(Type.String())),
+  CollectionType: Type.Optional(nullable(Type.String())),
 })
 
-export type JellyfinBaseItemRaw = z.output<typeof JellyfinBaseItemSchema>
+export type JellyfinBaseItemRaw = StaticDecode<typeof JellyfinBaseItemSchema>
 
-export const JellyfinMediaFoldersSchema = z.object({
-  Items: z.array(JellyfinBaseItemSchema).nullable().optional(),
+export const JellyfinMediaFoldersSchema = Type.Object({
+  Items: Type.Optional(nullable(Type.Array(JellyfinBaseItemSchema))),
 })
 
-export type JellyfinMediaFoldersRaw = z.output<
+export type JellyfinMediaFoldersRaw = StaticDecode<
   typeof JellyfinMediaFoldersSchema
 >
 
-export const JellyfinForgotPasswordActionSchema = z.enum([
+export const JellyfinForgotPasswordActionSchema = enumValues([
   "PinCode",
   "ContactAdmin",
   "InNetworkRequired",
 ])
 
-export const JellyfinForgotPasswordResultSchema = z.object({
-  Action: JellyfinForgotPasswordActionSchema.optional(),
-  PinFile: z.string().nullable().optional(),
-  PinExpirationDate: z.string().nullable().optional(),
+export const JellyfinForgotPasswordResultSchema = Type.Object({
+  Action: Type.Optional(JellyfinForgotPasswordActionSchema),
+  PinFile: Type.Optional(nullable(Type.String())),
+  PinExpirationDate: Type.Optional(nullable(Type.String())),
 })
 
-export type JellyfinForgotPasswordResultRaw = z.output<
+export type JellyfinForgotPasswordResultRaw = StaticDecode<
   typeof JellyfinForgotPasswordResultSchema
 >

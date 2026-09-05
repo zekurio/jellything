@@ -1,5 +1,5 @@
 import { asc, count, desc, eq, inArray, like, or, type SQL } from "drizzle-orm"
-import { z } from "zod"
+import type { StaticDecode, StaticEncode } from "typebox"
 
 import {
   ErrorCode,
@@ -10,6 +10,7 @@ import {
 import { normalizeInviteCode } from "@/lib/invite-codes"
 import { deriveInviteStatus, type InviteStatus } from "@/lib/invite-status"
 import { createInviteSchema, updateInviteSchema } from "@/lib/schemas"
+import { safeParse } from "@/lib/validation"
 import {
   bulkInvitesSchema,
   inviteHistoryPageInputSchema,
@@ -123,9 +124,9 @@ export async function listInvitesService(): Promise<
 }
 
 export async function listInvitesPageService(
-  input: z.input<typeof invitesPageInputSchema>,
+  input: StaticEncode<typeof invitesPageInputSchema>,
 ): Promise<ActionResult<PagedInvites>> {
-  const parsed = invitesPageInputSchema.safeParse(input)
+  const parsed = safeParse(invitesPageInputSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -181,8 +182,8 @@ function getInvitesSearchFilter(query: string | undefined): SQL | undefined {
 }
 
 function getInvitesOrderBy(
-  sort: z.output<typeof invitesPageInputSchema>["sort"],
-  direction: z.output<typeof invitesPageInputSchema>["direction"],
+  sort: StaticDecode<typeof invitesPageInputSchema>["sort"],
+  direction: StaticDecode<typeof invitesPageInputSchema>["direction"],
 ): SQL {
   if (sort === "code") {
     return direction === "asc" ? asc(invites.code) : desc(invites.code)
@@ -195,10 +196,10 @@ function getInvitesOrderBy(
 
 export async function createInviteService(
   createdById: string | undefined,
-  input: z.infer<typeof createInviteSchema>,
+  input: StaticDecode<typeof createInviteSchema>,
 ): Promise<ActionResult<InviteListItem>> {
   await ensureMigrated()
-  const parsed = createInviteSchema.safeParse(input)
+  const parsed = safeParse(createInviteSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -266,10 +267,10 @@ export async function createInviteService(
 
 export async function updateInviteService(
   inviteId: string,
-  input: z.infer<typeof updateInviteSchema>,
+  input: StaticDecode<typeof updateInviteSchema>,
 ): Promise<ActionResult<InviteListItem>> {
   await ensureMigrated()
-  const parsed = updateInviteSchema.safeParse(input)
+  const parsed = safeParse(updateInviteSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -357,14 +358,14 @@ export async function deleteInviteService(
   return success(null)
 }
 
-type BulkInviteOperation = z.output<typeof bulkInvitesSchema>["operation"]
+type BulkInviteOperation = StaticDecode<typeof bulkInvitesSchema>["operation"]
 
 type BulkInviteRow = InviteRecord & { profileName: string | null }
 
 export async function bulkManageInvitesService(
-  input: z.input<typeof bulkInvitesSchema>,
+  input: StaticEncode<typeof bulkInvitesSchema>,
 ): Promise<ActionResult<BulkInvitesDto>> {
-  const parsed = bulkInvitesSchema.safeParse(input)
+  const parsed = safeParse(bulkInvitesSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -471,9 +472,9 @@ export async function getInviteHistoryService(): Promise<
 }
 
 export async function getInviteHistoryPageService(
-  input: z.input<typeof inviteHistoryPageInputSchema>,
+  input: StaticEncode<typeof inviteHistoryPageInputSchema>,
 ): Promise<ActionResult<PagedInviteHistory>> {
-  const parsed = inviteHistoryPageInputSchema.safeParse(input)
+  const parsed = safeParse(inviteHistoryPageInputSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }

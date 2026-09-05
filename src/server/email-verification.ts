@@ -11,6 +11,7 @@ import { emailVerificationSchema } from "@/lib/schemas"
 import { getSession } from "@/lib/server/auth"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
+import { safeParse } from "@/lib/validation"
 import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
 import { EmailApiError, isEmailConfigured } from "@/server/email"
@@ -29,7 +30,7 @@ export async function verifyEmail(
   input: { token: string },
   sessionOverride?: SessionData | null,
 ): Promise<ActionResult<SessionData | null>> {
-  const parsed = emailVerificationSchema.safeParse(input)
+  const parsed = safeParse(emailVerificationSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }

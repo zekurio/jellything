@@ -2,16 +2,17 @@ import { watch, type FSWatcher } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 
-import { z } from "zod"
+import { Type } from "typebox"
 
 import { configManager } from "@/lib/server/config.server"
+import { parse, stringSchema } from "@/lib/validation"
 import { logger } from "@/server/logger"
 
-const pinFileSchema = z.object({
-  Pin: z.string().min(1),
-  UserName: z.string().min(1),
-  PinFile: z.string().min(1),
-  ExpirationDate: z.string().min(1),
+const pinFileSchema = Type.Object({
+  Pin: stringSchema({ minLength: 1 }),
+  UserName: stringSchema({ minLength: 1 }),
+  PinFile: stringSchema({ minLength: 1 }),
+  ExpirationDate: stringSchema({ minLength: 1 }),
 })
 
 export interface PasswordResetPin {
@@ -27,7 +28,7 @@ async function parsePinFile(
   try {
     const content = await readFile(filePath, "utf-8")
     const parsed = JSON.parse(content)
-    const validated = pinFileSchema.parse(parsed)
+    const validated = parse(pinFileSchema, parsed)
     const expirationDate = new Date(validated.ExpirationDate)
 
     if (Number.isNaN(expirationDate.getTime())) {

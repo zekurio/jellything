@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
 import { CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
@@ -52,6 +52,7 @@ import {
   type PasswordFormValues,
 } from "@/lib/schemas"
 import type { SessionData } from "@/lib/session"
+import { standardSchema } from "@/lib/validation"
 
 interface ProfileData {
   id: string
@@ -149,14 +150,16 @@ export function ProfileSettings({
   )
 
   const accountForm = useForm<AccountFormValues>({
-    resolver: zodResolver(optionalEmailAccountFormSchema),
+    resolver: standardSchemaResolver(
+      standardSchema(optionalEmailAccountFormSchema),
+    ),
     defaultValues: {
       name: profile.name,
       email: profile.email ?? "",
     },
   })
   const passwordForm = useForm<PasswordFormValues>({
-    resolver: zodResolver(passwordFormSchema),
+    resolver: standardSchemaResolver(standardSchema(passwordFormSchema)),
     defaultValues: {
       currentPassword: "",
       newPassword: "",

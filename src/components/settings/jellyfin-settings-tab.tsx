@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { useStore } from "@tanstack/react-store"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -25,6 +25,7 @@ import {
   jellyfinSettingsFormSchema,
   type JellyfinSettingsFormValues,
 } from "@/lib/schemas"
+import { standardSchema } from "@/lib/validation"
 
 interface JellyfinSettingsTabProps {
   initialConfig: JellyfinConfigDto
@@ -314,7 +315,9 @@ export function JellyfinSettingsTab({
     setValue,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<JellyfinSettingsFormValues>({
-    resolver: zodResolver(jellyfinSettingsFormSchema),
+    resolver: standardSchemaResolver(
+      standardSchema(jellyfinSettingsFormSchema),
+    ),
     defaultValues: toJellyfinFormValues(initialConfig),
   })
 

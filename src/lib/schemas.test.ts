@@ -1,94 +1,160 @@
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { describe, expect, it } from "vitest"
 
-import { createInviteSchema, redeemInviteSchema } from "@/lib/schemas"
+import { defaultFormValues } from "@/components/profiles/profile-form-utils"
+import {
+  emailSettingsFormSchema,
+  inviteFormSchema,
+  memberOnboardingSettingsFormSchema,
+  passwordFormSchema,
+  profileFormSchema,
+} from "@/lib/schemas"
+import { standardSchema } from "@/lib/validation"
 
-const profileId = "018f3f9f-3a65-7a6d-8c8f-30a8a1f705a1"
+const options = { fields: {}, shouldUseNativeValidation: false }
 
-function issueMessages(value: unknown): string[] {
-  const result = createInviteSchema.safeParse(value)
-  if (result.success) {
-    return []
-  }
+// Exercise the same resolver used by the forms, including field errors and
+// submitted values. Primitive validation belongs to the schema library.
+describe("form submission", () => {
+  it("shows password strength and confirmation errors, then accepts the corrected password", async () => {
+    const resolve = standardSchemaResolver(standardSchema(passwordFormSchema))
+    const rejected = await resolve(
+      {
+        currentPassword: "old",
+        newPassword: "short",
+        confirmPassword: "different",
+      },
+      undefined,
+      options,
+    )
+    expect(rejected.values).toEqual({})
+    expect(rejected.errors.newPassword?.message).toBe(
+      "validation.passwordMinLength",
+    )
+    expect(rejected.errors.confirmPassword?.message).toBe(
+      "validation.passwordsDoNotMatch",
+    )
 
-  return result.error.issues.map((issue) => issue.message)
-}
-
-function parseCreateInvite(value: unknown) {
-  const result = createInviteSchema.safeParse(value)
-  if (!result.success) {
-    throw new Error("Expected createInviteSchema to parse input")
-  }
-
-  return result.data
-}
-
-function parseRedeemInvite(value: unknown) {
-  const result = redeemInviteSchema.safeParse(value)
-  if (!result.success) {
-    throw new Error("Expected redeemInviteSchema to parse input")
-  }
-
-  return result.data
-}
-
-function redeemIssueMessages(value: unknown): string[] {
-  const result = redeemInviteSchema.safeParse(value)
-  if (result.success) {
-    return []
-  }
-
-  return result.error.issues.map((issue) => issue.message)
-}
-
-describe("createInviteSchema", () => {
-  it("accepts a trimmed invite code that satisfies length and pattern", () => {
-    const data = parseCreateInvite({
-      profileId,
-      code: " ab-cd123 ",
+    // Password limits count UTF-16 units, as they did before the migration.
+    const corrected = {
+      currentPassword: "old",
+      newPassword: "Aa😀😀😀",
+      confirmPassword: "Aa😀😀😀",
+    }
+    expect(await resolve(corrected, undefined, options)).toEqual({
+      values: corrected,
+      errors: {},
     })
-
-    expect(data.code).toBe("ab-cd123")
   })
 
-  it("rejects too-short invite codes with the existing validation message", () => {
-    expect(issueMessages({ profileId, code: "abc123" })).toContain(
-      "validation.inviteCodeMinLength",
+  it("rejects an expired invite and submits a trimmed custom code with the corrected expiry", async () => {
+    const resolve = standardSchemaResolver(standardSchema(inviteFormSchema))
+    const input = {
+      profileId: "profile",
+      code: "  family-2026  ",
+      useLimit: "",
+      expiresAt: new Date(0),
+    }
+    const rejected = await resolve(input, undefined, options)
+    expect(rejected.errors.expiresAt?.message).toBe("validation.expiryFuture")
+    const expiresAt = new Date(Date.now() + 86_400_000)
+    expect(await resolve({ ...input, expiresAt }, undefined, options)).toEqual({
+      values: { ...input, code: "family-2026", expiresAt },
+      errors: {},
+    })
+  })
+
+  it("allows SMTP to remain unconfigured but requires connection details once enabled", async () => {
+    const resolve = standardSchemaResolver(
+      standardSchema(emailSettingsFormSchema),
     )
-  })
-
-  it("rejects too-long invite codes with the existing validation message", () => {
-    expect(issueMessages({ profileId, code: "a".repeat(33) })).toContain(
-      "validation.inviteCodeMaxLength",
+    const empty = {
+      from: "",
+      smtpHost: "",
+      smtpPort: "",
+      smtpSecure: false,
+      smtpUsername: "",
+      smtpPassword: "",
+    }
+    expect(await resolve(empty, undefined, options)).toEqual({
+      values: empty,
+      errors: {},
+    })
+    const partial = { ...empty, from: "Inviterr <invites@example.com>" }
+    const rejected = await resolve(partial, undefined, options)
+    expect(rejected.errors.smtpHost?.message).toBe(
+      "validation.smtpHostRequired",
     )
-  })
-
-  it("rejects invalid invite code characters with the existing validation message", () => {
-    expect(issueMessages({ profileId, code: "abcd123!" })).toContain(
-      "validation.inviteCodePattern",
+    expect(rejected.errors.smtpPort?.message).toBe(
+      "validation.smtpPortRequired",
     )
+    const configured = {
+      ...partial,
+      smtpHost: "smtp.example.com",
+      smtpPort: "587",
+    }
+    expect(await resolve(configured, undefined, options)).toEqual({
+      values: configured,
+      errors: {},
+    })
   })
-})
 
-describe("redeemInviteSchema", () => {
-  const redeemInput = {
-    code: " ab-cd123 ",
-    username: "test-user",
-    password: "Password1",
-    email: "user@example.com",
-  }
+  it("requires a quota only when the profile enables a limited override", async () => {
+    const resolve = standardSchemaResolver(standardSchema(profileFormSchema))
+    const input = { ...defaultFormValues, name: "Members" }
+    expect((await resolve(input, undefined, options)).errors).toEqual({})
+    const limited = {
+      ...input,
+      seerrMovieQuotaOverride: true,
+      seerrMovieQuotaMode: "limited" as const,
+    }
+    const rejected = await resolve(limited, undefined, options)
+    expect(rejected.errors.seerrMovieQuotaLimit?.message).toBe(
+      "validation.seerrQuotaRange",
+    )
+    expect(rejected.errors.seerrMovieQuotaDays?.message).toBe(
+      "validation.seerrQuotaRange",
+    )
+    const corrected = {
+      ...limited,
+      seerrMovieQuotaLimit: "5",
+      seerrMovieQuotaDays: "30",
+    }
+    expect(await resolve(corrected, undefined, options)).toEqual({
+      values: corrected,
+      errors: {},
+    })
+  })
 
-  it("requires an invite code", () => {
+  it("shows onboarding errors on the affected page and trims content before submission", async () => {
+    const resolve = standardSchemaResolver(
+      standardSchema(memberOnboardingSettingsFormSchema),
+    )
+    const input = {
+      enabled: true,
+      pages: [{ id: "welcome", title: " Welcome ", markdown: "   " }],
+    }
+    const rejected = await resolve(input, undefined, options)
+    expect(rejected.errors.pages?.[0]?.markdown?.message).toBe(
+      "validation.pageContentRequired",
+    )
     expect(
-      redeemIssueMessages({
-        ...redeemInput,
-        code: "",
-      }),
-    ).toContain("validation.inviteCodeRequired")
-  })
-
-  it("does not normalize the invite code during schema parsing", () => {
-    const data = parseRedeemInvite(redeemInput)
-
-    expect(data.code).toBe(" ab-cd123 ")
+      await resolve(
+        {
+          ...input,
+          pages: [{ ...input.pages[0]!, markdown: " Enjoy the server " }],
+        },
+        undefined,
+        options,
+      ),
+    ).toEqual({
+      values: {
+        enabled: true,
+        pages: [
+          { id: "welcome", title: "Welcome", markdown: "Enjoy the server" },
+        ],
+      },
+      errors: {},
+    })
   })
 })

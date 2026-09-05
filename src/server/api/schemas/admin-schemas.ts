@@ -1,6 +1,14 @@
-import { z } from "zod"
+import { Type, type StaticDecode, type StaticEncode } from "typebox"
 
 import { ErrorCode } from "@/lib/api/contracts/errors"
+import {
+  defaulted,
+  enumValues,
+  nullable,
+  stringSchema,
+  superRefine,
+  trimmedString,
+} from "@/lib/validation"
 import {
   apiErrorBodySchema,
   appSettingsSchema,
@@ -25,8 +33,8 @@ import {
   NullableStringSchema,
   UuidStringSchema,
   boundedIntSchema,
-  exactOptional,
-} from "@/server/api/schemas/zod-helpers"
+  coercedBoundedIntSchema,
+} from "@/server/api/schemas/schema-helpers"
 
 const inviteStatusValues = [
   "active",
@@ -37,27 +45,62 @@ const inviteStatusValues = [
   "exhausted",
 ] as const
 
-export const pageInputSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
-})
+const pageProperties = {
+  page: Type.Optional(
+    defaulted(coercedBoundedIntSchema(1, Number.MAX_SAFE_INTEGER), 1),
+  ),
+  pageSize: Type.Optional(defaulted(coercedBoundedIntSchema(1, 100), 50)),
+}
 
-export const sortDirectionSchema = z.enum(["asc", "desc"])
+// Object codecs keep defaulted inputs optional and decoded outputs required.
+export const pageInputSchema = Type.Decode(
+  Type.Object(pageProperties),
+  (value) => ({
+    ...value,
+    page: value.page ?? 1,
+    pageSize: value.pageSize ?? 50,
+  }),
+)
 
-export const inviteHistoryPageInputSchema = pageInputSchema.extend({
-  query: exactOptional(z.string().trim().max(100)),
-  sort: z.enum(["usedAt"]).default("usedAt"),
-  direction: sortDirectionSchema.default("desc"),
-})
+export const sortDirectionSchema = enumValues(["asc", "desc"])
 
-export const invitesPageInputSchema = pageInputSchema.extend({
-  query: exactOptional(z.string().trim().max(100)),
-  sort: z
-    .enum(["createdAt", "code", "profileName", "useCount"])
-    .default("createdAt"),
-  direction: sortDirectionSchema.default("desc"),
-  status: exactOptional(z.enum(inviteStatusValues)),
-})
+export const inviteHistoryPageInputSchema = Type.Decode(
+  Type.Object({
+    ...pageProperties,
+    query: Type.Optional(trimmedString({ maxLength: 100 })),
+    sort: Type.Optional(defaulted(enumValues(["usedAt"]), "usedAt")),
+    direction: Type.Optional(defaulted(sortDirectionSchema, "desc")),
+  }),
+  (value) => ({
+    ...value,
+    page: value.page ?? 1,
+    pageSize: value.pageSize ?? 50,
+    sort: value.sort ?? "usedAt",
+    direction: value.direction ?? "desc",
+  }),
+)
+
+export const invitesPageInputSchema = Type.Decode(
+  Type.Object({
+    ...pageProperties,
+    query: Type.Optional(trimmedString({ maxLength: 100 })),
+    sort: Type.Optional(
+      defaulted(
+        enumValues(["createdAt", "code", "profileName", "useCount"]),
+        "createdAt",
+      ),
+    ),
+    direction: Type.Optional(defaulted(sortDirectionSchema, "desc")),
+    status: Type.Optional(enumValues(inviteStatusValues)),
+  }),
+  (value) => ({
+    ...value,
+    page: value.page ?? 1,
+    pageSize: value.pageSize ?? 50,
+    sort: value.sort ?? "createdAt",
+    direction: value.direction ?? "desc",
+  }),
+)
 
 export const userStatusFilterValues = [
   "admin",
@@ -67,99 +110,112 @@ export const userStatusFilterValues = [
   "expired",
 ] as const
 
-export const usersPageInputSchema = pageInputSchema.extend({
-  query: exactOptional(z.string().trim().max(100)),
-  sort: z
-    .enum(["name", "email", "profileName", "lastActivityDate"])
-    .default("name"),
-  direction: sortDirectionSchema.default("asc"),
-  status: exactOptional(z.enum(userStatusFilterValues)),
-})
+export const usersPageInputSchema = Type.Decode(
+  Type.Object({
+    ...pageProperties,
+    query: Type.Optional(trimmedString({ maxLength: 100 })),
+    sort: Type.Optional(
+      defaulted(
+        enumValues(["name", "email", "profileName", "lastActivityDate"]),
+        "name",
+      ),
+    ),
+    direction: Type.Optional(defaulted(sortDirectionSchema, "asc")),
+    status: Type.Optional(enumValues(userStatusFilterValues)),
+  }),
+  (value) => ({
+    ...value,
+    page: value.page ?? 1,
+    pageSize: value.pageSize ?? 50,
+    sort: value.sort ?? "name",
+    direction: value.direction ?? "asc",
+  }),
+)
 
-export const userIdParamsSchema = z.object({
+export const userIdParamsSchema = Type.Object({
   userId: NonEmptyStringSchema,
 })
 
-export const profileIdParamsSchema = z.object({
+export const profileIdParamsSchema = Type.Object({
   profileId: NonEmptyStringSchema,
 })
 
-export const inviteIdParamsSchema = z.object({
+export const inviteIdParamsSchema = Type.Object({
   inviteId: NonEmptyStringSchema,
 })
 
-const seerrQuotasSchema = z.object({
-  movieQuotaLimit: exactOptional(NonNegativeIntSchema),
-  movieQuotaDays: exactOptional(boundedIntSchema(1, 100)),
-  tvQuotaLimit: exactOptional(NonNegativeIntSchema),
-  tvQuotaDays: exactOptional(boundedIntSchema(1, 100)),
+const seerrQuotasSchema = Type.Object({
+  movieQuotaLimit: Type.Optional(NonNegativeIntSchema),
+  movieQuotaDays: Type.Optional(boundedIntSchema(1, 100)),
+  tvQuotaLimit: Type.Optional(NonNegativeIntSchema),
+  tvQuotaDays: Type.Optional(boundedIntSchema(1, 100)),
 })
 
-export const profilePolicySchema = z.object({
+export const profilePolicySchema = Type.Object({
   enableAllFolders: BooleanSchema,
-  enabledFolders: z.array(AnyStringSchema),
+  enabledFolders: Type.Array(AnyStringSchema),
   showInLoginScreen: BooleanSchema,
-  remoteClientBitrateLimit: z.number().nonnegative(),
+  remoteClientBitrateLimit: Type.Number({ minimum: 0 }),
   allowVideoTranscoding: BooleanSchema,
   allowAudioTranscoding: BooleanSchema,
   allowMediaRemuxing: BooleanSchema,
   seerrPermissions: NonNegativeIntSchema,
-  seerrQuotas: exactOptional(seerrQuotasSchema),
+  seerrQuotas: Type.Optional(seerrQuotasSchema),
 })
 
-export const profilePolicyBodySchema = z.object({
+export const profilePolicyBodySchema = Type.Object({
   enableAllFolders: BooleanSchema,
-  enabledFolders: z.array(AnyStringSchema),
+  enabledFolders: Type.Array(AnyStringSchema),
   showInLoginScreen: BooleanSchema,
-  remoteClientBitrateLimit: z.number().nonnegative(),
+  remoteClientBitrateLimit: Type.Number({ minimum: 0 }),
   allowVideoTranscoding: BooleanSchema,
   allowAudioTranscoding: BooleanSchema,
   allowMediaRemuxing: BooleanSchema,
-  seerrPermissions: exactOptional(NonNegativeIntSchema),
-  seerrQuotas: exactOptional(seerrQuotasSchema),
+  seerrPermissions: Type.Optional(NonNegativeIntSchema),
+  seerrQuotas: Type.Optional(seerrQuotasSchema),
 })
 
-export const profileSchema = z.object({
+export const profileSchema = Type.Object({
   id: AnyStringSchema,
   name: AnyStringSchema,
   isDefault: BooleanSchema,
   policy: profilePolicySchema,
   createdAt: DateTimeStringSchema,
   updatedAt: DateTimeStringSchema,
-  syncFailedCount: exactOptional(z.number()),
+  syncFailedCount: Type.Optional(Type.Number()),
 })
 
-export const createProfileBodySchema = z.object({
-  name: AnyStringSchema.min(1).max(100),
+export const createProfileBodySchema = Type.Object({
+  name: stringSchema({ minLength: 1, maxLength: 100 }),
   policy: profilePolicyBodySchema,
 })
 
-export const updateProfileBodySchema = z.object({
-  name: exactOptional(AnyStringSchema.min(1).max(100)),
-  policy: exactOptional(profilePolicyBodySchema),
-  isDefault: exactOptional(BooleanSchema),
+export const updateProfileBodySchema = Type.Object({
+  name: Type.Optional(stringSchema({ minLength: 1, maxLength: 100 })),
+  policy: Type.Optional(profilePolicyBodySchema),
+  isDefault: Type.Optional(BooleanSchema),
 })
 
-export const ensureDefaultProfileResponseSchema = z.object({
+export const ensureDefaultProfileResponseSchema = Type.Object({
   exists: BooleanSchema,
-  created: exactOptional(BooleanSchema),
-  profile: exactOptional(profileSchema),
+  created: Type.Optional(BooleanSchema),
+  profile: Type.Optional(profileSchema),
 })
 
-export const inviteSchema = z.object({
+export const inviteSchema = Type.Object({
   id: AnyStringSchema,
   code: AnyStringSchema,
   profileId: AnyStringSchema,
   profileName: AnyStringSchema,
   isDisabled: BooleanSchema,
-  useLimit: z.number().nullable(),
-  useCount: z.number(),
-  expiresAt: DateTimeStringSchema.nullable(),
+  useLimit: nullable(Type.Number()),
+  useCount: Type.Number(),
+  expiresAt: nullable(DateTimeStringSchema),
   createdAt: DateTimeStringSchema,
-  status: z.enum(inviteStatusValues),
+  status: enumValues(inviteStatusValues),
 })
 
-export const inviteHistoryItemSchema = z.object({
+export const inviteHistoryItemSchema = Type.Object({
   id: AnyStringSchema,
   inviteId: AnyStringSchema,
   inviteCode: AnyStringSchema,
@@ -169,112 +225,112 @@ export const inviteHistoryItemSchema = z.object({
   usedAt: DateTimeStringSchema,
 })
 
-export const createInviteBodySchema = z.object({
+export const createInviteBodySchema = Type.Object({
   profileId: UuidStringSchema,
-  code: exactOptional(AnyStringSchema.max(32)),
-  useLimit: exactOptional(
-    boundedIntSchema(1, Number.MAX_SAFE_INTEGER).nullable(),
+  code: Type.Optional(stringSchema({ maxLength: 32 })),
+  useLimit: Type.Optional(
+    nullable(boundedIntSchema(1, Number.MAX_SAFE_INTEGER)),
   ),
-  expiresAt: exactOptional(DateTimeStringSchema.nullable()),
+  expiresAt: Type.Optional(nullable(DateTimeStringSchema)),
 })
 
-export const updateInviteBodySchema = z.object({
-  profileId: exactOptional(UuidStringSchema),
-  code: exactOptional(AnyStringSchema.max(32)),
-  isDisabled: exactOptional(BooleanSchema),
-  useLimit: exactOptional(
-    boundedIntSchema(1, Number.MAX_SAFE_INTEGER).nullable(),
+export const updateInviteBodySchema = Type.Object({
+  profileId: Type.Optional(UuidStringSchema),
+  code: Type.Optional(stringSchema({ maxLength: 32 })),
+  isDisabled: Type.Optional(BooleanSchema),
+  useLimit: Type.Optional(
+    nullable(boundedIntSchema(1, Number.MAX_SAFE_INTEGER)),
   ),
-  expiresAt: exactOptional(DateTimeStringSchema.nullable()),
+  expiresAt: Type.Optional(nullable(DateTimeStringSchema)),
 })
 
-export const userProfileOptionSchema = z.object({
+export const userProfileOptionSchema = Type.Object({
   id: AnyStringSchema,
   name: AnyStringSchema,
   isDefault: BooleanSchema,
 })
 
-export const managedUserListItemSchema = z.object({
+export const managedUserListItemSchema = Type.Object({
   userId: AnyStringSchema,
   name: AnyStringSchema,
-  email: AnyStringSchema.nullable(),
+  email: nullable(AnyStringSchema),
   emailVerified: BooleanSchema,
   existsInJellyfin: BooleanSchema,
   missingInJellyfin: BooleanSchema,
   isAdmin: BooleanSchema,
   isDisabled: BooleanSchema,
-  lastActivityDate: DateTimeStringSchema.nullable(),
+  lastActivityDate: nullable(DateTimeStringSchema),
   avatarUrl: AnyStringSchema,
-  assignedProfileId: AnyStringSchema.nullable(),
-  effectiveProfileId: AnyStringSchema.nullable(),
-  effectiveProfileName: AnyStringSchema.nullable(),
-  seerrSyncedAt: DateTimeStringSchema.nullable(),
-  expiresAt: DateTimeStringSchema.nullable(),
+  assignedProfileId: nullable(AnyStringSchema),
+  effectiveProfileId: nullable(AnyStringSchema),
+  effectiveProfileName: nullable(AnyStringSchema),
+  seerrSyncedAt: nullable(DateTimeStringSchema),
+  expiresAt: nullable(DateTimeStringSchema),
 })
 
-export const syncUserToSeerrResponseSchema = z.object({
+export const syncUserToSeerrResponseSchema = Type.Object({
   synced: BooleanSchema,
 })
 
-export const usersWithProfilesResponseSchema = z.object({
-  users: z.array(managedUserListItemSchema),
-  profiles: z.array(userProfileOptionSchema),
+export const usersWithProfilesResponseSchema = Type.Object({
+  users: Type.Array(managedUserListItemSchema),
+  profiles: Type.Array(userProfileOptionSchema),
   seerrConfigured: BooleanSchema,
 })
 
-export const pagedInviteHistoryResponseSchema = z.object({
-  items: z.array(inviteHistoryItemSchema),
-  page: z.number().int().min(1),
-  pageSize: z.number().int().min(1).max(100),
-  total: z.number().int().min(0),
-  pageCount: z.number().int().min(0),
+export const pagedInviteHistoryResponseSchema = Type.Object({
+  items: Type.Array(inviteHistoryItemSchema),
+  page: boundedIntSchema(1, Number.MAX_SAFE_INTEGER),
+  pageSize: boundedIntSchema(1, 100),
+  total: NonNegativeIntSchema,
+  pageCount: NonNegativeIntSchema,
 })
 
-export const pagedInvitesResponseSchema = z.object({
-  items: z.array(inviteSchema),
-  page: z.number().int().min(1),
-  pageSize: z.number().int().min(1).max(100),
-  total: z.number().int().min(0),
-  pageCount: z.number().int().min(0),
+export const pagedInvitesResponseSchema = Type.Object({
+  items: Type.Array(inviteSchema),
+  page: boundedIntSchema(1, Number.MAX_SAFE_INTEGER),
+  pageSize: boundedIntSchema(1, 100),
+  total: NonNegativeIntSchema,
+  pageCount: NonNegativeIntSchema,
 })
 
-export const pagedUsersWithProfilesResponseSchema = z.object({
-  users: z.object({
-    items: z.array(managedUserListItemSchema),
-    page: z.number().int().min(1),
-    pageSize: z.number().int().min(1).max(100),
-    total: z.number().int().min(0),
-    pageCount: z.number().int().min(0),
+export const pagedUsersWithProfilesResponseSchema = Type.Object({
+  users: Type.Object({
+    items: Type.Array(managedUserListItemSchema),
+    page: boundedIntSchema(1, Number.MAX_SAFE_INTEGER),
+    pageSize: boundedIntSchema(1, 100),
+    total: NonNegativeIntSchema,
+    pageCount: NonNegativeIntSchema,
   }),
-  profiles: z.array(userProfileOptionSchema),
+  profiles: Type.Array(userProfileOptionSchema),
   seerrConfigured: BooleanSchema,
 })
 
-export const deleteManagedUserResponseSchema = z.object({
+export const deleteManagedUserResponseSchema = Type.Object({
   userId: AnyStringSchema,
   deletedFromJellyfin: BooleanSchema,
   deletedFromSeerr: BooleanSchema,
 })
 
-export const updateManagedUserBodySchema = z.object({
-  profileId: exactOptional(UuidStringSchema),
-  email: exactOptional(EmailStringSchema.nullable()),
-  emailVerified: exactOptional(BooleanSchema),
-  isDisabled: exactOptional(BooleanSchema),
-  expiresAt: exactOptional(DateTimeStringSchema.nullable()),
+export const updateManagedUserBodySchema = Type.Object({
+  profileId: Type.Optional(UuidStringSchema),
+  email: Type.Optional(nullable(EmailStringSchema)),
+  emailVerified: Type.Optional(BooleanSchema),
+  isDisabled: Type.Optional(BooleanSchema),
+  expiresAt: Type.Optional(nullable(DateTimeStringSchema)),
 })
 
-export const updateManagedUserResponseSchema = z.object({
+export const updateManagedUserResponseSchema = Type.Object({
   userId: AnyStringSchema,
-  profileId: AnyStringSchema.nullable(),
-  profileName: AnyStringSchema.nullable(),
-  email: AnyStringSchema.nullable(),
+  profileId: nullable(AnyStringSchema),
+  profileName: nullable(AnyStringSchema),
+  email: nullable(AnyStringSchema),
   emailVerified: BooleanSchema,
   isDisabled: BooleanSchema,
-  expiresAt: DateTimeStringSchema.nullable(),
+  expiresAt: nullable(DateTimeStringSchema),
 })
 
-export const bulkManagedUserOperationSchema = z.enum([
+export const bulkManagedUserOperationSchema = enumValues([
   "assignProfile",
   "disable",
   "enable",
@@ -282,17 +338,16 @@ export const bulkManagedUserOperationSchema = z.enum([
   "syncSeerr",
 ])
 
-export const bulkManagedUsersSchema = z
-  .object({
+export const bulkManagedUsersSchema = superRefine(
+  Type.Object({
     operation: bulkManagedUserOperationSchema,
-    userIds: z.array(NonEmptyStringSchema).min(1).max(100),
-    updates: exactOptional(updateManagedUserBodySchema),
-  })
-  .superRefine((value, context) => {
+    userIds: Type.Array(NonEmptyStringSchema, { minItems: 1, maxItems: 100 }),
+    updates: Type.Optional(updateManagedUserBodySchema),
+  }),
+  (value, context) => {
     if (value.operation !== "assignProfile") {
       if (value.updates !== undefined) {
         context.addIssue({
-          code: "custom",
           path: ["updates"],
           message: "Updates are only supported for profile assignment",
         })
@@ -305,7 +360,6 @@ export const bulkManagedUsersSchema = z
       value.updates?.expiresAt === undefined
     ) {
       context.addIssue({
-        code: "custom",
         path: ["updates"],
         message: "Profile assignment requires profile or expiry updates",
       })
@@ -317,14 +371,14 @@ export const bulkManagedUsersSchema = z
       value.updates?.isDisabled !== undefined
     ) {
       context.addIssue({
-        code: "custom",
         path: ["updates"],
         message: "Bulk profile assignment only supports profile and expiry",
       })
     }
-  })
+  },
+)
 
-export const bulkManagedUserSkipReasonSchema = z.enum([
+export const bulkManagedUserSkipReasonSchema = enumValues([
   "admin",
   "missing_in_jellyfin",
   "no_changes",
@@ -332,134 +386,138 @@ export const bulkManagedUserSkipReasonSchema = z.enum([
   "already_enabled",
 ])
 
-export const bulkManagedUserResultSchema = z.discriminatedUnion("ok", [
-  z.object({
+export const bulkManagedUserResultSchema = Type.Union([
+  Type.Object({
     userId: AnyStringSchema,
-    ok: z.literal(true),
-    operation: z.enum(["assignProfile", "disable", "enable"]),
+    ok: Type.Literal(true),
+    operation: enumValues(["assignProfile", "disable", "enable"]),
     result: updateManagedUserResponseSchema,
   }),
-  z.object({
+  Type.Object({
     userId: AnyStringSchema,
-    ok: z.literal(true),
-    operation: z.literal("delete"),
+    ok: Type.Literal(true),
+    operation: Type.Literal("delete"),
     result: deleteManagedUserResponseSchema,
   }),
-  z.object({
+  Type.Object({
     userId: AnyStringSchema,
-    ok: z.literal(true),
-    operation: z.literal("syncSeerr"),
+    ok: Type.Literal(true),
+    operation: Type.Literal("syncSeerr"),
     result: syncUserToSeerrResponseSchema,
   }),
-  z.object({
+  Type.Object({
     userId: AnyStringSchema,
-    ok: z.literal(true),
+    ok: Type.Literal(true),
     operation: bulkManagedUserOperationSchema,
-    skipped: z.literal(true),
+    skipped: Type.Literal(true),
     reason: bulkManagedUserSkipReasonSchema,
   }),
-  z.object({
+  Type.Object({
     userId: AnyStringSchema,
-    ok: z.literal(false),
+    ok: Type.Literal(false),
     operation: bulkManagedUserOperationSchema,
-    code: z.enum(ErrorCode),
+    code: enumValues(ErrorCode),
     message: AnyStringSchema,
   }),
 ])
 
-export const bulkManagedUsersResponseSchema = z.object({
-  results: z.array(bulkManagedUserResultSchema),
+export const bulkManagedUsersResponseSchema = Type.Object({
+  results: Type.Array(bulkManagedUserResultSchema),
 })
 
-export const bulkInviteOperationSchema = z.enum(["disable", "enable", "delete"])
+export const bulkInviteOperationSchema = enumValues([
+  "disable",
+  "enable",
+  "delete",
+])
 
-export const bulkInvitesSchema = z.object({
+export const bulkInvitesSchema = Type.Object({
   operation: bulkInviteOperationSchema,
-  inviteIds: z.array(UuidStringSchema).min(1).max(100),
+  inviteIds: Type.Array(UuidStringSchema, { minItems: 1, maxItems: 100 }),
 })
 
-export const bulkInviteSkipReasonSchema = z.enum([
+export const bulkInviteSkipReasonSchema = enumValues([
   "already_disabled",
   "already_enabled",
 ])
 
-export const bulkInviteResultSchema = z.discriminatedUnion("ok", [
-  z.object({
+export const bulkInviteResultSchema = Type.Union([
+  Type.Object({
     inviteId: AnyStringSchema,
-    ok: z.literal(true),
-    operation: z.enum(["disable", "enable"]),
+    ok: Type.Literal(true),
+    operation: enumValues(["disable", "enable"]),
     result: inviteSchema,
   }),
-  z.object({
+  Type.Object({
     inviteId: AnyStringSchema,
-    ok: z.literal(true),
-    operation: z.literal("delete"),
+    ok: Type.Literal(true),
+    operation: Type.Literal("delete"),
   }),
-  z.object({
+  Type.Object({
     inviteId: AnyStringSchema,
-    ok: z.literal(true),
+    ok: Type.Literal(true),
     operation: bulkInviteOperationSchema,
-    skipped: z.literal(true),
+    skipped: Type.Literal(true),
     reason: bulkInviteSkipReasonSchema,
   }),
-  z.object({
+  Type.Object({
     inviteId: AnyStringSchema,
-    ok: z.literal(false),
+    ok: Type.Literal(false),
     operation: bulkInviteOperationSchema,
-    code: z.enum(ErrorCode),
+    code: enumValues(ErrorCode),
     message: AnyStringSchema,
   }),
 ])
 
-export const bulkInvitesResponseSchema = z.object({
-  results: z.array(bulkInviteResultSchema),
+export const bulkInvitesResponseSchema = Type.Object({
+  results: Type.Array(bulkInviteResultSchema),
 })
 
-export const bulkProfileOperationSchema = z.enum(["delete"])
+export const bulkProfileOperationSchema = enumValues(["delete"])
 
-export const bulkProfilesSchema = z.object({
+export const bulkProfilesSchema = Type.Object({
   operation: bulkProfileOperationSchema,
-  profileIds: z.array(UuidStringSchema).min(1).max(100),
+  profileIds: Type.Array(UuidStringSchema, { minItems: 1, maxItems: 100 }),
 })
 
-export const bulkProfileSkipReasonSchema = z.enum(["default_profile"])
+export const bulkProfileSkipReasonSchema = enumValues(["default_profile"])
 
-export const bulkProfileResultSchema = z.discriminatedUnion("ok", [
-  z.object({
+export const bulkProfileResultSchema = Type.Union([
+  Type.Object({
     profileId: AnyStringSchema,
-    ok: z.literal(true),
-    operation: z.literal("delete"),
+    ok: Type.Literal(true),
+    operation: Type.Literal("delete"),
   }),
-  z.object({
+  Type.Object({
     profileId: AnyStringSchema,
-    ok: z.literal(true),
+    ok: Type.Literal(true),
     operation: bulkProfileOperationSchema,
-    skipped: z.literal(true),
+    skipped: Type.Literal(true),
     reason: bulkProfileSkipReasonSchema,
   }),
-  z.object({
+  Type.Object({
     profileId: AnyStringSchema,
-    ok: z.literal(false),
+    ok: Type.Literal(false),
     operation: bulkProfileOperationSchema,
-    code: z.enum(ErrorCode),
+    code: enumValues(ErrorCode),
     message: AnyStringSchema,
   }),
 ])
 
-export const bulkProfilesResponseSchema = z.object({
-  results: z.array(bulkProfileResultSchema),
+export const bulkProfilesResponseSchema = Type.Object({
+  results: Type.Array(bulkProfileResultSchema),
 })
 
-export const mediaLibrarySchema = z.object({
+export const mediaLibrarySchema = Type.Object({
   id: AnyStringSchema,
   name: AnyStringSchema,
   collectionType: NullableStringSchema,
 })
 
-export const profilesResponseSchema = z.array(profileSchema)
-export const invitesResponseSchema = z.array(inviteSchema)
-export const inviteHistoryResponseSchema = z.array(inviteHistoryItemSchema)
-export const librariesResponseSchema = z.array(mediaLibrarySchema)
+export const profilesResponseSchema = Type.Array(profileSchema)
+export const invitesResponseSchema = Type.Array(inviteSchema)
+export const inviteHistoryResponseSchema = Type.Array(inviteHistoryItemSchema)
+export const librariesResponseSchema = Type.Array(mediaLibrarySchema)
 
 export const adminErrorResponses = {
   401: apiErrorBodySchema,
@@ -487,55 +545,63 @@ export {
   updateSeerrConfigBodySchema,
 }
 
-export type AppSettingsDto = z.output<typeof appSettingsSchema>
-export type JellyfinConfigDto = z.output<typeof jellyfinConfigSchema>
-export type SeerrConfigDto = z.output<typeof seerrConfigSchema>
-export type EmailConfigDto = z.output<typeof emailConfigSchema>
-export type MemberOnboardingConfigDto = z.output<
+export type AppSettingsDto = StaticDecode<typeof appSettingsSchema>
+export type JellyfinConfigDto = StaticDecode<typeof jellyfinConfigSchema>
+export type SeerrConfigDto = StaticDecode<typeof seerrConfigSchema>
+export type EmailConfigDto = StaticDecode<typeof emailConfigSchema>
+export type MemberOnboardingConfigDto = StaticDecode<
   typeof memberOnboardingConfigSchema
 >
-export type ProfileDto = z.output<typeof profileSchema>
-export type EnsureDefaultProfileDto = z.output<
+export type ProfileDto = StaticDecode<typeof profileSchema>
+export type EnsureDefaultProfileDto = StaticDecode<
   typeof ensureDefaultProfileResponseSchema
 >
-export type InviteDto = z.output<typeof inviteSchema>
-export type InviteHistoryItemDto = z.output<typeof inviteHistoryItemSchema>
-export type InviteHistoryPageInputDto = z.input<
+export type InviteDto = StaticDecode<typeof inviteSchema>
+export type InviteHistoryItemDto = StaticDecode<typeof inviteHistoryItemSchema>
+export type InviteHistoryPageInputDto = StaticEncode<
   typeof inviteHistoryPageInputSchema
 >
-export type InvitesPageInputDto = z.input<typeof invitesPageInputSchema>
-export type UsersPageInputDto = z.input<typeof usersPageInputSchema>
-export type PagedInviteHistoryDto = z.output<
+export type InvitesPageInputDto = StaticEncode<typeof invitesPageInputSchema>
+export type UsersPageInputDto = StaticEncode<typeof usersPageInputSchema>
+export type PagedInviteHistoryDto = StaticDecode<
   typeof pagedInviteHistoryResponseSchema
 >
-export type PagedInvitesDto = z.output<typeof pagedInvitesResponseSchema>
-export type PagedUsersWithProfilesDto = z.output<
+export type PagedInvitesDto = StaticDecode<typeof pagedInvitesResponseSchema>
+export type PagedUsersWithProfilesDto = StaticDecode<
   typeof pagedUsersWithProfilesResponseSchema
 >
-export type ManagedUserListItemDto = z.output<typeof managedUserListItemSchema>
-export type MediaLibraryDto = z.output<typeof mediaLibrarySchema>
-export type UserProfileOptionDto = z.output<typeof userProfileOptionSchema>
-export type UsersWithProfilesDto = z.output<
+export type ManagedUserListItemDto = StaticDecode<
+  typeof managedUserListItemSchema
+>
+export type MediaLibraryDto = StaticDecode<typeof mediaLibrarySchema>
+export type UserProfileOptionDto = StaticDecode<typeof userProfileOptionSchema>
+export type UsersWithProfilesDto = StaticDecode<
   typeof usersWithProfilesResponseSchema
 >
-export type DeleteManagedUserDto = z.output<
+export type DeleteManagedUserDto = StaticDecode<
   typeof deleteManagedUserResponseSchema
 >
-export type UpdateManagedUserDto = z.output<
+export type UpdateManagedUserDto = StaticDecode<
   typeof updateManagedUserResponseSchema
 >
-export type SyncUserToSeerrDto = z.output<typeof syncUserToSeerrResponseSchema>
-export type BulkManagedUsersInputDto = z.input<typeof bulkManagedUsersSchema>
-export type BulkManagedUserResultDto = z.output<
+export type SyncUserToSeerrDto = StaticDecode<
+  typeof syncUserToSeerrResponseSchema
+>
+export type BulkManagedUsersInputDto = StaticEncode<
+  typeof bulkManagedUsersSchema
+>
+export type BulkManagedUserResultDto = StaticDecode<
   typeof bulkManagedUserResultSchema
 >
-export type BulkManagedUsersDto = z.output<
+export type BulkManagedUsersDto = StaticDecode<
   typeof bulkManagedUsersResponseSchema
 >
-export type BulkInvitesInputDto = z.input<typeof bulkInvitesSchema>
-export type BulkInviteOperationDto = z.output<typeof bulkInviteOperationSchema>
-export type BulkInviteResultDto = z.output<typeof bulkInviteResultSchema>
-export type BulkInvitesDto = z.output<typeof bulkInvitesResponseSchema>
-export type BulkProfilesInputDto = z.input<typeof bulkProfilesSchema>
-export type BulkProfileResultDto = z.output<typeof bulkProfileResultSchema>
-export type BulkProfilesDto = z.output<typeof bulkProfilesResponseSchema>
+export type BulkInvitesInputDto = StaticEncode<typeof bulkInvitesSchema>
+export type BulkInviteOperationDto = StaticDecode<
+  typeof bulkInviteOperationSchema
+>
+export type BulkInviteResultDto = StaticDecode<typeof bulkInviteResultSchema>
+export type BulkInvitesDto = StaticDecode<typeof bulkInvitesResponseSchema>
+export type BulkProfilesInputDto = StaticEncode<typeof bulkProfilesSchema>
+export type BulkProfileResultDto = StaticDecode<typeof bulkProfileResultSchema>
+export type BulkProfilesDto = StaticDecode<typeof bulkProfilesResponseSchema>

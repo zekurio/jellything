@@ -30,6 +30,119 @@ afterEach(async () => {
   vi.clearAllMocks()
 })
 
+describe("invite management", () => {
+  it("rejects invalid invite creation before persisting and normalizes the corrected code", async () => {
+    const setup = await loadInvitesServiceModules()
+    const profileId = crypto.randomUUID()
+    await setup.database.db.insert(setup.schema.profiles).values({
+      id: profileId,
+      name: "Members",
+      policy: setup.schema.DEFAULT_PROFILE_POLICY,
+    })
+
+    expect(
+      await setup.invitesService.createInviteService(undefined, {
+        profileId,
+        code: "bad!",
+      }),
+    ).toMatchObject({
+      success: false,
+      code: setup.errors.ErrorCode.VALIDATION_FAILED,
+    })
+    expect(await setup.database.db.query.invites.findMany()).toEqual([])
+
+    const result = await setup.invitesService.createInviteService(undefined, {
+      profileId,
+      code: "  family-2026  ",
+    })
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        code: "FAMILY-2026",
+        profileName: "Members",
+        useLimit: null,
+        useCount: 0,
+        isDisabled: false,
+      },
+    })
+    expect(await setup.database.db.query.invites.findMany()).toMatchObject([
+      { code: "FAMILY-2026", profileId, useLimit: null, useCount: 0 },
+    ])
+  })
+
+  it("paginates matching invites using URL search values and rejects invalid pages", async () => {
+    const setup = await loadInvitesServiceModules()
+    const profileId = crypto.randomUUID()
+    await setup.database.db.insert(setup.schema.profiles).values({
+      id: profileId,
+      name: "Members",
+      policy: setup.schema.DEFAULT_PROFILE_POLICY,
+    })
+    await setup.database.db.insert(setup.schema.invites).values([
+      { id: crypto.randomUUID(), profileId, code: "FAMILY-01" },
+      { id: crypto.randomUUID(), profileId, code: "FAMILY-02" },
+      { id: crypto.randomUUID(), profileId, code: "FRIENDS-01" },
+    ])
+    expect(await setup.invitesService.listInvitesPageService({})).toMatchObject(
+      { success: true, data: { page: 1, pageSize: 50, total: 3 } },
+    )
+    const result = await setup.invitesService.listInvitesPageService({
+      page: "2",
+      pageSize: "1",
+      query: "  FAMILY  ",
+      sort: "code",
+      direction: "asc",
+    })
+    expect(result).toMatchObject({
+      success: true,
+      data: {
+        items: [{ code: "FAMILY-02" }],
+        page: 2,
+        pageSize: 1,
+        total: 2,
+        pageCount: 2,
+      },
+    })
+    expect(
+      await setup.invitesService.listInvitesPageService({ page: "invalid" }),
+    ).toMatchObject({
+      success: false,
+      code: setup.errors.ErrorCode.VALIDATION_FAILED,
+    })
+  })
+
+  it("allows disabling an invite without letting submitted fields reset its usage counter", async () => {
+    const setup = await loadInvitesServiceModules()
+    const profileId = crypto.randomUUID()
+    const inviteId = crypto.randomUUID()
+    await setup.database.db.insert(setup.schema.profiles).values({
+      id: profileId,
+      name: "Members",
+      policy: setup.schema.DEFAULT_PROFILE_POLICY,
+    })
+    await setup.database.db.insert(setup.schema.invites).values({
+      id: inviteId,
+      profileId,
+      code: "FAMILY-01",
+      useLimit: 2,
+      useCount: 1,
+    })
+    expect(
+      await setup.invitesService.updateInviteService(inviteId, {}),
+    ).toMatchObject({
+      success: false,
+      code: setup.errors.ErrorCode.VALIDATION_FAILED,
+    })
+    const updates = { isDisabled: true, useCount: 0 }
+    expect(
+      await setup.invitesService.updateInviteService(inviteId, updates),
+    ).toMatchObject({ success: true, data: { isDisabled: true, useCount: 1 } })
+    expect(await setup.database.db.query.invites.findMany()).toMatchObject([
+      { id: inviteId, isDisabled: true, useCount: 1 },
+    ])
+  })
+})
+
 describe("bulkManageInvitesService", () => {
   it("disables invites, skips already-disabled ones, and reports missing invites", async () => {
     const setup = await loadInvitesServiceModules()

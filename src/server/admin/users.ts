@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, ne } from "drizzle-orm"
-import { z } from "zod"
+import type { StaticDecode, StaticEncode } from "typebox"
 
 import {
   ErrorCode,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/contracts/errors"
 import { normalizeEmail, updateManagedUserSchema } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
+import { safeParse, stringSchema } from "@/lib/validation"
 import { ensureDefaultProfileService } from "@/server/admin/profiles"
 import {
   bulkManagedUsersSchema,
@@ -43,7 +44,10 @@ import {
   syncUsersWithJellyfin,
 } from "@/server/user-lifecycle"
 
-const userIdSchema = z.string().min(1, "User ID is required")
+const userIdSchema = stringSchema({
+  minLength: 1,
+  errorMessage: "User ID is required",
+})
 
 function isJellyfinLastAdminError(err: unknown): boolean {
   return (
@@ -128,10 +132,10 @@ type UpdateManagedUserResult = {
   expiresAt: string | null
 }
 
-type ManagedUserUpdateInput = z.input<typeof updateManagedUserSchema>
-type ManagedUserUpdate = z.output<typeof updateManagedUserSchema>
+type ManagedUserUpdateInput = StaticEncode<typeof updateManagedUserSchema>
+type ManagedUserUpdate = StaticDecode<typeof updateManagedUserSchema>
 
-type BulkManagedUserOperation = z.output<
+type BulkManagedUserOperation = StaticDecode<
   typeof bulkManagedUsersSchema
 >["operation"]
 
@@ -245,9 +249,9 @@ function mapOrphanedUserItem(
 }
 
 export async function listUsersWithProfilesService(
-  input: z.input<typeof usersPageInputSchema> = {},
+  input: StaticEncode<typeof usersPageInputSchema> = {},
 ): Promise<ActionResult<UsersWithProfilesResult>> {
-  const parsed = usersPageInputSchema.safeParse(input)
+  const parsed = safeParse(usersPageInputSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -343,8 +347,8 @@ function filterUserItems(
 
 function sortUserItems(
   users: ManagedUserListItem[],
-  sort: z.output<typeof usersPageInputSchema>["sort"],
-  direction: z.output<typeof usersPageInputSchema>["direction"],
+  sort: StaticDecode<typeof usersPageInputSchema>["sort"],
+  direction: StaticDecode<typeof usersPageInputSchema>["direction"],
 ): ManagedUserListItem[] {
   const multiplier = direction === "asc" ? 1 : -1
   return users.toSorted((a, b) => multiplier * compareUserItems(a, b, sort))
@@ -353,7 +357,7 @@ function sortUserItems(
 function compareUserItems(
   a: ManagedUserListItem,
   b: ManagedUserListItem,
-  sort: z.output<typeof usersPageInputSchema>["sort"],
+  sort: StaticDecode<typeof usersPageInputSchema>["sort"],
 ): number {
   if (sort === "email") {
     return compareNullableString(a.email, b.email)
@@ -562,9 +566,9 @@ async function deleteManagedUserAcrossSystems(
 }
 
 export async function bulkManageUsersService(
-  input: z.input<typeof bulkManagedUsersSchema>,
+  input: StaticEncode<typeof bulkManagedUsersSchema>,
 ): Promise<ActionResult<BulkManagedUsersDto>> {
-  const parsed = bulkManagedUsersSchema.safeParse(input)
+  const parsed = safeParse(bulkManagedUsersSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -701,7 +705,7 @@ async function updatePreparedManagedUser(
   context: PreparedUserContext,
   lastAdminGuard: LastAdminGuard,
 ): Promise<ActionResult<UpdateManagedUserResult>> {
-  const parsed = updateManagedUserSchema.safeParse(input)
+  const parsed = safeParse(updateManagedUserSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -1094,9 +1098,9 @@ async function syncPreparedUserToSeerr(
 
 export async function updateManagedUserService(
   userId: string,
-  input: z.infer<typeof updateManagedUserSchema>,
+  input: StaticDecode<typeof updateManagedUserSchema>,
 ): Promise<ActionResult<UpdateManagedUserResult>> {
-  const parsedUserId = userIdSchema.safeParse(userId)
+  const parsedUserId = safeParse(userIdSchema, userId)
   if (!parsedUserId.success) {
     return error(
       ErrorCode.VALIDATION_FAILED,
@@ -1104,7 +1108,7 @@ export async function updateManagedUserService(
     )
   }
 
-  const parsed = updateManagedUserSchema.safeParse(input)
+  const parsed = safeParse(updateManagedUserSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -1351,7 +1355,7 @@ export async function updateManagedUserService(
 export async function syncUserToSeerrService(
   userId: string,
 ): Promise<ActionResult<{ synced: boolean }>> {
-  const parsedUserId = userIdSchema.safeParse(userId)
+  const parsedUserId = safeParse(userIdSchema, userId)
   if (!parsedUserId.success) {
     return error(
       ErrorCode.VALIDATION_FAILED,
@@ -1452,7 +1456,7 @@ export async function syncUserToSeerrService(
 export async function deleteManagedUserService(
   userId: string,
 ): Promise<ActionResult<DeleteManagedUserResult>> {
-  const parsedUserId = userIdSchema.safeParse(userId)
+  const parsedUserId = safeParse(userIdSchema, userId)
   if (!parsedUserId.success) {
     return error(
       ErrorCode.VALIDATION_FAILED,
