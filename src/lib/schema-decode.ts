@@ -1,4 +1,6 @@
-import { z } from "zod"
+import type { StaticDecode, TSchema } from "typebox"
+
+import { safeParse, type ValidationError } from "@/lib/validation"
 
 export class ExternalServiceDecodeError extends Error {
   readonly service: string
@@ -15,7 +17,7 @@ export class ExternalServiceDecodeError extends Error {
   }
 }
 
-function formatZodError(error: z.ZodError): string {
+function formatValidationError(error: ValidationError): string {
   return error.issues
     .map((issue) => {
       const path = issue.path.length > 0 ? issue.path.join(".") : "<root>"
@@ -24,15 +26,15 @@ function formatZodError(error: z.ZodError): string {
     .join("; ")
 }
 
-export function decodeWithSchema<TSchema extends z.ZodType>(
-  schema: TSchema,
+export function decodeWithSchema<Type extends TSchema>(
+  schema: Type,
   value: unknown,
   context: {
     service: string
     path: string
   },
-): z.output<TSchema> {
-  const result = schema.safeParse(value)
+): StaticDecode<Type> {
+  const result = safeParse(schema, value)
   if (result.success) {
     return result.data
   }
@@ -40,7 +42,7 @@ export function decodeWithSchema<TSchema extends z.ZodType>(
   throw new ExternalServiceDecodeError(
     context.service,
     context.path,
-    formatZodError(result.error),
+    formatValidationError(result.error),
     result.error,
   )
 }
