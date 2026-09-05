@@ -1,5 +1,6 @@
-import "@tanstack/react-start/server-only"
 import { randomBytes, timingSafeEqual } from "node:crypto"
+
+import "@tanstack/react-start/server-only"
 import {
   chmodSync,
   closeSync,
@@ -30,6 +31,7 @@ import {
   defaulted,
   enumValues,
   parse,
+  stringSchema,
   trimmedString,
   ValidationError,
 } from "@/lib/validation"
@@ -65,7 +67,7 @@ const DEFAULT_AUTH_CONFIG = {
 }
 
 const memberOnboardingPageSchema = Type.Object({
-  id: Type.String({ minLength: 1 }),
+  id: stringSchema({ minLength: 1 }),
   title: trimmedString({ minLength: 1, maxLength: 100 }),
   markdown: trimmedString({ minLength: 1, maxLength: 8000 }),
 })
@@ -73,17 +75,17 @@ const memberOnboardingPageSchema = Type.Object({
 const seerrConfigSchema = Type.Object({
   internalUrl: Type.String({ format: "uri" }),
   externalUrl: Type.Optional(Type.String({ format: "uri" })),
-  apiKey: Type.String({ minLength: 1 }),
+  apiKey: stringSchema({ minLength: 1 }),
 })
 
 const brandingImageSchema = Type.Object({
   mimeType: enumValues(BRANDING_IMAGE_MIME_TYPES),
-  base64: Type.String({
+  base64: stringSchema({
     minLength: 1,
     maxLength: BRANDING_IMAGE_MAX_BASE64_LENGTH,
   }),
-  width: Type.Integer({ minimum: 1 }),
-  height: Type.Integer({ minimum: 1 }),
+  width: Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }),
+  height: Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }),
 })
 
 const emailBrandingSchema = Type.Object({
@@ -120,8 +122,8 @@ const configSchema = Type.Object({
   ),
   auth: defaulted(
     Type.Object({
-      sessionSecret: Type.String({ minLength: 32 }),
-      encryptionKey: Type.String({ minLength: 32 }),
+      sessionSecret: stringSchema({ minLength: 32 }),
+      encryptionKey: stringSchema({ minLength: 32 }),
     }),
     DEFAULT_AUTH_CONFIG,
   ),
@@ -141,9 +143,9 @@ const configSchema = Type.Object({
   jellyfin: Type.Object({
     internalUrl: Type.String({ format: "uri" }),
     externalUrl: Type.Optional(Type.String({ format: "uri" })),
-    apiKey: Type.String({ minLength: 1 }),
+    apiKey: stringSchema({ minLength: 1 }),
     configPath: Type.Optional(Type.String()),
-    displayName: Type.Optional(Type.String({ minLength: 1 })),
+    displayName: Type.Optional(stringSchema({ minLength: 1 })),
   }),
   seerr: Type.Optional(seerrConfigSchema),
   email: Type.Optional(
@@ -151,11 +153,11 @@ const configSchema = Type.Object({
       from: defaulted(Type.String(), "Inviterr <noreply@example.com>"),
       smtp: Type.Optional(
         Type.Object({
-          host: Type.String({ minLength: 1 }),
+          host: stringSchema({ minLength: 1 }),
           port: Type.Integer({ minimum: 1, maximum: 65535 }),
           secure: defaulted(Type.Boolean(), false),
-          username: Type.Optional(Type.String({ minLength: 1 })),
-          password: Type.Optional(Type.String({ minLength: 1 })),
+          username: Type.Optional(stringSchema({ minLength: 1 })),
+          password: Type.Optional(stringSchema({ minLength: 1 })),
         }),
       ),
       branding: Type.Optional(emailBrandingSchema),

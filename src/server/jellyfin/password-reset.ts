@@ -5,14 +5,14 @@ import { join } from "node:path"
 import { Type } from "typebox"
 
 import { configManager } from "@/lib/server/config.server"
-import { parse } from "@/lib/validation"
+import { parse, stringSchema } from "@/lib/validation"
 import { logger } from "@/server/logger"
 
 const pinFileSchema = Type.Object({
-  Pin: Type.String({ minLength: 1 }),
-  UserName: Type.String({ minLength: 1 }),
-  PinFile: Type.String({ minLength: 1 }),
-  ExpirationDate: Type.String({ minLength: 1 }),
+  Pin: stringSchema({ minLength: 1 }),
+  UserName: stringSchema({ minLength: 1 }),
+  PinFile: stringSchema({ minLength: 1 }),
+  ExpirationDate: stringSchema({ minLength: 1 }),
 })
 
 export interface PasswordResetPin {

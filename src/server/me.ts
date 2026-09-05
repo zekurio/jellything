@@ -1,5 +1,5 @@
 import { and, eq, ne } from "drizzle-orm"
-import { z } from "zod"
+import type { StaticDecode } from "typebox"
 
 import {
   ErrorCode,
@@ -20,6 +20,7 @@ import {
 import { getSession } from "@/lib/server/auth"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
+import { safeParse } from "@/lib/validation"
 import {
   clearAuthCookies,
   clearAuthenticatedSession,
@@ -66,7 +67,7 @@ function resolveWorkflowSession(
 }
 
 export async function updateMyAccount(
-  input: z.infer<typeof updateMyAccountSchema>,
+  input: StaticDecode<typeof updateMyAccountSchema>,
   sessionOverride?: SessionData,
 ): Promise<ActionResult<SessionData>> {
   const session = await resolveWorkflowSession(sessionOverride)
@@ -74,7 +75,7 @@ export async function updateMyAccount(
     return error(ErrorCode.UNAUTHORIZED)
   }
 
-  const parsed = updateMyAccountSchema.safeParse(input)
+  const parsed = safeParse(updateMyAccountSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -198,7 +199,7 @@ export async function updateMyAccount(
 }
 
 export async function changeMyPassword(
-  input: z.infer<typeof changePasswordSchema>,
+  input: StaticDecode<typeof changePasswordSchema>,
   sessionOverride?: SessionData,
 ): Promise<ActionResult<null>> {
   const session = await resolveWorkflowSession(sessionOverride)
@@ -206,7 +207,7 @@ export async function changeMyPassword(
     return error(ErrorCode.UNAUTHORIZED)
   }
 
-  const parsed = changePasswordSchema.safeParse(input)
+  const parsed = safeParse(changePasswordSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -269,7 +270,7 @@ export async function changeMyPassword(
 }
 
 export async function uploadMyAvatar(
-  input: z.infer<typeof uploadAvatarSchema>,
+  input: StaticDecode<typeof uploadAvatarSchema>,
   sessionOverride?: SessionData,
 ): Promise<ActionResult<SessionData>> {
   const session = await resolveWorkflowSession(sessionOverride)
@@ -277,7 +278,7 @@ export async function uploadMyAvatar(
     return error(ErrorCode.UNAUTHORIZED)
   }
 
-  const parsed = uploadAvatarSchema.safeParse(input)
+  const parsed = safeParse(uploadAvatarSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -313,7 +314,7 @@ export async function uploadMyAvatar(
 }
 
 export async function removeMyAvatar(
-  input: z.infer<typeof removeAvatarSchema>,
+  input: StaticDecode<typeof removeAvatarSchema>,
   sessionOverride?: SessionData,
 ): Promise<ActionResult<SessionData>> {
   const session = await resolveWorkflowSession(sessionOverride)
@@ -321,7 +322,7 @@ export async function removeMyAvatar(
     return error(ErrorCode.UNAUTHORIZED)
   }
 
-  const parsed = removeAvatarSchema.safeParse(input)
+  const parsed = safeParse(removeAvatarSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }

@@ -1,5 +1,5 @@
 import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm"
-import { z } from "zod"
+import type { StaticDecode } from "typebox"
 
 import {
   ErrorCode,
@@ -20,6 +20,7 @@ import {
 } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
 import type { SessionData } from "@/lib/session"
+import { safeParse } from "@/lib/validation"
 import { clearAuthCookies, establishAuthenticatedSession } from "@/server/auth"
 import { db, ensureMigrated, getUserByEmail } from "@/server/db"
 import {
@@ -297,7 +298,7 @@ async function compensateInviteRedemption(input: {
 }
 
 export async function redeemInvite(
-  input: z.infer<typeof redeemInviteSchema>,
+  input: StaticDecode<typeof redeemInviteSchema>,
 ): Promise<
   ActionResult<{
     success: boolean
@@ -307,7 +308,7 @@ export async function redeemInvite(
   }>
 > {
   try {
-    const parsed = redeemInviteSchema.safeParse(input)
+    const parsed = safeParse(redeemInviteSchema, input)
     if (!parsed.success) {
       return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
     }

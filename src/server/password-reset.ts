@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm"
-import { z } from "zod"
+import { Type, type StaticDecode } from "typebox"
 
 import {
   ErrorCode,
@@ -9,6 +9,7 @@ import {
 } from "@/lib/api/contracts/errors"
 import { passwordSchema } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
+import { safeParse, stringSchema } from "@/lib/validation"
 import { db, ensureMigrated } from "@/server/db"
 import { users } from "@/server/db/schema"
 import { isEmailConfigured } from "@/server/email"
@@ -29,8 +30,11 @@ import { logger } from "@/server/logger"
 import { scanPasswordResetNotifications } from "@/server/password-reset-notifications"
 import { revokeAllUserSessions } from "@/server/session"
 
-const requestPasswordResetSchema = z.object({
-  username: z.string().min(1, "validation.usernameRequired"),
+const requestPasswordResetSchema = Type.Object({
+  username: stringSchema({
+    minLength: 1,
+    errorMessage: "validation.usernameRequired",
+  }),
 })
 
 async function findJellyfinUser(
@@ -44,9 +48,9 @@ async function findJellyfinUser(
 }
 
 export async function requestPasswordReset(
-  input: z.infer<typeof requestPasswordResetSchema>,
+  input: StaticDecode<typeof requestPasswordResetSchema>,
 ): Promise<ActionResult<null>> {
-  const parsed = requestPasswordResetSchema.safeParse(input)
+  const parsed = safeParse(requestPasswordResetSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }
@@ -119,8 +123,8 @@ async function processPasswordResetRequest(username: string): Promise<void> {
   await scanPasswordResetNotifications()
 }
 
-const resetPasswordSchema = z.object({
-  pin: z.string().min(1, "validation.pinRequired"),
+const resetPasswordSchema = Type.Object({
+  pin: stringSchema({ minLength: 1, errorMessage: "validation.pinRequired" }),
   newPassword: passwordSchema,
 })
 
@@ -134,9 +138,9 @@ export async function findPasswordResetPinForCode(
 }
 
 export async function resetPassword(
-  input: z.infer<typeof resetPasswordSchema>,
+  input: StaticDecode<typeof resetPasswordSchema>,
 ): Promise<ActionResult<null>> {
-  const parsed = resetPasswordSchema.safeParse(input)
+  const parsed = safeParse(resetPasswordSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }

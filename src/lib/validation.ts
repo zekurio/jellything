@@ -1,17 +1,10 @@
+import type { StandardSchemaV1 } from "@standard-schema/spec"
 import {
   Type,
   type StaticDecode,
   type StaticEncode,
-  type TArray,
-  type TIntersect,
   type TLiteral,
-  type TObject,
-  type TOptional,
-  type TProperties,
-  type TRecord,
   type TSchema,
-  type TTuple,
-  type TUnion,
   type TStringOptions,
 } from "typebox"
 import { Compile, type Validator } from "typebox/compile"
@@ -50,10 +43,35 @@ function validator(schema: TSchema) {
 
 function nativeErrors(schema: TSchema, value: unknown) {
   const compiled = validator(schema)
-  return compiled.Check(value) ? [] : compiled.Errors(value)
+  if (compiled.Check(value)) return []
+  const errors = compiled.Errors(value)
+  const unionPaths = errors
+    .filter((error) => error.keyword === "anyOf")
+    .map((error) => `${error.schemaPath}/anyOf/`)
+  // TypeBox reports failed branches as well as the union error. Format the
+  // union once below, choosing a matching branch's field messages when possible.
+  return errors.filter(
+    (error) => !unionPaths.some((path) => error.schemaPath.startsWith(path)),
+  )
 }
 
-const blockingKeywords = new Set(["type", "required", "const", "enum", "anyOf", "~refine"])
+const blockingKeywords = new Set([
+  "type",
+  "required",
+  "const",
+  "enum",
+  "anyOf",
+  "~refine",
+])
+
+function isBlockingError(schema: TSchema, error: TLocalizedValidationError) {
+  if (
+    error.keyword === "~refine" &&
+    Type.IsString(resolvePointer(error.schemaPath, schema).value)
+  )
+    return false
+  return blockingKeywords.has(error.keyword)
+}
 
 interface ValidationSchema extends TSchema {
   default?: unknown
@@ -62,54 +80,6 @@ interface ValidationSchema extends TSchema {
   properties?: Record<string, TSchema>
   patternProperties?: Record<string, TSchema>
   additionalProperties?: TSchema | boolean
-}
-
-type OptionalInputKeys<P extends TProperties> = {
-  [K in keyof P]: P[K] extends TOptional | { default: unknown }
-    ? K
-    : never
-}[keyof P]
-
-type ObjectInput<P extends TProperties> = {
-  [K in Exclude<keyof P, OptionalInputKeys<P>>]: ValidationInput<P[K]>
-} & {
-  [K in OptionalInputKeys<P>]?: ValidationInput<P[K]>
-}
-
-type IntersectionInput<T extends TSchema[]> = T extends [
-  infer Head extends TSchema,
-  ...infer Tail extends TSchema[],
-]
-  ? ValidationInput<Head> & IntersectionInput<Tail>
-  : unknown
-
-/** Native StaticEncode cannot express optional input with required defaulted output. */
-export type ValidationInput<T extends TSchema> =
-  | (T extends { default: unknown } ? undefined : never)
-  | (T extends TObject<infer P>
-      ? ObjectInput<P>
-      : T extends TArray<infer Item>
-        ? ValidationInput<Item>[]
-        : T extends TTuple<infer Items>
-          ? { [K in keyof Items]: ValidationInput<Items[K]> }
-          : T extends TRecord<infer Key, infer Item>
-            ? Record<Key, ValidationInput<Item>>
-            : T extends TUnion<infer Members>
-              ? ValidationInput<Members[number]>
-              : T extends TIntersect<infer Members>
-                ? IntersectionInput<Members>
-                : StaticEncode<T>)
-
-/** Structural Standard Schema v1 contract, without a runtime dependency. */
-export interface StandardSchema<Input, Output> {
-  readonly "~standard": {
-    readonly version: 1
-    readonly vendor: string
-    readonly types?: { readonly input: Input; readonly output: Output }
-    readonly validate: (
-      value: unknown,
-    ) => { value: Output; issues?: undefined } | { issues: ValidationIssue[] }
-  }
 }
 
 // Keep the existing email and RFC 9562 UUID rules, rather than the broader
@@ -140,9 +110,42 @@ Format.Set("date-time", (value) => {
 })
 Format.Set("uri", (value) => URL.canParse(value))
 
+// TypeBox counts grapheme clusters. Existing limits count UTF-16 code units,
+// including passwords and payload size limits, so keep those checks explicit.
+export function stringSchema(options: TStringOptions = {}) {
+  const constraints = { ...options }
+  delete constraints.minLength
+  delete constraints.maxLength
+  const schema = Type.String(constraints)
+  const message = (keyword: "minLength" | "maxLength", fallback: string) => {
+    const metadata: unknown = options.errorMessage
+    if (typeof metadata === "string") return metadata
+    return isObject(metadata) && typeof metadata[keyword] === "string"
+      ? metadata[keyword]
+      : fallback
+  }
+  const minimum = options.minLength
+  const maximum = options.maxLength
+  const withMinimum =
+    minimum === undefined
+      ? schema
+      : Type.Refine(
+          schema,
+          (value) => value.length >= minimum,
+          () => message("minLength", `Expected at least ${minimum} characters`),
+        )
+  return maximum === undefined
+    ? withMinimum
+    : Type.Refine(
+        withMinimum,
+        (value) => value.length <= maximum,
+        () => message("maxLength", `Expected at most ${maximum} characters`),
+      )
+}
+
 /** String preprocessing runs before constraints, unlike a decode callback. */
 export function trimmedString(options?: TStringOptions) {
-  return Type.String({ ...options, [trimKey]: true })
+  return Type.With(stringSchema(options), { [trimKey]: true })
 }
 
 /** Defaults apply to undefined only, and are cloned for each parse. */
@@ -212,7 +215,11 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /** Prepare only declared fields. Never clean strict objects before checking. */
-function prepare(schema: TSchema, input: unknown, preserveUnknown = false): unknown {
+function prepare(
+  schema: TSchema,
+  input: unknown,
+  preserveUnknown = false,
+): unknown {
   const options = schema as ValidationSchema
   const value =
     input === undefined && Object.hasOwn(schema, "default")
@@ -225,14 +232,46 @@ function prepare(schema: TSchema, input: unknown, preserveUnknown = false): unkn
       member,
       value: prepare(member, value),
     }))
-    const selected = candidates.find((candidate) => validator(candidate.member).Check(candidate.value)) ?? candidates.find((candidate) => nativeErrors(candidate.member, candidate.value).every((error) => !blockingKeywords.has(error.keyword)))
+    const selected =
+      candidates.find((candidate) =>
+        validator(candidate.member).Check(candidate.value),
+      ) ??
+      candidates.find((candidate) =>
+        nativeErrors(candidate.member, candidate.value).every(
+          (error) => !isBlockingError(candidate.member, error),
+        ),
+      )
     return selected ? selected.value : value
   }
   if (Type.IsIntersect(schema)) {
-    const prepared = schema.allOf.reduce<unknown>((result, member) => prepare(member, result, true), value)
-    const objects = schema.allOf.filter((member) => Type.IsObject(member) || Type.IsRecord(member))
-    if (!isObject(prepared) || !objects.length || preserveUnknown || objects.some((member) => (member as ValidationSchema).additionalProperties !== undefined)) return prepared
-    return Object.fromEntries(Object.entries(prepared).filter(([key]) => objects.some((member) => Object.hasOwn((member as ValidationSchema).properties ?? {}, key) || Object.keys((member as ValidationSchema).patternProperties ?? {}).some((pattern) => new RegExp(pattern).test(key)))))
+    const prepared = schema.allOf.reduce<unknown>(
+      (result, member) => prepare(member, result, true),
+      value,
+    )
+    const objects = schema.allOf.filter(
+      (member) => Type.IsObject(member) || Type.IsRecord(member),
+    )
+    if (
+      !isObject(prepared) ||
+      !objects.length ||
+      preserveUnknown ||
+      objects.some(
+        (member) =>
+          (member as ValidationSchema).additionalProperties !== undefined,
+      )
+    )
+      return prepared
+    return Object.fromEntries(
+      Object.entries(prepared).filter(([key]) =>
+        objects.some(
+          (member) =>
+            Object.hasOwn((member as ValidationSchema).properties ?? {}, key) ||
+            Object.keys(
+              (member as ValidationSchema).patternProperties ?? {},
+            ).some((pattern) => new RegExp(pattern).test(key)),
+        ),
+      ),
+    )
   }
   if ((Type.IsObject(schema) || Type.IsRecord(schema)) && isObject(value)) {
     const properties = options.properties ?? {}
@@ -254,7 +293,9 @@ function prepare(schema: TSchema, input: unknown, preserveUnknown = false): unkn
         ]
       if (typeof options.additionalProperties === "object")
         return [[key, prepare(options.additionalProperties, item)]]
-      return preserveUnknown || options.additionalProperties !== undefined ? [[key, item]] : []
+      return preserveUnknown || options.additionalProperties !== undefined
+        ? [[key, item]]
+        : []
     })
     for (const [key, member] of Object.entries(properties)) {
       const prepared = prepare(
@@ -282,9 +323,19 @@ function resolvePointer(pointer: string, value: unknown) {
     // TypeBox 1.3 emits raw property names, not escaped JSON pointers.
     // Match actual keys so slashes, tildes and numeric object keys survive.
     const remaining = parts.slice(index).join("/")
-    const key = (isObject(value) ? Object.keys(value).filter((key) => remaining === key || remaining.startsWith(`${key}/`)).sort((a, b) => b.length - a.length)[0] : undefined) ?? parts[index]!
+    const key =
+      (isObject(value)
+        ? Object.keys(value)
+            .filter(
+              (key) => remaining === key || remaining.startsWith(`${key}/`),
+            )
+            .sort((a, b) => b.length - a.length)[0]
+        : undefined) ?? parts[index]!
     path.push(Array.isArray(value) ? Number(key) : key)
-    value = typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined
+    value =
+      typeof value === "object" && value !== null
+        ? Reflect.get(value, key)
+        : undefined
     index += key.split("/").length
   }
   return { path, value }
@@ -311,10 +362,29 @@ function errorIssues(
         : error.message
   const location = resolvePointer(error.instancePath, value)
   const path = location.path
-  if (error.keyword === "anyOf" && typeof metadata !== "string" && Type.IsUnion(node)) {
-    const candidates = node.anyOf.map((member) => ({ member, value: prepare(member, location.value) }))
-    const branch = candidates.map((candidate) => ({ ...candidate, errors: nativeErrors(candidate.member, candidate.value) })).find((candidate) => candidate.errors.every((issue) => !blockingKeywords.has(issue.keyword)))
-    if (branch) return branch.errors.flatMap((issue) => errorIssues(branch.member, branch.value, issue)).map((issue) => ({ ...issue, path: [...path, ...issue.path] }))
+  if (
+    error.keyword === "anyOf" &&
+    typeof metadata !== "string" &&
+    Type.IsUnion(node)
+  ) {
+    const candidates = node.anyOf.map((member) => ({
+      member,
+      value: prepare(member, location.value),
+    }))
+    const branch = candidates
+      .map((candidate) => ({
+        ...candidate,
+        errors: nativeErrors(candidate.member, candidate.value),
+      }))
+      .find((candidate) =>
+        candidate.errors.every(
+          (issue) => !isBlockingError(candidate.member, issue),
+        ),
+      )
+    if (branch)
+      return branch.errors
+        .flatMap((issue) => errorIssues(branch.member, branch.value, issue))
+        .map((issue) => ({ ...issue, path: [...path, ...issue.path] }))
   }
   return error.keyword === "required"
     ? error.params.requiredProperties.map((key) => ({
@@ -329,51 +399,122 @@ interface NativeFailure {
   blocking: boolean
 }
 
-function decodeChildren(schema: TSchema, value: unknown, path: (string | number)[], issues: ValidationIssue[], failures: NativeFailure[]): unknown {
+function decodeChildren(
+  schema: TSchema,
+  value: unknown,
+  path: (string | number)[],
+  issues: ValidationIssue[],
+  failures: NativeFailure[],
+): unknown {
   const options = schema as ValidationSchema
   if ((Type.IsObject(schema) || Type.IsRecord(schema)) && isObject(value)) {
     const properties = options.properties ?? {}
     const patterns = Object.entries(options.patternProperties ?? {})
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => {
-      const property = Object.hasOwn(properties, key) ? properties[key] : undefined
-      const members = [...(property ? [property] : []), ...patterns.filter(([pattern]) => new RegExp(pattern).test(key)).map(([, member]) => member)]
-      if (!members.length && typeof options.additionalProperties === "object") members.push(options.additionalProperties)
-      return [key, members.reduce<unknown>((result, member) => decode(member, result, [...path, key], issues, failures), item)]
-    }))
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => {
+        const property = Object.hasOwn(properties, key)
+          ? properties[key]
+          : undefined
+        const members = [
+          ...(property ? [property] : []),
+          ...patterns
+            .filter(([pattern]) => new RegExp(pattern).test(key))
+            .map(([, member]) => member),
+        ]
+        if (!members.length && typeof options.additionalProperties === "object")
+          members.push(options.additionalProperties)
+        return [
+          key,
+          members.reduce<unknown>(
+            (result, member) =>
+              decode(member, result, [...path, key], issues, failures),
+            item,
+          ),
+        ]
+      }),
+    )
   }
-  if (Type.IsArray(schema) && Array.isArray(value)) return value.map((item, index) => decode(schema.items, item, [...path, index], issues, failures))
-  if (Type.IsTuple(schema) && Array.isArray(value)) return value.map((item, index) => schema.items[index] ? decode(schema.items[index], item, [...path, index], issues, failures) : item)
+  if (Type.IsArray(schema) && Array.isArray(value))
+    return value.map((item, index) =>
+      decode(schema.items, item, [...path, index], issues, failures),
+    )
+  if (Type.IsTuple(schema) && Array.isArray(value))
+    return value.map((item, index) =>
+      schema.items[index]
+        ? decode(schema.items[index], item, [...path, index], issues, failures)
+        : item,
+    )
   if (Type.IsUnion(schema)) {
     // Select on the encoded value, before codecs can change its type.
-    const member = schema.anyOf.find((candidate) => validator(candidate).Check(value)) ?? schema.anyOf.find((candidate) => nativeErrors(candidate, value).every((error) => !blockingKeywords.has(error.keyword)))
+    const member =
+      schema.anyOf.find((candidate) => validator(candidate).Check(value)) ??
+      schema.anyOf.find((candidate) =>
+        nativeErrors(candidate, value).every(
+          (error) => !isBlockingError(candidate, error),
+        ),
+      )
     return member ? decode(member, value, path, issues, failures) : value
   }
-  if (Type.IsIntersect(schema)) return schema.allOf.reduce<unknown>((result, member) => decode(member, result, path, issues, failures), value)
+  if (Type.IsIntersect(schema))
+    return schema.allOf.reduce<unknown>(
+      (result, member) => decode(member, result, path, issues, failures),
+      value,
+    )
   return value
 }
 
-function decode(schema: TSchema, value: unknown, path: (string | number)[], issues: ValidationIssue[], failures: NativeFailure[]): unknown {
+function decode(
+  schema: TSchema,
+  value: unknown,
+  path: (string | number)[],
+  issues: ValidationIssue[],
+  failures: NativeFailure[],
+): unknown {
   if (value === undefined && Type.IsOptional(schema)) return value
-  const nodeFailures = failures.filter((failure) => path.every((part, index) => part === failure.path[index]))
+  const nodeFailures = failures.filter((failure) =>
+    path.every((part, index) => part === failure.path[index]),
+  )
   const children = decodeChildren(schema, value, path, issues, failures)
-  const decoded = Type.IsCodec(schema) && !nodeFailures.length ? decodeCodec(schema, children, path) : children
+  const decoded =
+    Type.IsCodec(schema) && !nodeFailures.length
+      ? decodeCodec(schema, children, path)
+      : children
   // Constraint failures still allow form refinements. Structural failures do
   // not, and a skipped codec cannot provide its promised decoded type.
-  if (nodeFailures.some((failure) => failure.blocking) || (Type.IsCodec(schema) && nodeFailures.length)) return decoded
+  if (
+    nodeFailures.some((failure) => failure.blocking) ||
+    (Type.IsCodec(schema) && nodeFailures.length)
+  )
+    return decoded
   for (const check of (schema as ValidationSchema)[refinementKey] ?? []) {
-    check(decoded, { addIssue: (issue) => issues.push({ path: [...path, ...(issue.path ?? [])], message: issue.message }) })
+    check(decoded, {
+      addIssue: (issue) =>
+        issues.push({
+          path: [...path, ...(issue.path ?? [])],
+          message: issue.message,
+        }),
+    })
   }
   return decoded
 }
 
-function decodeCodec(schema: Type.TCodec, value: unknown, path: (string | number)[]) {
+function decodeCodec(
+  schema: Type.TCodec,
+  value: unknown,
+  path: (string | number)[],
+) {
   // Codec callbacks may call parse for explicit coercion. Translate only
   // validation failures here; programmer exceptions must remain visible.
   try {
     return schema["~codec"].decode(value)
   } catch (error) {
     if (!(error instanceof ValidationError)) throw error
-    throw new ValidationError(error.issues.map((issue) => ({ ...issue, path: [...path, ...issue.path] })))
+    throw new ValidationError(
+      error.issues.map((issue) => ({
+        ...issue,
+        path: [...path, ...issue.path],
+      })),
+    )
   }
 }
 
@@ -386,7 +527,10 @@ export function safeParse<T extends TSchema>(
   const prepared = prepare(schema, value)
   const errors = nativeErrors(schema, prepared)
   const issues = errors.flatMap((error) => errorIssues(schema, prepared, error))
-  const failures = errors.map((error) => ({ path: resolvePointer(error.instancePath, prepared).path, blocking: blockingKeywords.has(error.keyword) }))
+  const failures = errors.map((error) => ({
+    path: resolvePointer(error.instancePath, prepared).path,
+    blocking: isBlockingError(schema, error),
+  }))
   // Value.Decode implicitly coerces and cleans. Walk codecs separately so
   // strict inputs stay strict and nested codec failures retain field paths.
   try {
@@ -396,7 +540,10 @@ export function safeParse<T extends TSchema>(
       : { success: true, data: decoded as StaticDecode<T> }
   } catch (error) {
     if (!(error instanceof ValidationError)) throw error
-    return { success: false, error: new ValidationError([...issues, ...error.issues]) }
+    return {
+      success: false,
+      error: new ValidationError([...issues, ...error.issues]),
+    }
   }
 }
 
@@ -411,7 +558,7 @@ export function parse<T extends TSchema>(
 
 export function standardSchema<T extends TSchema>(
   schema: T,
-): StandardSchema<ValidationInput<T>, StaticDecode<T>> {
+): StandardSchemaV1<StaticEncode<T>, StaticDecode<T>> {
   return {
     "~standard": {
       version: 1,

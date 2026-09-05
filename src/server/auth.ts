@@ -6,6 +6,7 @@ import {
 } from "@/lib/api/contracts/errors"
 import { loginSchema } from "@/lib/schemas"
 import type { SessionData } from "@/lib/session"
+import { safeParse } from "@/lib/validation"
 import { authenticateUser } from "@/server/jellyfin"
 import { createChildLogger } from "@/server/logger"
 import {
@@ -109,7 +110,7 @@ export async function login(input: {
   username: string
   password: string
 }): Promise<ActionResult<SessionData>> {
-  const parsed = loginSchema.safeParse(input)
+  const parsed = safeParse(loginSchema, input)
   if (!parsed.success) {
     return error(ErrorCode.VALIDATION_FAILED, parsed.error.issues[0]?.message)
   }

@@ -1,7 +1,13 @@
 import { createEnv } from "@t3-oss/env-core"
 import { Type } from "typebox"
 
-import { defaulted, enumValues, standardSchema } from "@/lib/validation"
+// Vite loads this module before the application's path aliases are available.
+import {
+  defaulted,
+  enumValues,
+  standardSchema,
+  stringSchema,
+} from "./lib/validation"
 
 const truthyValues = ["true", "1", "yes", "on", "y", "enabled"]
 const stringBooleanPattern = `^(?:${[
@@ -40,13 +46,13 @@ function withSkipValidationDefaults() {
 export const env = createEnv({
   server: {
     DB_PATH: standardSchema(
-      defaulted(Type.String({ minLength: 1 }), "./data/inviterr.db"),
+      defaulted(stringSchema({ minLength: 1 }), "./data/inviterr.db"),
     ),
     CONFIG_PATH: standardSchema(
-      defaulted(Type.String({ minLength: 1 }), "./data/config.json"),
+      defaulted(stringSchema({ minLength: 1 }), "./data/config.json"),
     ),
     MIGRATIONS_PATH: standardSchema(
-      Type.Union([Type.String({ minLength: 1 }), Type.Undefined()]),
+      Type.Union([stringSchema({ minLength: 1 }), Type.Undefined()]),
     ),
     NODE_ENV: standardSchema(
       defaulted(

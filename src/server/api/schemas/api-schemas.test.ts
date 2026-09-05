@@ -138,7 +138,7 @@ describe("API pagination", () => {
       [Symbol("invalid")],
       Object.create(null),
     ].map((value) => [value]),
-  )("rejects invalid page %s without throwing from safeParse", (page) => {
+  )("rejects invalid page case %# without throwing from safeParse", (page) => {
     const result = safeParse(pageInputSchema, { page })
     expect(result).toMatchObject({
       success: false,

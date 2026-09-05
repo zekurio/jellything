@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { Type } from "typebox"
 
 import { ErrorCode } from "@/lib/api/contracts/errors"
 import { DEFAULT_LOCALE, resolveLocale } from "@/lib/i18n"
@@ -18,6 +18,7 @@ import {
   uploadAvatarSchema,
 } from "@/lib/schemas"
 import { configManager } from "@/lib/server/config.server"
+import { standardSchema, stringSchema, trimmedString } from "@/lib/validation"
 import {
   bulkManageInvitesService,
   createInviteService,
@@ -125,33 +126,32 @@ import {
 } from "@/server/rate-limit"
 import { SESSION_COOKIE_NAME } from "@/server/session"
 
-const noInputSchema = z.object({})
+const noInputSchema = Type.Object({})
 
-const inviteCodeSchema = z.object({
-  code: z
-    .string()
-    .trim()
-    .min(1)
-    .max(INVITE_CODE_MAX_LENGTH)
-    .regex(INVITE_CODE_PATTERN),
+const inviteCodeSchema = Type.Object({
+  code: trimmedString({
+    minLength: 1,
+    maxLength: INVITE_CODE_MAX_LENGTH,
+    pattern: INVITE_CODE_PATTERN.source,
+  }),
 })
 
-const verifyEmailSchema = z.object({
-  token: z.string().min(1).max(128),
+const verifyEmailSchema = Type.Object({
+  token: stringSchema({ minLength: 1, maxLength: 128 }),
 })
 
-const requestPasswordResetSchema = z.object({
-  username: z.string().trim().min(1).max(100),
+const requestPasswordResetSchema = Type.Object({
+  username: trimmedString({ minLength: 1, maxLength: 100 }),
 })
 
-const resetPasswordSchema = z.object({
-  pin: z.string().trim().min(1).max(128),
-  newPassword: z.string().min(1),
+const resetPasswordSchema = Type.Object({
+  pin: trimmedString({ minLength: 1, maxLength: 128 }),
+  newPassword: stringSchema({ minLength: 1 }),
 })
 
 const appProcedures = {
   bootstrap: publicProcedure
-    .input(noInputSchema)
+    .input(standardSchema(noInputSchema))
     .handler(async ({ context }) => {
       const resolvedSession = await context.resolveSession({
         validationMode: "if-stale",
@@ -191,7 +191,7 @@ const appProcedures = {
 const authProcedures = {
   login: mutationProcedure
     .use(rateLimitMiddleware(loginLimiter))
-    .input(loginSchema)
+    .input(standardSchema(loginSchema))
     .handler(async ({ input }) => {
       await enforceRateLimit(
         loginIdentifierLimiter,
@@ -199,16 +199,18 @@ const authProcedures = {
       )
       return unwrapActionResultOrThrow(await login(input))
     }),
-  logout: mutationProcedure.input(noInputSchema).handler(async () => {
-    unwrapActionResultOrThrow(await logout())
-    return null
-  }),
+  logout: mutationProcedure
+    .input(standardSchema(noInputSchema))
+    .handler(async () => {
+      unwrapActionResultOrThrow(await logout())
+      return null
+    }),
 }
 
 const onboardingProcedures = {
   validateSetupKey: mutationProcedure
     .use(rateLimitMiddleware(setupKeyValidationLimiter))
-    .input(setupKeyFormSchema)
+    .input(standardSchema(setupKeyFormSchema))
     .handler(async ({ input }) => {
       await enforceRateLimit(
         setupKeyIdentifierLimiter,
@@ -218,7 +220,7 @@ const onboardingProcedures = {
     }),
   initialize: mutationProcedure
     .use(rateLimitMiddleware(initializeConfigLimiter))
-    .input(initializeConfigBodySchema)
+    .input(standardSchema(initializeConfigBodySchema))
     .handler(async ({ input, context }) => {
       await enforceRateLimit(
         setupKeyIdentifierLimiter,
@@ -232,7 +234,7 @@ const onboardingProcedures = {
 const inviteProcedures = {
   redeemPage: queryProcedure
     .use(rateLimitMiddleware(validateInviteLimiter))
-    .input(inviteCodeSchema)
+    .input(standardSchema(inviteCodeSchema))
     .handler(async ({ input, context }) => {
       await enforceRateLimit(
         inviteCodeLookupLimiter,
@@ -261,18 +263,17 @@ const inviteProcedures = {
   redeem: mutationProcedure
     .use(rateLimitMiddleware(redeemInviteLimiter))
     .input(
-      z.object({
-        code: z
-          .string()
-          .trim()
-          .min(1)
-          .max(INVITE_CODE_MAX_LENGTH)
-          .regex(INVITE_CODE_PATTERN),
-        username: z.string().min(1),
-        password: z.string().min(1),
-        email: z.string().email(),
-        avatar: z.string().max(MAX_AVATAR_DATA_URL_LENGTH).optional(),
-      }),
+      standardSchema(
+        Type.Object({
+          code: inviteCodeSchema.properties.code,
+          username: stringSchema({ minLength: 1 }),
+          password: stringSchema({ minLength: 1 }),
+          email: Type.String({ format: "email" }),
+          avatar: Type.Optional(
+            stringSchema({ maxLength: MAX_AVATAR_DATA_URL_LENGTH }),
+          ),
+        }),
+      ),
     )
     .handler(async ({ input, context }) => {
       await enforceRateLimit(
@@ -286,7 +287,7 @@ const inviteProcedures = {
 const emailProcedures = {
   verify: mutationProcedure
     .use(rateLimitMiddleware(verifyEmailLimiter))
-    .input(verifyEmailSchema)
+    .input(standardSchema(verifyEmailSchema))
     .handler(async ({ input, context }) => {
       await enforceRateLimit(
         verifyEmailTokenLimiter,
@@ -306,7 +307,7 @@ const emailProcedures = {
 const passwordResetProcedures = {
   request: mutationProcedure
     .use(rateLimitMiddleware(passwordResetRequestLimiter))
-    .input(requestPasswordResetSchema)
+    .input(standardSchema(requestPasswordResetSchema))
     .handler(async ({ input }) => {
       await enforceRateLimit(
         passwordResetIdentifierLimiter,
@@ -317,7 +318,7 @@ const passwordResetProcedures = {
     }),
   confirm: mutationProcedure
     .use(rateLimitMiddleware(passwordResetCompleteLimiter))
-    .input(resetPasswordSchema)
+    .input(standardSchema(resetPasswordSchema))
     .handler(async ({ input }) => {
       // Throttle failed reset attempts by resolved account identity, never by
       // the guessed PIN: keying on input.pin would mint a fresh bucket per guess
@@ -335,14 +336,14 @@ const passwordResetProcedures = {
 
 const meProcedures = {
   updateAccount: authedProcedure
-    .input(updateMyAccountSchema)
+    .input(standardSchema(updateMyAccountSchema))
     .handler(async ({ input, context }) =>
       unwrapActionResultOrThrow(
         await updateMyAccount(input, context.session ?? undefined),
       ),
     ),
   changePassword: authedProcedure
-    .input(changePasswordSchema)
+    .input(standardSchema(changePasswordSchema))
     .handler(async ({ input, context }) => {
       unwrapActionResultOrThrow(
         await changeMyPassword(input, context.session ?? undefined),
@@ -350,14 +351,14 @@ const meProcedures = {
       return null
     }),
   uploadAvatar: authedProcedure
-    .input(uploadAvatarSchema)
+    .input(standardSchema(uploadAvatarSchema))
     .handler(async ({ input, context }) => {
       return unwrapActionResultOrThrow(
         await uploadMyAvatar(input, context.session ?? undefined),
       )
     }),
   removeAvatar: authedProcedure
-    .input(removeAvatarSchema)
+    .input(standardSchema(removeAvatarSchema))
     .handler(async ({ input, context }) => {
       return unwrapActionResultOrThrow(
         await removeMyAvatar(input, context.session ?? undefined),
@@ -365,7 +366,7 @@ const meProcedures = {
     }),
   resendVerification: authedProcedure
     .use(rateLimitMiddleware(verifyEmailLimiter))
-    .input(noInputSchema)
+    .input(standardSchema(noInputSchema))
     .handler(async ({ context }) => {
       unwrapActionResultOrThrow(
         await resendVerification(context.session ?? undefined),
@@ -373,7 +374,7 @@ const meProcedures = {
       return null
     }),
   deleteAccount: authedProcedure
-    .input(noInputSchema)
+    .input(standardSchema(noInputSchema))
     .handler(async ({ context }) => {
       unwrapActionResultOrThrow(
         await deleteMyAccount(context.session ?? undefined),
@@ -381,7 +382,7 @@ const meProcedures = {
       return null
     }),
   getExpiry: authedProcedure
-    .input(noInputSchema)
+    .input(standardSchema(noInputSchema))
     .handler(async ({ context }) =>
       unwrapActionResultOrThrow(
         await getMyExpiry(context.session ?? undefined),
@@ -389,7 +390,7 @@ const meProcedures = {
     ),
   renew: authedProcedure
     .use(rateLimitMiddleware(renewalLimiter))
-    .input(noInputSchema)
+    .input(standardSchema(noInputSchema))
     .handler(async ({ context }) => {
       await enforceRateLimit(
         renewalIdentifierLimiter,
@@ -403,11 +404,11 @@ const meProcedures = {
 
 const adminProcedures = {
   overview: configuredAdminProcedure
-    .input(noInputSchema)
+    .input(standardSchema(noInputSchema))
     .handler(async () => unwrapActionResultOrThrow(await getOverviewService())),
   invites: {
     page: configuredAdminProcedure
-      .input(invitesPageInputSchema)
+      .input(standardSchema(invitesPageInputSchema))
       .handler(async ({ input }) => {
         const page = await loadAdminInvitesPageServices(input)
 
@@ -417,88 +418,114 @@ const adminProcedures = {
         }
       }),
     history: configuredAdminProcedure
-      .input(inviteHistoryPageInputSchema)
+      .input(standardSchema(inviteHistoryPageInputSchema))
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await getInviteHistoryPageService(input)),
       ),
     create: configuredAdminProcedure
-      .input(createInviteSchema)
+      .input(standardSchema(createInviteSchema))
       .handler(async ({ input, context }) =>
         unwrapActionResultOrThrow(
           await createInviteService(context.session?.userId, input),
         ),
       ),
     update: configuredAdminProcedure
-      .input(z.object({ inviteId: z.uuid(), updates: updateInviteSchema }))
+      .input(
+        standardSchema(
+          Type.Object({
+            inviteId: Type.String({ format: "uuid" }),
+            updates: updateInviteSchema,
+          }),
+        ),
+      )
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(
           await updateInviteService(input.inviteId, input.updates),
         ),
       ),
     delete: configuredAdminProcedure
-      .input(z.object({ inviteId: z.uuid() }))
+      .input(
+        standardSchema(
+          Type.Object({ inviteId: Type.String({ format: "uuid" }) }),
+        ),
+      )
       .handler(async ({ input }) => {
         unwrapActionResultOrThrow(await deleteInviteService(input.inviteId))
         return null
       }),
     bulk: configuredAdminProcedure
-      .input(bulkInvitesSchema)
+      .input(standardSchema(bulkInvitesSchema))
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await bulkManageInvitesService(input)),
       ),
   },
   profiles: {
-    page: configuredAdminProcedure.input(noInputSchema).handler(async () => {
-      const page = await loadAdminProfilesPageServices()
-      unwrapActionResultOrThrow(page.defaultProfile)
-      const profiles = unwrapActionResultOrThrow(page.profiles)
-      const libraries = unwrapActionResultOrThrow(page.libraries)
-      const seerrConfig = unwrapActionResultOrThrow(page.seerrConfig)
+    page: configuredAdminProcedure
+      .input(standardSchema(noInputSchema))
+      .handler(async () => {
+        const page = await loadAdminProfilesPageServices()
+        unwrapActionResultOrThrow(page.defaultProfile)
+        const profiles = unwrapActionResultOrThrow(page.profiles)
+        const libraries = unwrapActionResultOrThrow(page.libraries)
+        const seerrConfig = unwrapActionResultOrThrow(page.seerrConfig)
 
-      return {
-        profiles,
-        libraries,
-        isSeerrConfigured: Boolean(
-          seerrConfig.apiKeySet && seerrConfig.internalUrl,
-        ),
-      }
-    }),
+        return {
+          profiles,
+          libraries,
+          isSeerrConfigured: Boolean(
+            seerrConfig.apiKeySet && seerrConfig.internalUrl,
+          ),
+        }
+      }),
     create: configuredAdminProcedure
-      .input(createProfileSchema)
+      .input(standardSchema(createProfileSchema))
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await createProfileService(input)),
       ),
     update: configuredAdminProcedure
-      .input(z.object({ profileId: z.uuid(), updates: updateProfileSchema }))
+      .input(
+        standardSchema(
+          Type.Object({
+            profileId: Type.String({ format: "uuid" }),
+            updates: updateProfileSchema,
+          }),
+        ),
+      )
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(
           await updateProfileService(input.profileId, input.updates),
         ),
       ),
     delete: configuredAdminProcedure
-      .input(z.object({ profileId: z.uuid() }))
+      .input(
+        standardSchema(
+          Type.Object({ profileId: Type.String({ format: "uuid" }) }),
+        ),
+      )
       .handler(async ({ input }) => {
         unwrapActionResultOrThrow(await deleteProfileService(input.profileId))
         return null
       }),
     bulk: configuredAdminProcedure
-      .input(bulkProfilesSchema)
+      .input(standardSchema(bulkProfilesSchema))
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await bulkManageProfilesService(input)),
       ),
   },
   users: {
     page: configuredAdminProcedure
-      .input(usersPageInputSchema)
+      .input(standardSchema(usersPageInputSchema))
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await listUsersWithProfilesService(input)),
       ),
     update: configuredAdminProcedure
       .input(
-        z.object({
-          userId: z.string().min(1),
-          updates: updateManagedUserSchema,
-        }),
+        standardSchema(
+          Type.Object({
+            userId: stringSchema({ minLength: 1 }),
+            updates: updateManagedUserSchema,
+          }),
+        ),
       )
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(
@@ -506,71 +533,77 @@ const adminProcedures = {
         ),
       ),
     bulk: configuredAdminProcedure
-      .input(bulkManagedUsersSchema)
+      .input(standardSchema(bulkManagedUsersSchema))
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await bulkManageUsersService(input)),
       ),
     delete: configuredAdminProcedure
-      .input(z.object({ userId: z.string().min(1) }))
+      .input(
+        standardSchema(Type.Object({ userId: stringSchema({ minLength: 1 }) })),
+      )
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await deleteManagedUserService(input.userId)),
       ),
     syncSeerr: configuredAdminProcedure
-      .input(z.object({ userId: z.string().min(1) }))
+      .input(
+        standardSchema(Type.Object({ userId: stringSchema({ minLength: 1 }) })),
+      )
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await syncUserToSeerrService(input.userId)),
       ),
   },
   settings: {
-    page: configuredAdminProcedure.input(noInputSchema).handler(async () => {
-      const settings = await getDashboardSettingsBootstrap()
+    page: configuredAdminProcedure
+      .input(standardSchema(noInputSchema))
+      .handler(async () => {
+        const settings = await getDashboardSettingsBootstrap()
 
-      if (!settings) {
-        throwAppError(ErrorCode.CONFIG_NOT_INITIALIZED)
-      }
+        if (!settings) {
+          throwAppError(ErrorCode.CONFIG_NOT_INITIALIZED)
+        }
 
-      return settings
-    }),
+        return settings
+      }),
     updateApp: configuredAdminProcedure
-      .input(updateAppSettingsBodySchema)
+      .input(standardSchema(updateAppSettingsBodySchema))
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await updateAppSettingsService(input)),
       ),
     updateJellyfin: configuredAdminProcedure
-      .input(updateJellyfinConfigBodySchema)
+      .input(standardSchema(updateJellyfinConfigBodySchema))
       .handler(async ({ input }) => {
         unwrapActionResultOrThrow(await updateJellyfinConfigService(input))
         return null
       }),
     updateSeerr: configuredAdminProcedure
-      .input(updateSeerrConfigBodySchema)
+      .input(standardSchema(updateSeerrConfigBodySchema))
       .handler(async ({ input }) => {
         unwrapActionResultOrThrow(await updateSeerrConfigService(input))
         return null
       }),
     testSeerr: configuredAdminProcedure
-      .input(noInputSchema)
+      .input(standardSchema(noInputSchema))
       .handler(async () => {
         return unwrapActionResultOrThrow(await testSeerrConnectionService())
       }),
     updateEmail: configuredAdminProcedure
-      .input(updateEmailConfigBodySchema)
+      .input(standardSchema(updateEmailConfigBodySchema))
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await updateEmailConfigService(input)),
       ),
     previewEmail: configuredAdminProcedure
-      .input(previewEmailBodySchema)
+      .input(standardSchema(previewEmailBodySchema))
       .handler(async ({ input }) =>
         unwrapActionResultOrThrow(await previewEmailService(input)),
       ),
     sendTestEmail: configuredAdminProcedure
-      .input(sendTestEmailBodySchema)
+      .input(standardSchema(sendTestEmailBodySchema))
       .handler(async ({ input }) => {
         unwrapActionResultOrThrow(await sendTestEmailService(input))
         return null
       }),
     updateMemberOnboarding: configuredAdminProcedure
-      .input(memberOnboardingConfigSchema)
+      .input(standardSchema(memberOnboardingConfigSchema))
       .handler(async ({ input }) => {
         unwrapActionResultOrThrow(
           await updateMemberOnboardingConfigService(input),

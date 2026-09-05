@@ -19,6 +19,7 @@ import {
   nullable,
   refine,
   safeParse,
+  stringSchema,
   superRefine,
   trimmedString,
 } from "@/lib/validation"
@@ -136,7 +137,7 @@ export function validatePassword(password: string): PasswordValidationResult {
 }
 
 export const passwordSchema = Type.Intersect([
-  Type.String({
+  stringSchema({
     minLength: 8,
     errorMessage: { minLength: validation.passwordMinLength },
   }),
@@ -158,7 +159,7 @@ export function normalizeEmail(email: string): string {
 }
 
 export const loginSchema = Type.Object({
-  username: Type.String({
+  username: stringSchema({
     minLength: 1,
     errorMessage: {
       minLength: validation.usernameRequired,
@@ -166,7 +167,7 @@ export const loginSchema = Type.Object({
     },
     maxLength: 100,
   }),
-  password: Type.String({
+  password: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.passwordRequired },
   }),
@@ -176,11 +177,15 @@ export type LoginFormValues = StaticDecode<typeof loginSchema>
 
 const seerrQuotasSchema = Type.Optional(
   Type.Object({
-    movieQuotaLimit: Type.Optional(Type.Integer({ minimum: 0 })),
+    movieQuotaLimit: Type.Optional(
+      Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+    ),
     movieQuotaDays: Type.Optional(
       Type.Integer({ minimum: 1, maximum: SEERR_QUOTA_DAYS_MAX }),
     ),
-    tvQuotaLimit: Type.Optional(Type.Integer({ minimum: 0 })),
+    tvQuotaLimit: Type.Optional(
+      Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+    ),
     tvQuotaDays: Type.Optional(
       Type.Integer({ minimum: 1, maximum: SEERR_QUOTA_DAYS_MAX }),
     ),
@@ -196,24 +201,32 @@ export const profileRenewalPolicySchema = Type.Object({
   minLeadTimeHours: Type.Optional(Type.Integer({ minimum: 1, maximum: 8760 })),
 })
 
-const profilePolicySchema = Type.Object({
-  enableAllFolders: Type.Boolean(),
-  enabledFolders: Type.Array(Type.String()),
-  showInLoginScreen: Type.Boolean(),
-  remoteClientBitrateLimit: Type.Number({ minimum: 0 }),
-  allowVideoTranscoding: Type.Boolean(),
-  allowAudioTranscoding: Type.Boolean(),
-  allowMediaRemuxing: Type.Boolean(),
-  seerrPermissions: defaulted(
-    Type.Integer({ minimum: 0 }),
-    DEFAULT_SEERR_PERMISSIONS,
-  ),
-  seerrQuotas: seerrQuotasSchema,
-  renewal: Type.Optional(profileRenewalPolicySchema),
-})
+const profilePolicySchema = Type.Decode(
+  Type.Object({
+    enableAllFolders: Type.Boolean(),
+    enabledFolders: Type.Array(Type.String()),
+    showInLoginScreen: Type.Boolean(),
+    remoteClientBitrateLimit: Type.Number({ minimum: 0 }),
+    allowVideoTranscoding: Type.Boolean(),
+    allowAudioTranscoding: Type.Boolean(),
+    allowMediaRemuxing: Type.Boolean(),
+    seerrPermissions: Type.Optional(
+      defaulted(
+        Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+        DEFAULT_SEERR_PERMISSIONS,
+      ),
+    ),
+    seerrQuotas: seerrQuotasSchema,
+    renewal: Type.Optional(profileRenewalPolicySchema),
+  }),
+  (value) => ({
+    ...value,
+    seerrPermissions: value.seerrPermissions ?? DEFAULT_SEERR_PERMISSIONS,
+  }),
+)
 
 export const createProfileSchema = Type.Object({
-  name: Type.String({
+  name: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.nameRequired },
     maxLength: 100,
@@ -222,7 +235,7 @@ export const createProfileSchema = Type.Object({
 })
 
 export const updateProfileSchema = Type.Object({
-  name: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+  name: Type.Optional(stringSchema({ minLength: 1, maxLength: 100 })),
   policy: Type.Optional(profilePolicySchema),
   isDefault: Type.Optional(Type.Boolean()),
 })
@@ -289,7 +302,9 @@ export const createInviteSchema = refine(
         pattern: INVITE_CODE_PATTERN.source,
       }),
     ),
-    useLimit: Type.Optional(nullable(Type.Integer({ minimum: 1 }))),
+    useLimit: Type.Optional(
+      nullable(Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER })),
+    ),
     expiresAt: Type.Optional(nullable(Type.String({ format: "date-time" }))),
   }),
   (value) => {
@@ -354,11 +369,11 @@ export const updateInviteSchema = refine(
 )
 
 export const redeemInviteSchema = Type.Object({
-  code: Type.String({
+  code: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.inviteCodeRequired },
   }),
-  username: Type.String({
+  username: stringSchema({
     minLength: 1,
     errorMessage: {
       minLength: validation.usernameRequired,
@@ -371,11 +386,13 @@ export const redeemInviteSchema = Type.Object({
     format: "email",
     errorMessage: { format: validation.invalidEmail },
   }),
-  avatar: Type.Optional(Type.String({ maxLength: MAX_AVATAR_DATA_URL_LENGTH })),
+  avatar: Type.Optional(
+    stringSchema({ maxLength: MAX_AVATAR_DATA_URL_LENGTH }),
+  ),
 })
 
 export const emailVerificationSchema = Type.Object({
-  token: Type.String({
+  token: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.tokenRequired },
     maxLength: 128,
@@ -383,7 +400,7 @@ export const emailVerificationSchema = Type.Object({
 })
 
 export const changePasswordSchema = Type.Object({
-  currentPassword: Type.String({
+  currentPassword: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.currentPasswordRequired },
   }),
@@ -393,7 +410,7 @@ export const changePasswordSchema = Type.Object({
 export const updateMyAccountSchema = refine(
   Type.Object({
     name: Type.Optional(
-      Type.String({
+      stringSchema({
         minLength: 1,
         errorMessage: { minLength: validation.nameRequired },
       }),
@@ -418,7 +435,7 @@ export const updateMyAccountSchema = refine(
 )
 
 export const uploadAvatarSchema = Type.Object({
-  imageBase64: Type.String({
+  imageBase64: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.imageRequired },
     maxLength: MAX_AVATAR_BASE64_LENGTH,
@@ -430,7 +447,7 @@ export const removeAvatarSchema = Type.Object({})
 
 export const profileFormSchema = superRefine(
   Type.Object({
-    name: Type.String({
+    name: stringSchema({
       minLength: 1,
       errorMessage: {
         minLength: validation.profileNameRequired,
@@ -445,7 +462,10 @@ export const profileFormSchema = superRefine(
     allowVideoTranscoding: Type.Boolean(),
     allowAudioTranscoding: Type.Boolean(),
     allowMediaRemuxing: Type.Boolean(),
-    seerrPermissions: Type.Integer({ minimum: 0 }),
+    seerrPermissions: Type.Integer({
+      minimum: 0,
+      maximum: Number.MAX_SAFE_INTEGER,
+    }),
     seerrMovieQuotaOverride: Type.Boolean(),
     seerrMovieQuotaMode: seerrQuotaModeSchema,
     seerrMovieQuotaLimit: Type.String(),
@@ -524,7 +544,7 @@ export type ProfileFormValues = StaticDecode<typeof profileFormSchema>
  */
 export const inviteFormSchema = refine(
   Type.Object({
-    profileId: Type.String({
+    profileId: stringSchema({
       minLength: 1,
       errorMessage: { minLength: validation.selectProfileRequired },
     }),
@@ -561,7 +581,7 @@ export type InviteFormValues = StaticDecode<typeof inviteFormSchema>
  * App settings form schema - used in app-settings-tab
  */
 export const appSettingsFormSchema = Type.Object({
-  title: Type.String({
+  title: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.appTitleRequired },
   }),
@@ -594,7 +614,7 @@ export type UpdateLocaleValues = StaticDecode<typeof updateLocaleSchema>
  * Jellyfin settings form schema - used in jellyfin-settings-tab
  */
 export const jellyfinSettingsFormSchema = Type.Object({
-  internalUrl: Type.String({
+  internalUrl: stringSchema({
     minLength: 1,
     errorMessage: {
       minLength: validation.internalUrlRequired,
@@ -709,7 +729,7 @@ export type EmailSettingsFormValues = StaticDecode<
  * Member onboarding settings schema - used in member-onboarding-settings-tab
  */
 export const memberOnboardingPageFormSchema = Type.Object({
-  id: Type.String({ minLength: 1 }),
+  id: stringSchema({ minLength: 1 }),
   title: trimmedString({
     minLength: 1,
     errorMessage: { minLength: validation.pageTitleRequired },
@@ -738,7 +758,7 @@ export type MemberOnboardingSettingsFormValues = StaticDecode<
  * Onboarding setup key form schema
  */
 export const setupKeyFormSchema = Type.Object({
-  setupKey: Type.String({
+  setupKey: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.setupKeyRequired },
     maxLength: 128,
@@ -751,7 +771,7 @@ export type SetupKeyFormValues = StaticDecode<typeof setupKeyFormSchema>
  * Onboarding app (Inviterr) form schema
  */
 export const onboardingAppFormSchema = Type.Object({
-  appUrl: Type.String({
+  appUrl: stringSchema({
     minLength: 1,
     errorMessage: {
       minLength: validation.appUrlRequired,
@@ -769,7 +789,7 @@ export type OnboardingAppFormValues = StaticDecode<
  * Onboarding Jellyfin form schema
  */
 export const onboardingJellyfinFormSchema = Type.Object({
-  internalUrl: Type.String({
+  internalUrl: stringSchema({
     minLength: 1,
     errorMessage: {
       minLength: validation.internalUrlRequired,
@@ -787,7 +807,7 @@ export const onboardingJellyfinFormSchema = Type.Object({
     ],
     { errorMessage: validation.validUrlRequired },
   ),
-  apiKey: Type.String({
+  apiKey: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.apiKeyRequired },
   }),
@@ -868,7 +888,7 @@ export type OnboardingEmailFormValues = StaticDecode<
  * User account form schema - used in profile-settings (name update)
  */
 export const accountFormSchema = Type.Object({
-  name: Type.String({
+  name: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.usernameRequired },
   }),
@@ -881,7 +901,7 @@ export const accountFormSchema = Type.Object({
 export type AccountFormValues = StaticDecode<typeof accountFormSchema>
 
 export const optionalEmailAccountFormSchema = Type.Object({
-  name: Type.String({
+  name: stringSchema({
     minLength: 1,
     errorMessage: { minLength: validation.usernameRequired },
   }),
@@ -912,12 +932,12 @@ function withPasswordConfirmation<T extends TProperties>(
  */
 export const passwordFormSchema = withPasswordConfirmation(
   Type.Object({
-    currentPassword: Type.String({
+    currentPassword: stringSchema({
       minLength: 1,
       errorMessage: { minLength: validation.currentPasswordRequired },
     }),
     newPassword: passwordSchema,
-    confirmPassword: Type.String({
+    confirmPassword: stringSchema({
       minLength: 1,
       errorMessage: { minLength: validation.confirmPasswordRequired },
     }),
@@ -933,7 +953,7 @@ export type PasswordFormValues = StaticDecode<typeof passwordFormSchema>
  */
 export const inviteRedemptionFormSchema = withPasswordConfirmation(
   Type.Object({
-    username: Type.String({
+    username: stringSchema({
       minLength: 1,
       errorMessage: {
         minLength: validation.usernameRequired,
@@ -946,7 +966,7 @@ export const inviteRedemptionFormSchema = withPasswordConfirmation(
       errorMessage: { format: validation.invalidEmail },
     }),
     password: passwordSchema,
-    confirmPassword: Type.String({
+    confirmPassword: stringSchema({
       minLength: 1,
       errorMessage: { minLength: validation.confirmPasswordRequired },
     }),
@@ -963,7 +983,7 @@ export type InviteRedemptionFormValues = StaticDecode<
  * Forgot password form schema - used in forgot-password page
  */
 export const forgotPasswordFormSchema = Type.Object({
-  username: Type.String({
+  username: stringSchema({
     minLength: 1,
     errorMessage: {
       minLength: validation.usernameRequired,
@@ -982,13 +1002,13 @@ export type ForgotPasswordFormValues = StaticDecode<
  */
 export const resetPasswordFormSchema = withPasswordConfirmation(
   Type.Object({
-    pin: Type.String({
+    pin: stringSchema({
       minLength: 1,
       errorMessage: { minLength: validation.pinRequired },
       maxLength: 128,
     }),
     newPassword: passwordSchema,
-    confirmPassword: Type.String({
+    confirmPassword: stringSchema({
       minLength: 1,
       errorMessage: { minLength: validation.confirmPasswordRequired },
     }),

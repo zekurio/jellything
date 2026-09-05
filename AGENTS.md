@@ -59,7 +59,7 @@ PR descriptions follow `.github/pull-request-template.md`: What Changed, Why, Ho
 
 - Keep related logic in one function unless extracting it makes the behavior easier to reuse, test, or reason about. Do not extract single-use helpers preemptively.
 - Avoid `try`/`catch` except at external-integration and cleanup boundaries where failures must be translated, logged, retried, or intentionally swallowed.
-- Avoid the `any` type; narrow untrusted data with `unknown`, zod schemas, or explicit local types.
+- Avoid the `any` type; narrow untrusted data with `unknown`, TypeBox schemas, or explicit local types.
 - Rely on type inference; add annotations only for exports or clarity. Inline values used once.
 - Keep synchronous parsing, validation, and option building synchronous.
 - Comment non-obvious constraints and surprising behavior, not obvious assignments.
@@ -142,10 +142,10 @@ Existing schema has camelCase TS fields; do not churn it for style unless the mi
 
 - Browser mutations/queries go through ORPC at `/rpc`, grouped by domain (`app`, `auth`, `onboarding`, `invites`, `email`, `passwordReset`, `me`, `admin`) in `src/server/orpc/procedures.ts`. `src/server/orpc/middleware.ts` enforces session, admin status, config gating, same-origin mutations, and rate limits — endpoints are the security boundary, especially the unauthenticated ones (onboarding, login, password reset, email verification, invites).
 - Route loaders call thin `createServerFn` bridges (`src/lib/page-access-fns.ts`, `dashboard-page-fns.ts`, `profile-page-fns.ts`) that lazily import server modules only under SSR. Keep data work in loaders/server functions and preserve TanStack Router intent preloading; no client-side waterfalls or click-time fetching.
-- Validation is zod throughout: `safeParse` in services → `ErrorCode.VALIDATION_FAILED`. Shared form schemas live in `src/lib/schemas.ts`, request/response DTOs in `src/server/api/schemas/*`; prefer existing helpers over one-off parsing.
+- Validation uses TypeBox throughout: `safeParse(schema, value)` from `src/lib/validation.ts` in services → `ErrorCode.VALIDATION_FAILED`. Use `standardSchema(schema)` at oRPC and React Hook Form boundaries. Shared form schemas live in `src/lib/schemas.ts`, request/response DTOs in `src/server/api/schemas/*`; prefer existing helpers over one-off parsing.
 - Rate limiting uses named limiters from `src/server/rate-limit.ts` applied via `rateLimitMiddleware`/`enforceRateLimit`. Logging is pino via `createChildLogger({ module: "..." })` (`src/server/logger.ts`).
 - Sessions are AES-GCM-encrypted, cookie-backed DB records (`src/server/session.ts`), revalidated against Jellyfin when stale (`src/server/session-resolver.ts`); client session state lives in `src/hooks/use-session.tsx`.
-- Each integration (`src/server/jellyfin`, `seerr`, `email`) has a `client.ts` transport that throws a stable API error class, `schemas.ts` zod decoding, and domain operation modules on top. Translate upstream failures into `JellyfinApiError`, `EmailApiError`, or an `ErrorCode`; never leak secrets, tokens, or raw upstream payloads to the browser.
+- Each integration (`src/server/jellyfin`, `seerr`, `email`) has a `client.ts` transport that throws a stable API error class, `schemas.ts` TypeBox decoding, and domain operation modules on top. Translate upstream failures into `JellyfinApiError`, `EmailApiError`, or an `ErrorCode`; never leak secrets, tokens, or raw upstream payloads to the browser.
 - Forwarded metadata (`x-forwarded-for`, `x-real-ip`, `x-forwarded-host`) is trusted only when `TRUST_PROXY=true`; otherwise client IP is `null` and IP limiters share one fail-closed bucket (`src/server/request-context.ts`, `request-origin.ts`).
 - Startup maintenance (user seeding, invite reconciliation, expiry sweeps) runs from `src/server/startup.ts` and `user-lifecycle.ts`; `/healthz` and `/readyz` are the liveness and readiness routes.
 - Runtime config (app/auth/Jellyfin/Seerr/email settings from `CONFIG_PATH`) is owned by `src/lib/server/config.server.ts`. Env is limited to `DB_PATH`, `CONFIG_PATH`, `MIGRATIONS_PATH`, `NODE_ENV`, `LOG_LEVEL`, `TRUST_PROXY`, plus `APP_VERSION` and `SKIP_ENV_VALIDATION` (`src/env.ts`).
