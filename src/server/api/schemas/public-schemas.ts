@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { Type, type StaticDecode } from "typebox"
 
 import {
   AnyStringSchema,
@@ -6,43 +6,44 @@ import {
   NonEmptyStringSchema,
   UriStringSchema,
   boundedIntSchema,
-  exactOptional,
-} from "@/server/api/schemas/zod-helpers"
+} from "@/server/api/schemas/schema-helpers"
 
-export const initializeConfigBodySchema = z.object({
+export const initializeConfigBodySchema = Type.Object({
   setupKey: NonEmptyStringSchema,
-  app: exactOptional(
-    z.object({
+  app: Type.Optional(
+    Type.Object({
       url: UriStringSchema,
     }),
   ),
-  jellyfin: z.object({
+  jellyfin: Type.Object({
     internalUrl: UriStringSchema,
-    externalUrl: exactOptional(UriStringSchema),
+    externalUrl: Type.Optional(UriStringSchema),
     apiKey: NonEmptyStringSchema,
-    configPath: exactOptional(AnyStringSchema),
+    configPath: Type.Optional(AnyStringSchema),
   }),
-  seerr: exactOptional(
-    z.object({
+  seerr: Type.Optional(
+    Type.Object({
       internalUrl: UriStringSchema,
-      externalUrl: exactOptional(UriStringSchema),
+      externalUrl: Type.Optional(UriStringSchema),
       apiKey: NonEmptyStringSchema,
     }),
   ),
-  email: exactOptional(
-    z.object({
+  email: Type.Optional(
+    Type.Object({
       from: NonEmptyStringSchema,
-      smtp: exactOptional(
-        z.object({
+      smtp: Type.Optional(
+        Type.Object({
           host: NonEmptyStringSchema,
           port: boundedIntSchema(1, 65535),
-          secure: exactOptional(BooleanSchema),
-          username: exactOptional(NonEmptyStringSchema),
-          password: exactOptional(NonEmptyStringSchema),
+          secure: Type.Optional(BooleanSchema),
+          username: Type.Optional(NonEmptyStringSchema),
+          password: Type.Optional(NonEmptyStringSchema),
         }),
       ),
     }),
   ),
 })
 
-export type InitializeConfigInput = z.output<typeof initializeConfigBodySchema>
+export type InitializeConfigInput = StaticDecode<
+  typeof initializeConfigBodySchema
+>
