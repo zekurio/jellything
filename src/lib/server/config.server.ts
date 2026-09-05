@@ -17,7 +17,7 @@ import type { FileHandle } from "node:fs/promises"
 import { chmod, mkdir, open, rename, unlink } from "node:fs/promises"
 import { dirname } from "node:path"
 
-import { z } from "zod"
+import { Type, type StaticDecode } from "typebox"
 
 import { env } from "@/env"
 import {
@@ -26,6 +26,13 @@ import {
   HEX_COLOR_PATTERN,
 } from "@/lib/branding"
 import { SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from "@/lib/i18n"
+import {
+  defaulted,
+  enumValues,
+  parse,
+  trimmedString,
+  ValidationError,
+} from "@/lib/validation"
 import { logger } from "@/server/logger"
 
 const DEFAULT_APP_CONFIG = {
@@ -57,29 +64,36 @@ const DEFAULT_AUTH_CONFIG = {
   encryptionKey: generateConfigSecret(),
 }
 
-const memberOnboardingPageSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().trim().min(1).max(100),
-  markdown: z.string().trim().min(1).max(8000),
+const memberOnboardingPageSchema = Type.Object({
+  id: Type.String({ minLength: 1 }),
+  title: trimmedString({ minLength: 1, maxLength: 100 }),
+  markdown: trimmedString({ minLength: 1, maxLength: 8000 }),
 })
 
-const seerrConfigSchema = z.object({
-  internalUrl: z.url(),
-  externalUrl: z.url().optional(),
-  apiKey: z.string().min(1),
+const seerrConfigSchema = Type.Object({
+  internalUrl: Type.String({ format: "uri" }),
+  externalUrl: Type.Optional(Type.String({ format: "uri" })),
+  apiKey: Type.String({ minLength: 1 }),
 })
 
-const brandingImageSchema = z.object({
-  mimeType: z.enum(BRANDING_IMAGE_MIME_TYPES),
-  base64: z.string().min(1).max(BRANDING_IMAGE_MAX_BASE64_LENGTH),
-  width: z.number().int().min(1),
-  height: z.number().int().min(1),
+const brandingImageSchema = Type.Object({
+  mimeType: enumValues(BRANDING_IMAGE_MIME_TYPES),
+  base64: Type.String({
+    minLength: 1,
+    maxLength: BRANDING_IMAGE_MAX_BASE64_LENGTH,
+  }),
+  width: Type.Integer({ minimum: 1 }),
+  height: Type.Integer({ minimum: 1 }),
 })
 
-const emailBrandingSchema = z.object({
-  accentColor: z.string().regex(HEX_COLOR_PATTERN).optional(),
-  pageBackgroundColor: z.string().regex(HEX_COLOR_PATTERN).optional(),
-  logo: brandingImageSchema.optional(),
+const emailBrandingSchema = Type.Object({
+  accentColor: Type.Optional(
+    Type.String({ pattern: HEX_COLOR_PATTERN.source }),
+  ),
+  pageBackgroundColor: Type.Optional(
+    Type.String({ pattern: HEX_COLOR_PATTERN.source }),
+  ),
+  logo: Type.Optional(brandingImageSchema),
 })
 
 const DEFAULT_MEMBER_ONBOARDING_CONFIG = {
@@ -91,64 +105,72 @@ declare global {
   var __inviterrSetupKey: string | undefined
 }
 
-const configSchema = z.object({
-  app: z
-    .object({
-      title: z.string().default(DEFAULT_APP_CONFIG.title),
-      description: z.string().default(DEFAULT_APP_CONFIG.description),
-      defaultLocale: z
-        .enum(SUPPORTED_LOCALES)
-        .default(DEFAULT_APP_CONFIG.defaultLocale),
-      url: z.url().optional(),
-    })
-    .default(DEFAULT_APP_CONFIG),
-  auth: z
-    .object({
-      sessionSecret: z.string().min(32),
-      encryptionKey: z.string().min(32),
-    })
-    .default(DEFAULT_AUTH_CONFIG),
-  memberOnboarding: z
-    .object({
-      enabled: z.boolean().default(DEFAULT_MEMBER_ONBOARDING_CONFIG.enabled),
-      pages: z
-        .array(memberOnboardingPageSchema)
-        .default(DEFAULT_MEMBER_ONBOARDING_CONFIG.pages),
-    })
-    .default(DEFAULT_MEMBER_ONBOARDING_CONFIG),
-  jellyfin: z.object({
-    internalUrl: z.url(),
-    externalUrl: z.url().optional(),
-    apiKey: z.string().min(1),
-    configPath: z.string().optional(),
-    displayName: z.string().min(1).optional(),
+const configSchema = Type.Object({
+  app: defaulted(
+    Type.Object({
+      title: defaulted(Type.String(), DEFAULT_APP_CONFIG.title),
+      description: defaulted(Type.String(), DEFAULT_APP_CONFIG.description),
+      defaultLocale: defaulted(
+        enumValues(SUPPORTED_LOCALES),
+        DEFAULT_APP_CONFIG.defaultLocale,
+      ),
+      url: Type.Optional(Type.String({ format: "uri" })),
+    }),
+    DEFAULT_APP_CONFIG,
+  ),
+  auth: defaulted(
+    Type.Object({
+      sessionSecret: Type.String({ minLength: 32 }),
+      encryptionKey: Type.String({ minLength: 32 }),
+    }),
+    DEFAULT_AUTH_CONFIG,
+  ),
+  memberOnboarding: defaulted(
+    Type.Object({
+      enabled: defaulted(
+        Type.Boolean(),
+        DEFAULT_MEMBER_ONBOARDING_CONFIG.enabled,
+      ),
+      pages: defaulted(
+        Type.Array(memberOnboardingPageSchema),
+        DEFAULT_MEMBER_ONBOARDING_CONFIG.pages,
+      ),
+    }),
+    DEFAULT_MEMBER_ONBOARDING_CONFIG,
+  ),
+  jellyfin: Type.Object({
+    internalUrl: Type.String({ format: "uri" }),
+    externalUrl: Type.Optional(Type.String({ format: "uri" })),
+    apiKey: Type.String({ minLength: 1 }),
+    configPath: Type.Optional(Type.String()),
+    displayName: Type.Optional(Type.String({ minLength: 1 })),
   }),
-  seerr: seerrConfigSchema.optional(),
-  email: z
-    .object({
-      from: z.string().default("Inviterr <noreply@example.com>"),
-      smtp: z
-        .object({
-          host: z.string().min(1),
-          port: z.number().int().min(1).max(65535),
-          secure: z.boolean().default(false),
-          username: z.string().min(1).optional(),
-          password: z.string().min(1).optional(),
-        })
-        .optional(),
-      branding: emailBrandingSchema.optional(),
-    })
-    .optional(),
+  seerr: Type.Optional(seerrConfigSchema),
+  email: Type.Optional(
+    Type.Object({
+      from: defaulted(Type.String(), "Inviterr <noreply@example.com>"),
+      smtp: Type.Optional(
+        Type.Object({
+          host: Type.String({ minLength: 1 }),
+          port: Type.Integer({ minimum: 1, maximum: 65535 }),
+          secure: defaulted(Type.Boolean(), false),
+          username: Type.Optional(Type.String({ minLength: 1 })),
+          password: Type.Optional(Type.String({ minLength: 1 })),
+        }),
+      ),
+      branding: Type.Optional(emailBrandingSchema),
+    }),
+  ),
 })
 
-export type Config = z.infer<typeof configSchema>
+export type Config = StaticDecode<typeof configSchema>
 export type JellyfinConfig = Config["jellyfin"]
 export type SeerrConfig = NonNullable<Config["seerr"]>
 export type AppConfig = Config["app"]
 export type AuthConfig = Config["auth"]
 export type EmailConfig = NonNullable<Config["email"]>
 export type EmailBrandingConfig = NonNullable<EmailConfig["branding"]>
-export type BrandingImageConfig = z.infer<typeof brandingImageSchema>
+export type BrandingImageConfig = StaticDecode<typeof brandingImageSchema>
 export type MemberOnboardingConfig = Config["memberOnboarding"]
 const CONFIG_DIRECTORY_MODE = 0o700
 const CONFIG_FILE_MODE = 0o600
@@ -352,7 +374,7 @@ class ConfigManager {
     try {
       const raw = readFileSync(this.configPath, "utf-8")
       const parsed = JSON.parse(raw)
-      const parsedConfig = configSchema.parse(parsed)
+      const parsedConfig = parse(configSchema, parsed)
 
       const parsedAuth = (
         parsed as {
@@ -391,8 +413,8 @@ class ConfigManager {
 
       this.clearSetupKey()
     } catch (e) {
-      if (e instanceof z.ZodError) {
-        this.error = `Config validation error: ${e.issues.map((err: z.ZodIssue) => `${err.path.join(".")}: ${err.message}`).join(", ")}`
+      if (e instanceof ValidationError) {
+        this.error = `Config validation error: ${e.issues.map((err) => `${err.path.join(".")}: ${err.message}`).join(", ")}`
       } else if (e instanceof SyntaxError) {
         this.error = `Config JSON parse error: ${e.message}`
       } else {
@@ -537,7 +559,7 @@ class ConfigManager {
       newConfig.email = options.email
     }
 
-    const validatedConfig = configSchema.parse(newConfig)
+    const validatedConfig = parse(configSchema, newConfig)
     await this.save(validatedConfig)
     this.config = validatedConfig
     this.clearSetupKey()

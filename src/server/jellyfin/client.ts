@@ -1,7 +1,7 @@
-import { z } from "zod"
+import type { StaticDecode, TSchema } from "typebox"
 
+import { decodeWithSchema } from "@/lib/schema-decode"
 import { configManager } from "@/lib/server/config.server"
-import { decodeWithSchema } from "@/lib/zod-decode"
 import { appVersion } from "@/server/app-version"
 import { createChildLogger } from "@/server/logger"
 
@@ -192,13 +192,13 @@ export async function jellyfinRequest<T = unknown, TBody = unknown>(
 }
 
 export async function jellyfinRequestDecoded<
-  TSchema extends z.ZodType,
+  Type extends TSchema,
   TBody = unknown,
 >(
   path: string,
-  schema: TSchema,
+  schema: Type,
   options: JellyfinRequestOptions<TBody> = {},
-): Promise<z.output<TSchema>> {
+): Promise<StaticDecode<Type>> {
   const response = await jellyfinRequest<unknown, TBody>(path, options)
   return decodeWithSchema(schema, response, {
     service: "Jellyfin",

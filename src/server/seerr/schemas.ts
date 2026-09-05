@@ -1,47 +1,49 @@
-import { z } from "zod"
+import { Type, type StaticDecode } from "typebox"
 
-export const SeerrUserSchema = z.object({
-  id: z.number(),
-  email: z.string().nullable().optional(),
-  username: z.string().nullable().optional(),
-  jellyfinUserId: z.string().nullable().optional(),
-  permissions: z.number().optional(),
+import { nullable } from "@/lib/validation"
+
+export const SeerrUserSchema = Type.Object({
+  id: Type.Number(),
+  email: Type.Optional(nullable(Type.String())),
+  username: Type.Optional(nullable(Type.String())),
+  jellyfinUserId: Type.Optional(nullable(Type.String())),
+  permissions: Type.Optional(Type.Number()),
 })
 
-export type SeerrUser = z.output<typeof SeerrUserSchema>
+export type SeerrUser = StaticDecode<typeof SeerrUserSchema>
 
-export const SeerrPageInfoSchema = z.object({
-  pages: z.number(),
-  pageSize: z.number(),
-  results: z.number(),
-  page: z.number(),
+export const SeerrPageInfoSchema = Type.Object({
+  pages: Type.Number(),
+  pageSize: Type.Number(),
+  results: Type.Number(),
+  page: Type.Number(),
 })
 
-export type SeerrPageInfo = z.output<typeof SeerrPageInfoSchema>
+export type SeerrPageInfo = StaticDecode<typeof SeerrPageInfoSchema>
 
-export const SeerrUserResultsSchema = z.object({
-  results: z.array(SeerrUserSchema).optional(),
-  pageInfo: SeerrPageInfoSchema.optional(),
+export const SeerrUserResultsSchema = Type.Object({
+  results: Type.Optional(Type.Array(SeerrUserSchema)),
+  pageInfo: Type.Optional(SeerrPageInfoSchema),
 })
 
-export type SeerrUserResults = z.output<typeof SeerrUserResultsSchema>
+export type SeerrUserResults = StaticDecode<typeof SeerrUserResultsSchema>
 
-export const SeerrUserSearchResponseSchema = z.union([
+export const SeerrUserSearchResponseSchema = Type.Union([
   SeerrUserResultsSchema,
-  z.array(SeerrUserSchema),
+  Type.Array(SeerrUserSchema),
 ])
 
-export type SeerrUserSearchResponse = z.output<
+export type SeerrUserSearchResponse = StaticDecode<
   typeof SeerrUserSearchResponseSchema
 >
 
-export const SeerrStatusSchema = z.object({
-  version: z.string().optional(),
-  commitTag: z.string().optional(),
-  commitHash: z.string().optional(),
-  buildDate: z.string().optional(),
-  updateAvailable: z.boolean().optional(),
+export const SeerrStatusSchema = Type.Object({
+  version: Type.Optional(Type.String()),
+  commitTag: Type.Optional(Type.String()),
+  commitHash: Type.Optional(Type.String()),
+  buildDate: Type.Optional(Type.String()),
+  updateAvailable: Type.Optional(Type.Boolean()),
 })
 
-export type SeerrStatus = z.output<typeof SeerrStatusSchema> &
+export type SeerrStatus = StaticDecode<typeof SeerrStatusSchema> &
   Record<string, unknown>

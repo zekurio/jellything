@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { Type } from "typebox"
 
 import { createChildLogger } from "@/server/logger"
 import {
@@ -50,7 +50,7 @@ export async function importSeerrUserFromJellyfin(
 ): Promise<SeerrUser | null> {
   const result = await seerrRequestDecoded(
     "/user/import-from-jellyfin",
-    z.array(SeerrUserSchema),
+    Type.Array(SeerrUserSchema),
     {
       method: "POST",
       body: { jellyfinUserIds: [jellyfinUserId] },
