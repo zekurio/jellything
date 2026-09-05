@@ -2,7 +2,6 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import { Type } from "typebox"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 let temporaryDirectory: string
@@ -63,20 +62,61 @@ describe("Seerr response decoding", () => {
     })
   })
 
-  it("strips extra fields and returns the generic schema's decoded type", async () => {
-    const client = await configureClient()
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(Response.json({ count: "42", secret: "hidden" })),
-    )
-    const schema = Type.Object({
-      count: Type.Decode(Type.String(), (value) => Number(value)),
+  it("searches subsequent pages for the matching Jellyfin account rather than selecting the first result", async () => {
+    await configureClient()
+    const { findSeerrUserByJellyfinId } = await import("@/server/seerr/users")
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        Response.json({
+          results: Array.from({ length: 50 }, (_, id) => ({
+            id,
+            jellyfinUserId: `other-${id}`,
+          })),
+          pageInfo: { pages: 2, pageSize: 50, results: 51, page: 1 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          results: [
+            {
+              id: 51,
+              jellyfinUserId: "member-id",
+              email: null,
+              internalSecret: "hidden",
+            },
+          ],
+          pageInfo: { pages: 2, pageSize: 50, results: 51, page: 2 },
+        }),
+      )
+    vi.stubGlobal("fetch", fetch)
+    expect(await findSeerrUserByJellyfinId("member-id", "Member")).toEqual({
+      id: 51,
+      jellyfinUserId: "member-id",
+      email: null,
     })
-    const result = await client.seerrRequestDecoded("/count", schema)
-    const count: number = result.count
-    expect(count).toBe(42)
-    expect(result).toEqual({ count: 42 })
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(fetch).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("skip=50"),
+      expect.any(Object),
+    )
+  })
+
+  it("finds an account when Seerr returns the legacy unpaginated user list", async () => {
+    await configureClient()
+    const { findSeerrUserByJellyfinId } = await import("@/server/seerr/users")
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      Response.json([
+        { id: 1, jellyfinUserId: "other-id" },
+        { id: 2, jellyfinUserId: "member-id" },
+      ]),
+    )
+    vi.stubGlobal("fetch", fetch)
+    expect(await findSeerrUserByJellyfinId("member-id", "Member")).toEqual({
+      id: 2,
+      jellyfinUserId: "member-id",
+    })
+    expect(fetch).toHaveBeenCalledOnce()
   })
 })

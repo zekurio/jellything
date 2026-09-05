@@ -2,7 +2,6 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import { Type } from "typebox"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 let temporaryDirectory: string
@@ -28,42 +27,59 @@ async function configureClient() {
     internalUrl: "http://jellyfin.test",
     apiKey: "jellyfin-key",
   })
-  return import("@/server/jellyfin/client")
+  return import("@/server/jellyfin/admin")
 }
 
-describe("Jellyfin response decoding", () => {
-  it("strips extra fields and returns the generic schema's decoded type", async () => {
+describe("Jellyfin authentication", () => {
+  it("sends credentials to Jellyfin and returns a member identity without upstream-only fields", async () => {
     const client = await configureClient()
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(Response.json({ count: "42", secret: "hidden" })),
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      Response.json({
+        User: { Id: "member-id", Name: "Member", ServerId: "private-server" },
+        AccessToken: "user-token",
+        SessionInfo: { private: true },
+      }),
     )
-    const schema = Type.Object({
-      count: Type.Decode(Type.String(), (value) => Number(value)),
+    vi.stubGlobal("fetch", fetch)
+
+    const result = await client.authenticateUser("Member", "password")
+    expect(fetch).toHaveBeenCalledExactlyOnceWith(
+      "http://jellyfin.test/Users/AuthenticateByName",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ Username: "Member", Pw: "password" }),
+      }),
+    )
+    expect(result).toEqual({
+      id: "member-id",
+      name: "Member",
+      isAdmin: false,
+      accessToken: "user-token",
+      avatarUrl: expect.any(String),
     })
-    const result = await client.jellyfinRequestDecoded("/count", schema)
-    const count: number = result.count
-    expect(count).toBe(42)
-    expect(result).toEqual({ count: 42 })
   })
 
-  it("rejects malformed responses with service and endpoint context", async () => {
+  it("rejects malformed privilege data instead of treating a truthy string as admin access", async () => {
     const client = await configureClient()
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(Response.json({ id: "secret" })),
-    )
-    await expect(
-      client.jellyfinRequestDecoded(
-        "/Users/Me",
-        Type.Object({ id: Type.Number() }),
+      vi.fn().mockResolvedValue(
+        Response.json({
+          User: {
+            Id: "member-id",
+            Name: "Member",
+            Policy: { IsAdministrator: "true" },
+          },
+          AccessToken: "secret-token",
+        }),
       ),
-    ).rejects.toMatchObject({
+    )
+    const result = client.authenticateUser("Member", "password")
+    await expect(result).rejects.toMatchObject({
       name: "ExternalServiceDecodeError",
       service: "Jellyfin",
-      path: "/Users/Me",
+      path: "/Users/AuthenticateByName",
     })
+    await expect(result).rejects.not.toThrow("secret-token")
   })
 })

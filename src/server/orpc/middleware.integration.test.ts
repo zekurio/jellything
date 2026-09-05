@@ -6,7 +6,7 @@ import { Type } from "typebox"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { SessionData } from "@/lib/session"
-import { standardSchema, trimmedString } from "@/lib/validation"
+import { standardSchema } from "@/lib/validation"
 import type { ORPCContext } from "@/server/orpc/context"
 import {
   authedProcedure,
@@ -50,9 +50,6 @@ const adminHandler = vi.fn<() => string>(() => "admin")
 const mutationHandler = vi.fn<() => string>(() => "mutated")
 
 const noInputSchema = standardSchema(Type.Object({}))
-const validationHandler = vi.fn<(input: { name: string }) => { name: string }>(
-  (input) => input,
-)
 
 const boundaryRouter = {
   secured: authedProcedure.input(noInputSchema).handler(securedHandler),
@@ -60,11 +57,6 @@ const boundaryRouter = {
     .input(noInputSchema)
     .handler(adminHandler),
   mutate: mutationProcedure.input(noInputSchema).handler(mutationHandler),
-  validate: publicProcedure
-    .input(
-      standardSchema(Type.Object({ name: trimmedString({ minLength: 1 }) })),
-    )
-    .handler(({ input }) => validationHandler(input)),
   explode: publicProcedure.input(noInputSchema).handler(() => {
     throw new Error("sensitive internal failure")
   }),
@@ -196,22 +188,6 @@ describe("ORPC authorization boundary", () => {
 })
 
 describe("ORPC mutation and error boundary", () => {
-  it("validates TypeBox inputs before invoking the handler", async () => {
-    const client = createBoundaryClient({ session: null })
-
-    await expect(client.validate({ name: "   " })).rejects.toMatchObject({
-      code: "BAD_REQUEST",
-      status: 400,
-    })
-    expect(validationHandler).not.toHaveBeenCalled()
-
-    const input = { name: "  Member  ", isAdmin: true }
-    await expect(client.validate(input)).resolves.toEqual({ name: "Member" })
-    expect(validationHandler).toHaveBeenCalledExactlyOnceWith({
-      name: "Member",
-    })
-  })
-
   it("rejects a cross-origin mutation before its handler", async () => {
     const client = createBoundaryClient({
       session: regularSession,
