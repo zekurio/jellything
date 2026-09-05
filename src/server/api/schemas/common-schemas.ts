@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { Type, type StaticDecode } from "typebox"
 
 import {
   BRANDING_IMAGE_MAX_BASE64_LENGTH,
@@ -9,6 +9,13 @@ import {
 import { EMAIL_MESSAGE_TYPES } from "@/lib/email"
 import { SUPPORTED_LOCALES } from "@/lib/i18n"
 import {
+  enumValues,
+  nullable,
+  refine,
+  stringSchema,
+  trimmedString,
+} from "@/lib/validation"
+import {
   AnyStringSchema,
   BooleanSchema,
   DateTimeStringSchema,
@@ -17,209 +24,217 @@ import {
   NullableStringSchema,
   UriStringSchema,
   boundedIntSchema,
-  exactOptional,
   minProperties,
-} from "@/server/api/schemas/zod-helpers"
+} from "@/server/api/schemas/schema-helpers"
 
-export const localeSchema = z.enum(SUPPORTED_LOCALES)
+export const localeSchema = enumValues(SUPPORTED_LOCALES)
 
-export const apiErrorBodySchema = z.object({
+export const apiErrorBodySchema = Type.Object({
   code: AnyStringSchema,
   message: AnyStringSchema,
-  messageKey: exactOptional(AnyStringSchema),
+  messageKey: Type.Optional(AnyStringSchema),
 })
 
 export const nullBodySchema = NullSchema
-export const optionalStringSchema = AnyStringSchema.optional()
-export const nullableStringSchema = AnyStringSchema.nullable()
+export const optionalStringSchema = Type.Optional(AnyStringSchema)
+export const nullableStringSchema = nullable(AnyStringSchema)
 
-export const onboardingPageSchema = z.object({
+export const onboardingPageSchema = Type.Object({
   id: NonEmptyStringSchema,
-  title: z.string().trim().min(1).max(100),
-  markdown: z.string().trim().min(1).max(8000),
+  title: trimmedString({ minLength: 1, maxLength: 100 }),
+  markdown: trimmedString({ minLength: 1, maxLength: 8000 }),
 })
 
-export const sessionSchema = z.object({
+export const sessionSchema = Type.Object({
   userId: AnyStringSchema,
   name: AnyStringSchema,
   avatarUrl: AnyStringSchema,
   isAdmin: BooleanSchema,
   email: NullableStringSchema,
   emailVerified: BooleanSchema,
-  locale: localeSchema.nullable(),
+  locale: nullable(localeSchema),
   createdAt: DateTimeStringSchema,
 })
 
-const hexColorSchema = AnyStringSchema.refine(isHexColor, {
-  message: "Must be a hex color like #3A64F2",
-}).transform(normalizeHexColor)
+const hexColorSchema = Type.Decode(
+  refine(AnyStringSchema, isHexColor, {
+    message: "Must be a hex color like #3A64F2",
+  }),
+  normalizeHexColor,
+)
 
-const brandingImageUpdateSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("keep") }),
-  z.object({ action: z.literal("remove") }),
-  z.object({
-    action: z.literal("replace"),
-    mimeType: z.enum(BRANDING_IMAGE_MIME_TYPES),
-    base64: z.string().min(1).max(BRANDING_IMAGE_MAX_BASE64_LENGTH),
+const brandingImageUpdateSchema = Type.Union([
+  Type.Object({ action: Type.Literal("keep") }),
+  Type.Object({ action: Type.Literal("remove") }),
+  Type.Object({
+    action: Type.Literal("replace"),
+    mimeType: enumValues(BRANDING_IMAGE_MIME_TYPES),
+    base64: stringSchema({
+      minLength: 1,
+      maxLength: BRANDING_IMAGE_MAX_BASE64_LENGTH,
+    }),
   }),
 ])
 
-const brandingImageMetaSchema = z.object({
-  mimeType: z.enum(BRANDING_IMAGE_MIME_TYPES),
+const brandingImageMetaSchema = Type.Object({
+  mimeType: enumValues(BRANDING_IMAGE_MIME_TYPES),
   width: boundedIntSchema(1, 10000),
   height: boundedIntSchema(1, 10000),
   url: AnyStringSchema,
 })
 
-export const appSettingsSchema = z.object({
+export const appSettingsSchema = Type.Object({
   title: NonEmptyStringSchema,
   description: AnyStringSchema,
   defaultLocale: localeSchema,
-  url: exactOptional(UriStringSchema),
+  url: Type.Optional(UriStringSchema),
 })
 
 export const updateAppSettingsBodySchema = minProperties(
-  z.object({
-    title: exactOptional(NonEmptyStringSchema),
-    description: exactOptional(AnyStringSchema),
-    defaultLocale: exactOptional(localeSchema),
-    url: exactOptional(UriStringSchema.nullable()),
+  Type.Object({
+    title: Type.Optional(NonEmptyStringSchema),
+    description: Type.Optional(AnyStringSchema),
+    defaultLocale: Type.Optional(localeSchema),
+    url: Type.Optional(nullable(UriStringSchema)),
   }),
   1,
 )
 
-export const smtpConfigSchema = z.object({
+export const smtpConfigSchema = Type.Object({
   host: NonEmptyStringSchema,
   port: boundedIntSchema(1, 65535),
-  secure: exactOptional(BooleanSchema),
-  username: exactOptional(NonEmptyStringSchema),
-  password: exactOptional(NonEmptyStringSchema),
+  secure: Type.Optional(BooleanSchema),
+  username: Type.Optional(NonEmptyStringSchema),
+  password: Type.Optional(NonEmptyStringSchema),
 })
 
-export const jellyfinConfigSchema = z.object({
+export const jellyfinConfigSchema = Type.Object({
   internalUrl: UriStringSchema,
-  externalUrl: exactOptional(UriStringSchema),
+  externalUrl: Type.Optional(UriStringSchema),
   apiKeySet: BooleanSchema,
-  configPath: exactOptional(AnyStringSchema),
-  displayName: exactOptional(AnyStringSchema),
+  configPath: Type.Optional(AnyStringSchema),
+  displayName: Type.Optional(AnyStringSchema),
 })
 
 export const updateJellyfinConfigBodySchema = minProperties(
-  z.object({
-    internalUrl: exactOptional(UriStringSchema),
-    externalUrl: exactOptional(UriStringSchema.nullable()),
-    apiKey: exactOptional(NonEmptyStringSchema),
-    configPath: exactOptional(AnyStringSchema.nullable()),
-    displayName: exactOptional(NonEmptyStringSchema.nullable()),
+  Type.Object({
+    internalUrl: Type.Optional(UriStringSchema),
+    externalUrl: Type.Optional(nullable(UriStringSchema)),
+    apiKey: Type.Optional(NonEmptyStringSchema),
+    configPath: Type.Optional(nullable(AnyStringSchema)),
+    displayName: Type.Optional(nullable(NonEmptyStringSchema)),
   }),
   1,
 )
 
 const updateSeerrConfigDefinedSchema = minProperties(
-  z.object({
-    internalUrl: exactOptional(UriStringSchema),
-    externalUrl: exactOptional(UriStringSchema.nullable()),
-    apiKey: exactOptional(NonEmptyStringSchema),
+  Type.Object({
+    internalUrl: Type.Optional(UriStringSchema),
+    externalUrl: Type.Optional(nullable(UriStringSchema)),
+    apiKey: Type.Optional(NonEmptyStringSchema),
   }),
   1,
 )
 
-export const seerrConfigSchema = z.object({
-  internalUrl: exactOptional(UriStringSchema),
-  externalUrl: exactOptional(UriStringSchema),
+export const seerrConfigSchema = Type.Object({
+  internalUrl: Type.Optional(UriStringSchema),
+  externalUrl: Type.Optional(UriStringSchema),
   apiKeySet: BooleanSchema,
 })
 
-export const updateSeerrConfigBodySchema = z.union([
+export const updateSeerrConfigBodySchema = Type.Union([
   updateSeerrConfigDefinedSchema,
-  z.undefined(),
+  Type.Undefined(),
 ])
 
-export const seerrTestResultSchema = z.object({
-  version: exactOptional(AnyStringSchema),
+export const seerrTestResultSchema = Type.Object({
+  version: Type.Optional(AnyStringSchema),
 })
 
-const emailMessageTypeSchema = z.enum(EMAIL_MESSAGE_TYPES)
+const emailMessageTypeSchema = enumValues(EMAIL_MESSAGE_TYPES)
 
-export const emailBrandingDraftSchema = z.object({
+export const emailBrandingDraftSchema = Type.Object({
   accentColor: hexColorSchema,
   pageBackgroundColor: hexColorSchema,
   logo: brandingImageUpdateSchema,
 })
 
-export const emailConfigSchema = z.object({
-  from: exactOptional(AnyStringSchema),
-  smtp: exactOptional(
-    z.object({
+export const emailConfigSchema = Type.Object({
+  from: Type.Optional(AnyStringSchema),
+  smtp: Type.Optional(
+    Type.Object({
       host: NonEmptyStringSchema,
       port: boundedIntSchema(1, 65535),
       secure: BooleanSchema,
-      username: exactOptional(NonEmptyStringSchema),
+      username: Type.Optional(NonEmptyStringSchema),
     }),
   ),
   smtpPasswordSet: BooleanSchema,
   configured: BooleanSchema,
-  branding: z.object({
+  branding: Type.Object({
     accentColor: AnyStringSchema,
     pageBackgroundColor: AnyStringSchema,
-    logo: exactOptional(brandingImageMetaSchema),
+    logo: Type.Optional(brandingImageMetaSchema),
   }),
 })
 
-const updateEmailConfigDefinedSchema = z.object({
+const updateEmailConfigDefinedSchema = Type.Object({
   from: NonEmptyStringSchema,
-  smtp: exactOptional(smtpConfigSchema),
+  smtp: Type.Optional(smtpConfigSchema),
   branding: emailBrandingDraftSchema,
 })
 
-export const updateEmailConfigBodySchema = z.union([
+export const updateEmailConfigBodySchema = Type.Union([
   updateEmailConfigDefinedSchema,
-  z.undefined(),
+  Type.Undefined(),
 ])
 
-export const previewEmailBodySchema = z.object({
+export const previewEmailBodySchema = Type.Object({
   messageType: emailMessageTypeSchema,
   branding: emailBrandingDraftSchema,
 })
 
-export const sendTestEmailBodySchema = previewEmailBodySchema.extend({
-  recipient: z.string().email(),
+export const sendTestEmailBodySchema = Type.Object({
+  ...previewEmailBodySchema.properties,
+  recipient: Type.String({ format: "email" }),
 })
 
-export const memberOnboardingConfigSchema = z.object({
+export const memberOnboardingConfigSchema = Type.Object({
   enabled: BooleanSchema,
-  pages: z.array(onboardingPageSchema),
+  pages: Type.Array(onboardingPageSchema),
 })
 
-export const appBootstrapSchema = z.object({
+export const appBootstrapSchema = Type.Object({
   configured: BooleanSchema,
   needsOnboarding: BooleanSchema,
-  configError: AnyStringSchema.nullable(),
-  app: appSettingsSchema.nullable(),
+  configError: nullable(AnyStringSchema),
+  app: nullable(appSettingsSchema),
   emailConfigured: BooleanSchema,
-  session: sessionSchema.nullable(),
+  session: nullable(sessionSchema),
   locale: localeSchema,
 })
 
-export type ApiErrorBodyDto = z.output<typeof apiErrorBodySchema>
-export type SessionDto = z.output<typeof sessionSchema>
-export type UpdateAppSettingsInput = z.output<
+export type ApiErrorBodyDto = StaticDecode<typeof apiErrorBodySchema>
+export type SessionDto = StaticDecode<typeof sessionSchema>
+export type UpdateAppSettingsInput = StaticDecode<
   typeof updateAppSettingsBodySchema
 >
-export type UpdateJellyfinConfigInput = z.output<
+export type UpdateJellyfinConfigInput = StaticDecode<
   typeof updateJellyfinConfigBodySchema
 >
-export type UpdateSeerrConfigInput = z.output<
+export type UpdateSeerrConfigInput = StaticDecode<
   typeof updateSeerrConfigBodySchema
 >
-export type SeerrTestResultDto = z.output<typeof seerrTestResultSchema>
-export type UpdateEmailConfigInput = z.output<
+export type SeerrTestResultDto = StaticDecode<typeof seerrTestResultSchema>
+export type UpdateEmailConfigInput = StaticDecode<
   typeof updateEmailConfigBodySchema
 >
-export type EmailBrandingDraftInput = z.output<typeof emailBrandingDraftSchema>
-export type PreviewEmailInput = z.output<typeof previewEmailBodySchema>
-export type SendTestEmailInput = z.output<typeof sendTestEmailBodySchema>
-export type UpdateMemberOnboardingConfigInput = z.output<
+export type EmailBrandingDraftInput = StaticDecode<
+  typeof emailBrandingDraftSchema
+>
+export type PreviewEmailInput = StaticDecode<typeof previewEmailBodySchema>
+export type SendTestEmailInput = StaticDecode<typeof sendTestEmailBodySchema>
+export type UpdateMemberOnboardingConfigInput = StaticDecode<
   typeof memberOnboardingConfigSchema
 >
-export type AppBootstrapDto = z.output<typeof appBootstrapSchema>
+export type AppBootstrapDto = StaticDecode<typeof appBootstrapSchema>
