@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { useStore } from "@tanstack/react-store"
 import { useState } from "react"
 import { Controller, useForm } from "react-hook-form"
@@ -34,6 +34,7 @@ import {
   emailSettingsFormSchema,
   type EmailSettingsFormValues,
 } from "@/lib/schemas"
+import { standardSchema } from "@/lib/validation"
 
 interface EmailSettingsTabProps {
   initialConfig: EmailConfigDto
@@ -342,7 +343,7 @@ export function EmailSettingsTab({ initialConfig }: EmailSettingsTabProps) {
     control,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<EmailSettingsFormValues>({
-    resolver: zodResolver(emailSettingsFormSchema),
+    resolver: standardSchemaResolver(standardSchema(emailSettingsFormSchema)),
     defaultValues: toEmailFormValues(initialConfig),
   })
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
 import { Suspense, useEffect, useRef } from "react"
@@ -37,6 +37,7 @@ import {
   resetPasswordFormSchema,
   type ResetPasswordFormValues,
 } from "@/lib/schemas"
+import { standardSchema } from "@/lib/validation"
 
 interface ResetPasswordStoreState {
   isSuccess: boolean
@@ -68,7 +69,7 @@ function ResetPasswordForm() {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<ResetPasswordFormValues>({
-    resolver: zodResolver(resetPasswordFormSchema),
+    resolver: standardSchemaResolver(standardSchema(resetPasswordFormSchema)),
     defaultValues: {
       pin: "",
       newPassword: "",

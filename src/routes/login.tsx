@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import {
   Link,
   createFileRoute,
@@ -31,6 +31,7 @@ import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 import { enforcePageAccessFn } from "@/lib/page-access-fns"
 import { loginSchema, type LoginFormValues } from "@/lib/schemas"
+import { standardSchema } from "@/lib/validation"
 
 export const Route = createFileRoute("/login")({
   loader: async () => enforcePageAccessFn({ data: "login" }),
@@ -49,7 +50,7 @@ function LoginPage() {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    resolver: standardSchemaResolver(standardSchema(loginSchema)),
     defaultValues: {
       username: "",
       password: "",

@@ -1,4 +1,9 @@
-import { z } from "zod"
+import {
+  Type,
+  type StaticDecode,
+  type TProperties,
+  type TObject,
+} from "typebox"
 
 import { SUPPORTED_LOCALES } from "@/lib/i18n"
 import {
@@ -7,6 +12,16 @@ import {
   INVITE_CODE_PATTERN,
 } from "@/lib/invite-codes"
 import { DEFAULT_SEERR_PERMISSIONS } from "@/lib/seerr-permissions"
+import {
+  dateSchema,
+  defaulted,
+  enumValues,
+  nullable,
+  refine,
+  safeParse,
+  superRefine,
+  trimmedString,
+} from "@/lib/validation"
 
 const validation = {
   passwordMinLength: "validation.passwordMinLength",
@@ -55,7 +70,7 @@ export const MAX_AVATAR_BASE64_LENGTH =
   Math.ceil((MAX_AVATAR_BYTES * 4) / 3) + 4
 export const MAX_AVATAR_DATA_URL_LENGTH =
   MAX_AVATAR_BASE64_LENGTH + "data:image/webp;base64,".length
-const seerrQuotaModeSchema = z.enum(["unlimited", "limited"])
+const seerrQuotaModeSchema = enumValues(["unlimited", "limited"])
 
 function hasValue(value: string): boolean {
   return value.trim().length > 0
@@ -120,11 +135,20 @@ export function validatePassword(password: string): PasswordValidationResult {
   return { isValid, strength, errors, checks }
 }
 
-export const passwordSchema = z
-  .string()
-  .min(8, validation.passwordMinLength)
-  .regex(/[A-Z]/, validation.passwordUppercase)
-  .regex(/[a-z]/, validation.passwordLowercase)
+export const passwordSchema = Type.Intersect([
+  Type.String({
+    minLength: 8,
+    errorMessage: { minLength: validation.passwordMinLength },
+  }),
+  Type.String({
+    pattern: "[A-Z]",
+    errorMessage: { pattern: validation.passwordUppercase },
+  }),
+  Type.String({
+    pattern: "[a-z]",
+    errorMessage: { pattern: validation.passwordLowercase },
+  }),
+])
 
 /**
  * Normalize email: trim whitespace and convert to lowercase
@@ -133,72 +157,97 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
-export const loginSchema = z.object({
-  username: z
-    .string()
-    .min(1, validation.usernameRequired)
-    .max(100, validation.nameMaxLength),
-  password: z.string().min(1, validation.passwordRequired),
+export const loginSchema = Type.Object({
+  username: Type.String({
+    minLength: 1,
+    errorMessage: {
+      minLength: validation.usernameRequired,
+      maxLength: validation.nameMaxLength,
+    },
+    maxLength: 100,
+  }),
+  password: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.passwordRequired },
+  }),
 })
 
-export type LoginFormValues = z.infer<typeof loginSchema>
+export type LoginFormValues = StaticDecode<typeof loginSchema>
 
-const seerrQuotasSchema = z
-  .object({
-    movieQuotaLimit: z.number().int().min(0).optional(),
-    movieQuotaDays: z
-      .number()
-      .int()
-      .min(1)
-      .max(SEERR_QUOTA_DAYS_MAX)
-      .optional(),
-    tvQuotaLimit: z.number().int().min(0).optional(),
-    tvQuotaDays: z.number().int().min(1).max(SEERR_QUOTA_DAYS_MAX).optional(),
-  })
-  .optional()
+const seerrQuotasSchema = Type.Optional(
+  Type.Object({
+    movieQuotaLimit: Type.Optional(Type.Integer({ minimum: 0 })),
+    movieQuotaDays: Type.Optional(
+      Type.Integer({ minimum: 1, maximum: SEERR_QUOTA_DAYS_MAX }),
+    ),
+    tvQuotaLimit: Type.Optional(Type.Integer({ minimum: 0 })),
+    tvQuotaDays: Type.Optional(
+      Type.Integer({ minimum: 1, maximum: SEERR_QUOTA_DAYS_MAX }),
+    ),
+  }),
+)
 
 // Mirrors ProfileRenewalPolicy in @/lib/renewal-types. Stored inside the JSON
 // `policy` column, so no migration is needed to round-trip these fields.
-export const profileRenewalPolicySchema = z.object({
-  mode: z.enum(["disabled", "self-serve"]),
-  extendByDays: z.number().int().min(1).max(3650).optional(),
-  maxTotalDays: z.number().int().min(1).max(36500).optional(),
-  minLeadTimeHours: z.number().int().min(1).max(8760).optional(),
+export const profileRenewalPolicySchema = Type.Object({
+  mode: enumValues(["disabled", "self-serve"]),
+  extendByDays: Type.Optional(Type.Integer({ minimum: 1, maximum: 3650 })),
+  maxTotalDays: Type.Optional(Type.Integer({ minimum: 1, maximum: 36500 })),
+  minLeadTimeHours: Type.Optional(Type.Integer({ minimum: 1, maximum: 8760 })),
 })
 
-const profilePolicySchema = z.object({
-  enableAllFolders: z.boolean(),
-  enabledFolders: z.array(z.string()),
-  showInLoginScreen: z.boolean(),
-  remoteClientBitrateLimit: z.number().min(0),
-  allowVideoTranscoding: z.boolean(),
-  allowAudioTranscoding: z.boolean(),
-  allowMediaRemuxing: z.boolean(),
-  seerrPermissions: z.number().int().min(0).default(DEFAULT_SEERR_PERMISSIONS),
+const profilePolicySchema = Type.Object({
+  enableAllFolders: Type.Boolean(),
+  enabledFolders: Type.Array(Type.String()),
+  showInLoginScreen: Type.Boolean(),
+  remoteClientBitrateLimit: Type.Number({ minimum: 0 }),
+  allowVideoTranscoding: Type.Boolean(),
+  allowAudioTranscoding: Type.Boolean(),
+  allowMediaRemuxing: Type.Boolean(),
+  seerrPermissions: defaulted(
+    Type.Integer({ minimum: 0 }),
+    DEFAULT_SEERR_PERMISSIONS,
+  ),
   seerrQuotas: seerrQuotasSchema,
-  renewal: profileRenewalPolicySchema.optional(),
+  renewal: Type.Optional(profileRenewalPolicySchema),
 })
 
-export const createProfileSchema = z.object({
-  name: z.string().min(1, validation.nameRequired).max(100),
+export const createProfileSchema = Type.Object({
+  name: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.nameRequired },
+    maxLength: 100,
+  }),
   policy: profilePolicySchema,
 })
 
-export const updateProfileSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  policy: profilePolicySchema.optional(),
-  isDefault: z.boolean().optional(),
+export const updateProfileSchema = Type.Object({
+  name: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+  policy: Type.Optional(profilePolicySchema),
+  isDefault: Type.Optional(Type.Boolean()),
 })
 
-export const updateManagedUserSchema = z
-  .object({
-    profileId: z.uuid(validation.invalidProfileId).optional(),
-    email: z.string().email(validation.invalidEmail).nullable().optional(),
-    emailVerified: z.boolean().optional(),
-    isDisabled: z.boolean().optional(),
-    expiresAt: z.iso.datetime().nullable().optional(),
-  })
-  .refine(
+export const updateManagedUserSchema = refine(
+  refine(
+    Type.Object({
+      profileId: Type.Optional(
+        Type.String({
+          format: "uuid",
+          errorMessage: { format: validation.invalidProfileId },
+        }),
+      ),
+      email: Type.Optional(
+        nullable(
+          Type.String({
+            format: "email",
+            errorMessage: { format: validation.invalidEmail },
+          }),
+        ),
+      ),
+      emailVerified: Type.Optional(Type.Boolean()),
+      isDisabled: Type.Optional(Type.Boolean()),
+      expiresAt: Type.Optional(nullable(Type.String({ format: "date-time" }))),
+    }),
     (value) =>
       value.profileId !== undefined ||
       value.email !== undefined ||
@@ -208,63 +257,79 @@ export const updateManagedUserSchema = z
     {
       message: validation.userPropertyRequired,
     },
-  )
-  .refine(
-    (value) => {
-      if (!value.expiresAt) {
-        return true
-      }
+  ),
+  (value) => {
+    if (!value.expiresAt) {
+      return true
+    }
 
-      return new Date(value.expiresAt).getTime() > Date.now()
-    },
-    {
-      message: validation.expiryFuture,
-      path: ["expiresAt"],
-    },
-  )
+    return new Date(value.expiresAt).getTime() > Date.now()
+  },
+  {
+    message: validation.expiryFuture,
+    path: ["expiresAt"],
+  },
+)
 
-export const createInviteSchema = z
-  .object({
-    profileId: z.uuid(validation.invalidProfileId),
-    code: z
-      .string()
-      .trim()
-      .min(INVITE_CODE_MIN_LENGTH, validation.inviteCodeMinLength)
-      .max(INVITE_CODE_MAX_LENGTH, validation.inviteCodeMaxLength)
-      .regex(INVITE_CODE_PATTERN, validation.inviteCodePattern)
-      .optional(),
-    useLimit: z.number().int().min(1).nullable().optional(),
-    expiresAt: z.iso.datetime().nullable().optional(),
-  })
-  .refine(
-    (value) => {
-      if (!value.expiresAt) {
-        return true
-      }
+export const createInviteSchema = refine(
+  Type.Object({
+    profileId: Type.String({
+      format: "uuid",
+      errorMessage: { format: validation.invalidProfileId },
+    }),
+    code: Type.Optional(
+      trimmedString({
+        minLength: INVITE_CODE_MIN_LENGTH,
+        errorMessage: {
+          minLength: validation.inviteCodeMinLength,
+          maxLength: validation.inviteCodeMaxLength,
+          pattern: validation.inviteCodePattern,
+        },
+        maxLength: INVITE_CODE_MAX_LENGTH,
+        pattern: INVITE_CODE_PATTERN.source,
+      }),
+    ),
+    useLimit: Type.Optional(nullable(Type.Integer({ minimum: 1 }))),
+    expiresAt: Type.Optional(nullable(Type.String({ format: "date-time" }))),
+  }),
+  (value) => {
+    if (!value.expiresAt) {
+      return true
+    }
 
-      return new Date(value.expiresAt).getTime() > Date.now()
-    },
-    {
-      message: validation.expiryFuture,
-      path: ["expiresAt"],
-    },
-  )
+    return new Date(value.expiresAt).getTime() > Date.now()
+  },
+  {
+    message: validation.expiryFuture,
+    path: ["expiresAt"],
+  },
+)
 
-export const updateInviteSchema = z
-  .object({
-    profileId: z.uuid(validation.invalidProfileId).optional(),
-    code: z
-      .string()
-      .trim()
-      .min(INVITE_CODE_MIN_LENGTH, validation.inviteCodeMinLength)
-      .max(INVITE_CODE_MAX_LENGTH, validation.inviteCodeMaxLength)
-      .regex(INVITE_CODE_PATTERN, validation.inviteCodePattern)
-      .optional(),
-    isDisabled: z.boolean().optional(),
-    useLimit: z.number().min(1).nullable().optional(),
-    expiresAt: z.iso.datetime().nullable().optional(),
-  })
-  .refine(
+export const updateInviteSchema = refine(
+  refine(
+    Type.Object({
+      profileId: Type.Optional(
+        Type.String({
+          format: "uuid",
+          errorMessage: { format: validation.invalidProfileId },
+        }),
+      ),
+      code: Type.Optional(
+        trimmedString({
+          minLength: INVITE_CODE_MIN_LENGTH,
+          errorMessage: {
+            minLength: validation.inviteCodeMinLength,
+            maxLength: validation.inviteCodeMaxLength,
+            pattern: validation.inviteCodePattern,
+          },
+          maxLength: INVITE_CODE_MAX_LENGTH,
+          pattern: INVITE_CODE_PATTERN.source,
+        }),
+      ),
+      isDisabled: Type.Optional(Type.Boolean()),
+      useLimit: Type.Optional(nullable(Type.Number({ minimum: 1 }))),
+      expiresAt: Type.Optional(nullable(Type.String({ format: "date-time" }))),
+    }),
     (value) =>
       value.profileId !== undefined ||
       value.code !== undefined ||
@@ -274,91 +339,123 @@ export const updateInviteSchema = z
     {
       message: validation.invitePropertyRequired,
     },
-  )
-  .refine(
-    (value) => {
-      if (!value.expiresAt) {
-        return true
-      }
+  ),
+  (value) => {
+    if (!value.expiresAt) {
+      return true
+    }
 
-      return new Date(value.expiresAt).getTime() > Date.now()
-    },
-    {
-      message: validation.expiryFuture,
-      path: ["expiresAt"],
-    },
-  )
+    return new Date(value.expiresAt).getTime() > Date.now()
+  },
+  {
+    message: validation.expiryFuture,
+    path: ["expiresAt"],
+  },
+)
 
-export const redeemInviteSchema = z.object({
-  code: z.string().min(1, validation.inviteCodeRequired),
-  username: z
-    .string()
-    .min(1, validation.usernameRequired)
-    .max(100, validation.nameMaxLength),
+export const redeemInviteSchema = Type.Object({
+  code: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.inviteCodeRequired },
+  }),
+  username: Type.String({
+    minLength: 1,
+    errorMessage: {
+      minLength: validation.usernameRequired,
+      maxLength: validation.nameMaxLength,
+    },
+    maxLength: 100,
+  }),
   password: passwordSchema,
-  email: z.email(validation.invalidEmail),
-  avatar: z.string().max(MAX_AVATAR_DATA_URL_LENGTH).optional(),
+  email: Type.String({
+    format: "email",
+    errorMessage: { format: validation.invalidEmail },
+  }),
+  avatar: Type.Optional(Type.String({ maxLength: MAX_AVATAR_DATA_URL_LENGTH })),
 })
 
-export const emailVerificationSchema = z.object({
-  token: z.string().min(1, validation.tokenRequired).max(128),
+export const emailVerificationSchema = Type.Object({
+  token: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.tokenRequired },
+    maxLength: 128,
+  }),
 })
 
-export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, validation.currentPasswordRequired),
+export const changePasswordSchema = Type.Object({
+  currentPassword: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.currentPasswordRequired },
+  }),
   newPassword: passwordSchema,
 })
 
-export const updateMyAccountSchema = z
-  .object({
-    name: z.string().min(1, validation.nameRequired).optional(),
-    email: z.email(validation.invalidEmail).nullable().optional(),
-    locale: z.enum(SUPPORTED_LOCALES).nullable().optional(),
-  })
-  .refine(
-    (value) =>
-      value.name !== undefined ||
-      value.email !== undefined ||
-      value.locale !== undefined,
-    {
-      message: validation.accountPropertyRequired,
-    },
-  )
+export const updateMyAccountSchema = refine(
+  Type.Object({
+    name: Type.Optional(
+      Type.String({
+        minLength: 1,
+        errorMessage: { minLength: validation.nameRequired },
+      }),
+    ),
+    email: Type.Optional(
+      nullable(
+        Type.String({
+          format: "email",
+          errorMessage: { format: validation.invalidEmail },
+        }),
+      ),
+    ),
+    locale: Type.Optional(nullable(enumValues(SUPPORTED_LOCALES))),
+  }),
+  (value) =>
+    value.name !== undefined ||
+    value.email !== undefined ||
+    value.locale !== undefined,
+  {
+    message: validation.accountPropertyRequired,
+  },
+)
 
-export const uploadAvatarSchema = z.object({
-  imageBase64: z
-    .string()
-    .min(1, validation.imageRequired)
-    .max(MAX_AVATAR_BASE64_LENGTH),
-  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+export const uploadAvatarSchema = Type.Object({
+  imageBase64: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.imageRequired },
+    maxLength: MAX_AVATAR_BASE64_LENGTH,
+  }),
+  mimeType: enumValues(["image/jpeg", "image/png", "image/webp"]),
 })
 
-export const removeAvatarSchema = z.object({})
+export const removeAvatarSchema = Type.Object({})
 
-export const profileFormSchema = z
-  .object({
-    name: z
-      .string()
-      .min(1, validation.profileNameRequired)
-      .max(100, validation.nameMaxLength),
-    enableAllFolders: z.boolean(),
-    enabledFolders: z.array(z.string()),
-    showInLoginScreen: z.boolean(),
-    bitrateMbps: z.string(),
-    allowVideoTranscoding: z.boolean(),
-    allowAudioTranscoding: z.boolean(),
-    allowMediaRemuxing: z.boolean(),
-    seerrPermissions: z.number().int().min(0),
-    seerrMovieQuotaOverride: z.boolean(),
+export const profileFormSchema = superRefine(
+  Type.Object({
+    name: Type.String({
+      minLength: 1,
+      errorMessage: {
+        minLength: validation.profileNameRequired,
+        maxLength: validation.nameMaxLength,
+      },
+      maxLength: 100,
+    }),
+    enableAllFolders: Type.Boolean(),
+    enabledFolders: Type.Array(Type.String()),
+    showInLoginScreen: Type.Boolean(),
+    bitrateMbps: Type.String(),
+    allowVideoTranscoding: Type.Boolean(),
+    allowAudioTranscoding: Type.Boolean(),
+    allowMediaRemuxing: Type.Boolean(),
+    seerrPermissions: Type.Integer({ minimum: 0 }),
+    seerrMovieQuotaOverride: Type.Boolean(),
     seerrMovieQuotaMode: seerrQuotaModeSchema,
-    seerrMovieQuotaLimit: z.string(),
-    seerrMovieQuotaDays: z.string(),
-    seerrTvQuotaOverride: z.boolean(),
+    seerrMovieQuotaLimit: Type.String(),
+    seerrMovieQuotaDays: Type.String(),
+    seerrTvQuotaOverride: Type.Boolean(),
     seerrTvQuotaMode: seerrQuotaModeSchema,
-    seerrTvQuotaLimit: z.string(),
-    seerrTvQuotaDays: z.string(),
-  })
-  .superRefine((value, ctx) => {
+    seerrTvQuotaLimit: Type.String(),
+    seerrTvQuotaDays: Type.String(),
+  }),
+  (value, ctx) => {
     const movieDays = isPositiveIntegerString(value.seerrMovieQuotaDays)
       ? Number.parseInt(value.seerrMovieQuotaDays, 10)
       : undefined
@@ -379,7 +476,6 @@ export const profileFormSchema = z
       (movieLimit === undefined || movieLimit > 100)
     ) {
       ctx.addIssue({
-        code: "custom",
         path: ["seerrMovieQuotaLimit"],
         message: validation.seerrQuotaRange,
       })
@@ -391,7 +487,6 @@ export const profileFormSchema = z
       (movieDays === undefined || movieDays > SEERR_QUOTA_DAYS_MAX)
     ) {
       ctx.addIssue({
-        code: "custom",
         path: ["seerrMovieQuotaDays"],
         message: validation.seerrQuotaRange,
       })
@@ -403,7 +498,6 @@ export const profileFormSchema = z
       (tvLimit === undefined || tvLimit > 100)
     ) {
       ctx.addIssue({
-        code: "custom",
         path: ["seerrTvQuotaLimit"],
         message: validation.seerrQuotaRange,
       })
@@ -415,115 +509,162 @@ export const profileFormSchema = z
       (tvDays === undefined || tvDays > SEERR_QUOTA_DAYS_MAX)
     ) {
       ctx.addIssue({
-        code: "custom",
         path: ["seerrTvQuotaDays"],
         message: validation.seerrQuotaRange,
       })
     }
-  })
+  },
+)
 
-export type ProfileFormValues = z.infer<typeof profileFormSchema>
+export type ProfileFormValues = StaticDecode<typeof profileFormSchema>
 
 /**
  * Invite form schema - used in invite-form-dialog
  * useLimit is stored as a string in the form (for empty state handling).
  */
-export const inviteFormSchema = z
-  .object({
-    profileId: z.string().min(1, validation.selectProfileRequired),
-    code: z
-      .string()
-      .trim()
-      .max(INVITE_CODE_MAX_LENGTH, validation.inviteCodeMaxLength)
-      .refine(
-        (value) =>
-          value.length === 0 ||
-          (value.length >= INVITE_CODE_MIN_LENGTH &&
-            INVITE_CODE_PATTERN.test(value)),
-        validation.inviteCodeFormPattern,
-      ),
-    useLimit: z.string().optional(),
-    expiresAt: z.date().nullable(),
-  })
-  .refine(
-    (value) => {
-      if (!value.expiresAt) {
-        return true
-      }
+export const inviteFormSchema = refine(
+  Type.Object({
+    profileId: Type.String({
+      minLength: 1,
+      errorMessage: { minLength: validation.selectProfileRequired },
+    }),
+    code: refine(
+      trimmedString({
+        maxLength: INVITE_CODE_MAX_LENGTH,
+        errorMessage: { maxLength: validation.inviteCodeMaxLength },
+      }),
+      (value) =>
+        value.length === 0 ||
+        (value.length >= INVITE_CODE_MIN_LENGTH &&
+          INVITE_CODE_PATTERN.test(value)),
+      validation.inviteCodeFormPattern,
+    ),
+    useLimit: Type.Optional(Type.String()),
+    expiresAt: nullable(dateSchema),
+  }),
+  (value) => {
+    if (!value.expiresAt) {
+      return true
+    }
 
-      return value.expiresAt.getTime() > Date.now()
-    },
-    {
-      message: validation.expiryFuture,
-      path: ["expiresAt"],
-    },
-  )
+    return value.expiresAt.getTime() > Date.now()
+  },
+  {
+    message: validation.expiryFuture,
+    path: ["expiresAt"],
+  },
+)
 
-export type InviteFormValues = z.infer<typeof inviteFormSchema>
+export type InviteFormValues = StaticDecode<typeof inviteFormSchema>
 
 /**
  * App settings form schema - used in app-settings-tab
  */
-export const appSettingsFormSchema = z.object({
-  title: z.string().min(1, validation.appTitleRequired),
-  description: z.string(),
-  defaultLocale: z.enum(SUPPORTED_LOCALES),
-  url: z.string().url(validation.validUrlRequired).or(z.literal("")),
+export const appSettingsFormSchema = Type.Object({
+  title: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.appTitleRequired },
+  }),
+  description: Type.String(),
+  defaultLocale: enumValues(SUPPORTED_LOCALES),
+  url: Type.Union(
+    [
+      Type.String({
+        format: "uri",
+        errorMessage: { format: validation.validUrlRequired },
+      }),
+      Type.Literal(""),
+    ],
+    { errorMessage: validation.validUrlRequired },
+  ),
 })
 
-export type AppSettingsFormValues = z.infer<typeof appSettingsFormSchema>
+export type AppSettingsFormValues = StaticDecode<typeof appSettingsFormSchema>
 
 /**
  * User locale preference schema - used in profile settings
  */
-export const updateLocaleSchema = z.object({
-  locale: z.enum(SUPPORTED_LOCALES).nullable(),
+export const updateLocaleSchema = Type.Object({
+  locale: nullable(enumValues(SUPPORTED_LOCALES)),
 })
 
-export type UpdateLocaleValues = z.infer<typeof updateLocaleSchema>
+export type UpdateLocaleValues = StaticDecode<typeof updateLocaleSchema>
 
 /**
  * Jellyfin settings form schema - used in jellyfin-settings-tab
  */
-export const jellyfinSettingsFormSchema = z.object({
-  internalUrl: z
-    .string()
-    .min(1, validation.internalUrlRequired)
-    .url(validation.validUrlRequired),
-  externalUrl: z.string().url(validation.validUrlRequired).or(z.literal("")),
-  apiKey: z.string(),
-  configPath: z.string(),
-  displayName: z.string(),
+export const jellyfinSettingsFormSchema = Type.Object({
+  internalUrl: Type.String({
+    minLength: 1,
+    errorMessage: {
+      minLength: validation.internalUrlRequired,
+      format: validation.validUrlRequired,
+    },
+    format: "uri",
+  }),
+  externalUrl: Type.Union(
+    [
+      Type.String({
+        format: "uri",
+        errorMessage: { format: validation.validUrlRequired },
+      }),
+      Type.Literal(""),
+    ],
+    { errorMessage: validation.validUrlRequired },
+  ),
+  apiKey: Type.String(),
+  configPath: Type.String(),
+  displayName: Type.String(),
 })
 
-export type JellyfinSettingsFormValues = z.infer<
+export type JellyfinSettingsFormValues = StaticDecode<
   typeof jellyfinSettingsFormSchema
 >
 
 /**
  * Seerr settings form schema - used in seerr-settings-tab
  */
-export const seerrSettingsFormSchema = z.object({
-  internalUrl: z.string().url(validation.validUrlRequired).or(z.literal("")),
-  externalUrl: z.string().url(validation.validUrlRequired).or(z.literal("")),
-  apiKey: z.string(),
+export const seerrSettingsFormSchema = Type.Object({
+  internalUrl: Type.Union(
+    [
+      Type.String({
+        format: "uri",
+        errorMessage: { format: validation.validUrlRequired },
+      }),
+      Type.Literal(""),
+    ],
+    { errorMessage: validation.validUrlRequired },
+  ),
+  externalUrl: Type.Union(
+    [
+      Type.String({
+        format: "uri",
+        errorMessage: { format: validation.validUrlRequired },
+      }),
+      Type.Literal(""),
+    ],
+    { errorMessage: validation.validUrlRequired },
+  ),
+  apiKey: Type.String(),
 })
 
-export type SeerrSettingsFormValues = z.infer<typeof seerrSettingsFormSchema>
+export type SeerrSettingsFormValues = StaticDecode<
+  typeof seerrSettingsFormSchema
+>
 
 /**
  * Email settings form schema - used in email-settings-tab
  */
-export const emailSettingsFormSchema = z
-  .object({
-    from: z.string(),
-    smtpHost: z.string(),
-    smtpPort: z.string(),
-    smtpSecure: z.boolean(),
-    smtpUsername: z.string(),
-    smtpPassword: z.string(),
-  })
-  .superRefine((data, ctx) => {
+export const emailSettingsFormSchema = superRefine(
+  Type.Object({
+    from: Type.String(),
+    smtpHost: Type.String(),
+    smtpPort: Type.String(),
+    smtpSecure: Type.Boolean(),
+    smtpUsername: Type.String(),
+    smtpPassword: Type.String(),
+  }),
+  (data, ctx) => {
     const hasAnyInput =
       Boolean(data.from) ||
       Boolean(data.smtpHost) ||
@@ -537,7 +678,6 @@ export const emailSettingsFormSchema = z
 
     if (!data.smtpHost) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
         path: ["smtpHost"],
         message: validation.smtpHostRequired,
       })
@@ -545,7 +685,6 @@ export const emailSettingsFormSchema = z
 
     if (!data.smtpPort) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
         path: ["smtpPort"],
         message: validation.smtpPortRequired,
       })
@@ -555,84 +694,138 @@ export const emailSettingsFormSchema = z
     const port = Number.parseInt(data.smtpPort, 10)
     if (Number.isNaN(port) || port < 1 || port > 65535) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
         path: ["smtpPort"],
         message: validation.smtpPortRange,
       })
     }
-  })
+  },
+)
 
-export type EmailSettingsFormValues = z.infer<typeof emailSettingsFormSchema>
+export type EmailSettingsFormValues = StaticDecode<
+  typeof emailSettingsFormSchema
+>
 
 /**
  * Member onboarding settings schema - used in member-onboarding-settings-tab
  */
-export const memberOnboardingPageFormSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().trim().min(1, validation.pageTitleRequired).max(100),
-  markdown: z.string().trim().min(1, validation.pageContentRequired).max(8000),
+export const memberOnboardingPageFormSchema = Type.Object({
+  id: Type.String({ minLength: 1 }),
+  title: trimmedString({
+    minLength: 1,
+    errorMessage: { minLength: validation.pageTitleRequired },
+    maxLength: 100,
+  }),
+  markdown: trimmedString({
+    minLength: 1,
+    errorMessage: { minLength: validation.pageContentRequired },
+    maxLength: 8000,
+  }),
 })
 
-export const memberOnboardingSettingsFormSchema = z.object({
-  enabled: z.boolean(),
-  pages: z.array(memberOnboardingPageFormSchema),
+export const memberOnboardingSettingsFormSchema = Type.Object({
+  enabled: Type.Boolean(),
+  pages: Type.Array(memberOnboardingPageFormSchema),
 })
 
-export type MemberOnboardingPageFormValues = z.infer<
+export type MemberOnboardingPageFormValues = StaticDecode<
   typeof memberOnboardingPageFormSchema
 >
-export type MemberOnboardingSettingsFormValues = z.infer<
+export type MemberOnboardingSettingsFormValues = StaticDecode<
   typeof memberOnboardingSettingsFormSchema
 >
 
 /**
  * Onboarding setup key form schema
  */
-export const setupKeyFormSchema = z.object({
-  setupKey: z.string().min(1, validation.setupKeyRequired).max(128),
+export const setupKeyFormSchema = Type.Object({
+  setupKey: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.setupKeyRequired },
+    maxLength: 128,
+  }),
 })
 
-export type SetupKeyFormValues = z.infer<typeof setupKeyFormSchema>
+export type SetupKeyFormValues = StaticDecode<typeof setupKeyFormSchema>
 
 /**
  * Onboarding app (Inviterr) form schema
  */
-export const onboardingAppFormSchema = z.object({
-  appUrl: z
-    .string()
-    .min(1, validation.appUrlRequired)
-    .url(validation.validUrlRequired),
+export const onboardingAppFormSchema = Type.Object({
+  appUrl: Type.String({
+    minLength: 1,
+    errorMessage: {
+      minLength: validation.appUrlRequired,
+      format: validation.validUrlRequired,
+    },
+    format: "uri",
+  }),
 })
 
-export type OnboardingAppFormValues = z.infer<typeof onboardingAppFormSchema>
+export type OnboardingAppFormValues = StaticDecode<
+  typeof onboardingAppFormSchema
+>
 
 /**
  * Onboarding Jellyfin form schema
  */
-export const onboardingJellyfinFormSchema = z.object({
-  internalUrl: z
-    .string()
-    .min(1, validation.internalUrlRequired)
-    .url(validation.validUrlRequired),
-  externalUrl: z.string().url(validation.validUrlRequired).or(z.literal("")),
-  apiKey: z.string().min(1, validation.apiKeyRequired),
-  configPath: z.string(),
+export const onboardingJellyfinFormSchema = Type.Object({
+  internalUrl: Type.String({
+    minLength: 1,
+    errorMessage: {
+      minLength: validation.internalUrlRequired,
+      format: validation.validUrlRequired,
+    },
+    format: "uri",
+  }),
+  externalUrl: Type.Union(
+    [
+      Type.String({
+        format: "uri",
+        errorMessage: { format: validation.validUrlRequired },
+      }),
+      Type.Literal(""),
+    ],
+    { errorMessage: validation.validUrlRequired },
+  ),
+  apiKey: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.apiKeyRequired },
+  }),
+  configPath: Type.String(),
 })
 
-export type OnboardingJellyfinFormValues = z.infer<
+export type OnboardingJellyfinFormValues = StaticDecode<
   typeof onboardingJellyfinFormSchema
 >
 
 /**
  * Onboarding Seerr form schema
  */
-export const onboardingSeerrFormSchema = z
-  .object({
-    internalUrl: z.string().url(validation.validUrlRequired).or(z.literal("")),
-    externalUrl: z.string().url(validation.validUrlRequired).or(z.literal("")),
-    apiKey: z.string(),
-  })
-  .superRefine((data, ctx) => {
+export const onboardingSeerrFormSchema = superRefine(
+  Type.Object({
+    internalUrl: Type.Union(
+      [
+        Type.String({
+          format: "uri",
+          errorMessage: { format: validation.validUrlRequired },
+        }),
+        Type.Literal(""),
+      ],
+      { errorMessage: validation.validUrlRequired },
+    ),
+    externalUrl: Type.Union(
+      [
+        Type.String({
+          format: "uri",
+          errorMessage: { format: validation.validUrlRequired },
+        }),
+        Type.Literal(""),
+      ],
+      { errorMessage: validation.validUrlRequired },
+    ),
+    apiKey: Type.String(),
+  }),
+  (data, ctx) => {
     const hasAnyInput =
       Boolean(data.internalUrl) ||
       Boolean(data.externalUrl) ||
@@ -644,7 +837,6 @@ export const onboardingSeerrFormSchema = z
 
     if (!data.internalUrl) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
         path: ["internalUrl"],
         message: validation.internalUrlRequired,
       })
@@ -652,14 +844,14 @@ export const onboardingSeerrFormSchema = z
 
     if (!data.apiKey) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
         path: ["apiKey"],
         message: validation.apiKeyRequired,
       })
     }
-  })
+  },
+)
 
-export type OnboardingSeerrFormValues = z.infer<
+export type OnboardingSeerrFormValues = StaticDecode<
   typeof onboardingSeerrFormSchema
 >
 
@@ -668,38 +860,48 @@ export type OnboardingSeerrFormValues = z.infer<
  */
 export const onboardingEmailFormSchema = emailSettingsFormSchema
 
-export type OnboardingEmailFormValues = z.infer<
+export type OnboardingEmailFormValues = StaticDecode<
   typeof onboardingEmailFormSchema
 >
 
 /**
  * User account form schema - used in profile-settings (name update)
  */
-export const accountFormSchema = z.object({
-  name: z.string().min(1, validation.usernameRequired),
-  email: z.string().email(validation.invalidEmail),
+export const accountFormSchema = Type.Object({
+  name: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.usernameRequired },
+  }),
+  email: Type.String({
+    format: "email",
+    errorMessage: { format: validation.invalidEmail },
+  }),
 })
 
-export type AccountFormValues = z.infer<typeof accountFormSchema>
+export type AccountFormValues = StaticDecode<typeof accountFormSchema>
 
-export const optionalEmailAccountFormSchema = z.object({
-  name: z.string().min(1, validation.usernameRequired),
-  email: z
-    .string()
-    .refine(
-      (value) => value.trim() === "" || z.email().safeParse(value).success,
-      {
-        message: validation.invalidEmail,
-      },
-    ),
+export const optionalEmailAccountFormSchema = Type.Object({
+  name: Type.String({
+    minLength: 1,
+    errorMessage: { minLength: validation.usernameRequired },
+  }),
+  email: refine(
+    Type.String(),
+    (value) =>
+      value.trim() === "" ||
+      safeParse(Type.String({ format: "email" }), value).success,
+    {
+      message: validation.invalidEmail,
+    },
+  ),
 })
 
-function withPasswordConfirmation<T extends z.ZodRawShape>(
-  schema: z.ZodObject<T>,
-  passwordKey: keyof z.infer<z.ZodObject<T>>,
-  confirmKey: keyof z.infer<z.ZodObject<T>>,
+function withPasswordConfirmation<T extends TProperties>(
+  schema: TObject<T>,
+  passwordKey: keyof StaticDecode<TObject<T>>,
+  confirmKey: keyof StaticDecode<TObject<T>>,
 ) {
-  return schema.refine((data) => data[passwordKey] === data[confirmKey], {
+  return refine(schema, (data) => data[passwordKey] === data[confirmKey], {
     message: validation.passwordsDoNotMatch,
     path: [String(confirmKey)],
   })
@@ -709,61 +911,92 @@ function withPasswordConfirmation<T extends z.ZodRawShape>(
  * Password change form schema - used in profile-settings
  */
 export const passwordFormSchema = withPasswordConfirmation(
-  z.object({
-    currentPassword: z.string().min(1, validation.currentPasswordRequired),
+  Type.Object({
+    currentPassword: Type.String({
+      minLength: 1,
+      errorMessage: { minLength: validation.currentPasswordRequired },
+    }),
     newPassword: passwordSchema,
-    confirmPassword: z.string().min(1, validation.confirmPasswordRequired),
+    confirmPassword: Type.String({
+      minLength: 1,
+      errorMessage: { minLength: validation.confirmPasswordRequired },
+    }),
   }),
   "newPassword",
   "confirmPassword",
 )
 
-export type PasswordFormValues = z.infer<typeof passwordFormSchema>
+export type PasswordFormValues = StaticDecode<typeof passwordFormSchema>
 
 /**
  * Invite redemption form schema - used in invite/[code]/page
  */
 export const inviteRedemptionFormSchema = withPasswordConfirmation(
-  z.object({
-    username: z
-      .string()
-      .min(1, validation.usernameRequired)
-      .max(100, validation.nameMaxLength),
-    email: z.string().email(validation.invalidEmail),
+  Type.Object({
+    username: Type.String({
+      minLength: 1,
+      errorMessage: {
+        minLength: validation.usernameRequired,
+        maxLength: validation.nameMaxLength,
+      },
+      maxLength: 100,
+    }),
+    email: Type.String({
+      format: "email",
+      errorMessage: { format: validation.invalidEmail },
+    }),
     password: passwordSchema,
-    confirmPassword: z.string().min(1, validation.confirmPasswordRequired),
+    confirmPassword: Type.String({
+      minLength: 1,
+      errorMessage: { minLength: validation.confirmPasswordRequired },
+    }),
   }),
   "password",
   "confirmPassword",
 )
 
-export type InviteRedemptionFormValues = z.infer<
+export type InviteRedemptionFormValues = StaticDecode<
   typeof inviteRedemptionFormSchema
 >
 
 /**
  * Forgot password form schema - used in forgot-password page
  */
-export const forgotPasswordFormSchema = z.object({
-  username: z
-    .string()
-    .min(1, validation.usernameRequired)
-    .max(100, validation.nameMaxLength),
+export const forgotPasswordFormSchema = Type.Object({
+  username: Type.String({
+    minLength: 1,
+    errorMessage: {
+      minLength: validation.usernameRequired,
+      maxLength: validation.nameMaxLength,
+    },
+    maxLength: 100,
+  }),
 })
 
-export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordFormSchema>
+export type ForgotPasswordFormValues = StaticDecode<
+  typeof forgotPasswordFormSchema
+>
 
 /**
  * Reset password form schema - used in reset-password page
  */
 export const resetPasswordFormSchema = withPasswordConfirmation(
-  z.object({
-    pin: z.string().min(1, validation.pinRequired).max(128),
+  Type.Object({
+    pin: Type.String({
+      minLength: 1,
+      errorMessage: { minLength: validation.pinRequired },
+      maxLength: 128,
+    }),
     newPassword: passwordSchema,
-    confirmPassword: z.string().min(1, validation.confirmPasswordRequired),
+    confirmPassword: Type.String({
+      minLength: 1,
+      errorMessage: { minLength: validation.confirmPasswordRequired },
+    }),
   }),
   "newPassword",
   "confirmPassword",
 )
 
-export type ResetPasswordFormValues = z.infer<typeof resetPasswordFormSchema>
+export type ResetPasswordFormValues = StaticDecode<
+  typeof resetPasswordFormSchema
+>

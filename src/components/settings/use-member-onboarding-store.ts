@@ -15,6 +15,7 @@ import {
   type MemberOnboardingPageFormValues,
   type MemberOnboardingSettingsFormValues,
 } from "@/lib/schemas"
+import { safeParse } from "@/lib/validation"
 
 import {
   areMemberOnboardingValuesEqual,
@@ -191,7 +192,7 @@ export function useMemberOnboardingStore(
       return
     }
 
-    const parsed = memberOnboardingSettingsFormSchema.safeParse(values)
+    const parsed = safeParse(memberOnboardingSettingsFormSchema, values)
     if (!parsed.success) {
       toast.error(
         translateMaybeMessageKey(t, parsed.error.issues[0]?.message) ??

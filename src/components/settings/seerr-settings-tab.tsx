@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { useStore } from "@tanstack/react-store"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -25,6 +25,7 @@ import {
   seerrSettingsFormSchema,
   type SeerrSettingsFormValues,
 } from "@/lib/schemas"
+import { standardSchema } from "@/lib/validation"
 
 interface SeerrSettingsTabProps {
   initialConfig: SeerrConfigDto
@@ -231,7 +232,7 @@ export function SeerrSettingsTab({ initialConfig }: SeerrSettingsTabProps) {
     setValue,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<SeerrSettingsFormValues>({
-    resolver: zodResolver(seerrSettingsFormSchema),
+    resolver: standardSchemaResolver(standardSchema(seerrSettingsFormSchema)),
     defaultValues: toSeerrFormValues(initialConfig),
   })
 
