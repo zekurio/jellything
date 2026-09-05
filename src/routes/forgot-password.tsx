@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { Link, createFileRoute } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
 import { useForm } from "react-hook-form"
@@ -33,6 +33,7 @@ import {
   forgotPasswordFormSchema,
   type ForgotPasswordFormValues,
 } from "@/lib/schemas"
+import { standardSchema } from "@/lib/validation"
 
 interface ForgotPasswordPageStoreState {
   isSubmitted: boolean
@@ -60,7 +61,7 @@ function ForgotPasswordPage() {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<ForgotPasswordFormValues>({
-    resolver: zodResolver(forgotPasswordFormSchema),
+    resolver: standardSchemaResolver(standardSchema(forgotPasswordFormSchema)),
     defaultValues: {
       username: "",
     },

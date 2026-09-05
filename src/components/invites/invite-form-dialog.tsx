@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { AlertTriangleIcon } from "lucide-react"
 import { useId } from "react"
 import { Controller, useForm } from "react-hook-form"
@@ -36,6 +36,7 @@ import { reportClientError } from "@/lib/client-error"
 import { useTranslations } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 import { inviteFormSchema, type InviteFormValues } from "@/lib/schemas"
+import { standardSchema } from "@/lib/validation"
 
 interface InviteFormDialogProps {
   open: boolean
@@ -65,7 +66,7 @@ export function InviteFormDialog({
   const defaultProfile = availableProfiles.find((profile) => profile.isDefault)
 
   const form = useForm<InviteFormValues>({
-    resolver: zodResolver(inviteFormSchema),
+    resolver: standardSchemaResolver(standardSchema(inviteFormSchema)),
     defaultValues: invite
       ? {
           profileId: invite.profileId,

@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { useEffect, useId, useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
@@ -27,6 +27,7 @@ import { toErrorCode } from "@/lib/api/error-code"
 import { useTranslations, resolveErrorKey } from "@/lib/i18n"
 import { getBrowserORPCClient, runApiEffect } from "@/lib/orpc/client"
 import { profileFormSchema, type ProfileFormValues } from "@/lib/schemas"
+import { standardSchema } from "@/lib/validation"
 
 import {
   buildProfilePolicy,
@@ -63,7 +64,7 @@ export function ProfileFormDialog({
   const isEditMode = Boolean(profile)
 
   const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileFormSchema),
+    resolver: standardSchemaResolver(standardSchema(profileFormSchema)),
     defaultValues: toProfileFormValues(profile),
   })
 

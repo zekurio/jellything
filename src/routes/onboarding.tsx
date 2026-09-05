@@ -1,6 +1,6 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
+import { standardSchemaResolver } from "@hookform/resolvers/standard-schema"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { useReducer } from "react"
@@ -42,6 +42,7 @@ import {
   type SetupKeyFormValues,
 } from "@/lib/schemas"
 import { cn } from "@/lib/utils"
+import { standardSchema } from "@/lib/validation"
 
 type Step = "key" | "app" | "jellyfin" | "seerr" | "email"
 
@@ -237,21 +238,23 @@ function OnboardingPage() {
   const t = useTranslations()
 
   const keyForm = useForm<SetupKeyFormValues>({
-    resolver: zodResolver(setupKeyFormSchema),
+    resolver: standardSchemaResolver(standardSchema(setupKeyFormSchema)),
     defaultValues: {
       setupKey: "",
     },
   })
 
   const appForm = useForm<OnboardingAppFormValues>({
-    resolver: zodResolver(onboardingAppFormSchema),
+    resolver: standardSchemaResolver(standardSchema(onboardingAppFormSchema)),
     defaultValues: {
       appUrl: "",
     },
   })
 
   const jellyfinForm = useForm<OnboardingJellyfinFormValues>({
-    resolver: zodResolver(onboardingJellyfinFormSchema),
+    resolver: standardSchemaResolver(
+      standardSchema(onboardingJellyfinFormSchema),
+    ),
     defaultValues: {
       internalUrl: "",
       externalUrl: "",
@@ -261,7 +264,7 @@ function OnboardingPage() {
   })
 
   const seerrForm = useForm<OnboardingSeerrFormValues>({
-    resolver: zodResolver(onboardingSeerrFormSchema),
+    resolver: standardSchemaResolver(standardSchema(onboardingSeerrFormSchema)),
     defaultValues: {
       internalUrl: "",
       externalUrl: "",
@@ -270,7 +273,7 @@ function OnboardingPage() {
   })
 
   const emailForm = useForm<OnboardingEmailFormValues>({
-    resolver: zodResolver(onboardingEmailFormSchema),
+    resolver: standardSchemaResolver(standardSchema(onboardingEmailFormSchema)),
     defaultValues: {
       from: "",
       smtpHost: "",
